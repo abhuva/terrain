@@ -381,6 +381,26 @@ async function tryLoadJsonFromUrl(path) {
   return response.json();
 }
 
+const DEFAULT_LIGHTING_SETTINGS = {
+  useShadows: true,
+  heightScale: 80,
+  shadowStrength: 0.6,
+  ambient: 0.35,
+  diffuse: 1,
+  cycleHour: 9.5,
+  cycleSpeed: 0.08,
+};
+
+const DEFAULT_FOG_SETTINGS = {
+  useFog: false,
+  fogColor: "#7f8d99",
+  fogColorManual: false,
+  fogMinAlpha: 0.06,
+  fogMaxAlpha: 0.55,
+  fogFalloff: 1.2,
+  fogStartOffset: 0,
+};
+
 function serializeLightingSettings() {
   return {
     version: 1,
@@ -389,6 +409,8 @@ function serializeLightingSettings() {
     shadowStrength: clamp(Number(shadowStrengthInput.value), 0, 1),
     ambient: clamp(Number(ambientInput.value), 0, 1),
     diffuse: clamp(Number(diffuseInput.value), 0, 2),
+    cycleHour: clamp(Number(cycleState.hour), 0, 24),
+    cycleSpeed: clamp(Number(cycleSpeedInput.value), 0, 1),
   };
 }
 
@@ -409,6 +431,15 @@ function applyLightingSettings(rawData) {
   if (Number.isFinite(Number(data.diffuse))) {
     diffuseInput.value = String(clamp(Number(data.diffuse), 0, 2));
   }
+  if (Number.isFinite(Number(data.cycleHour))) {
+    cycleState.hour = clamp(Number(data.cycleHour), 0, 24);
+    cycleState.lastRenderMs = null;
+  }
+  if (Number.isFinite(Number(data.cycleSpeed))) {
+    cycleSpeedInput.value = String(clamp(Number(data.cycleSpeed), 0, 1));
+  }
+  setCycleHourSliderFromState();
+  updateCycleHourLabel();
   schedulePointLightBake();
 }
 
@@ -476,6 +507,11 @@ async function saveAllMapDataFiles() {
   const files = createMapDataFileTexts();
   const folder = normalizeMapFolderPath(currentMapFolderPath);
   const names = Object.keys(files).join(", ");
+  const confirmed = window.confirm(`Save map data files (${names}) for ${folder}?`);
+  if (!confirmed) {
+    setStatus("Save all canceled.");
+    return;
+  }
 
   if (typeof window.showDirectoryPicker === "function") {
     const dir = await window.showDirectoryPicker();
@@ -507,6 +543,13 @@ async function loadMapFromPath(mapFolderPath) {
   currentMapFolderPath = folder;
   mapPathInput.value = folder;
 
+  clearPointLights();
+  bakePointLightsTexture();
+  updateLightEditorUi();
+  applyLightingSettings(DEFAULT_LIGHTING_SETTINGS);
+  applyFogSettings(DEFAULT_FOG_SETTINGS);
+  requestOverlayDraw();
+
   let loadedPointLights = false;
   let loadedLighting = false;
   let loadedFog = false;
@@ -517,10 +560,6 @@ async function loadMapFromPath(mapFolderPath) {
     loadedPointLights = true;
   } catch (err) {
     console.warn(`No pointlights.json found in ${folder}`, err);
-    clearPointLights();
-    bakePointLightsTexture();
-    updateLightEditorUi();
-    requestOverlayDraw();
   }
 
   try {
@@ -565,6 +604,13 @@ async function loadMapFromFolderSelection(fileList) {
     mapPathInput.value = currentMapFolderPath;
   }
 
+  clearPointLights();
+  bakePointLightsTexture();
+  updateLightEditorUi();
+  applyLightingSettings(DEFAULT_LIGHTING_SETTINGS);
+  applyFogSettings(DEFAULT_FOG_SETTINGS);
+  requestOverlayDraw();
+
   let loadedPointLights = false;
   let loadedLighting = false;
   let loadedFog = false;
@@ -579,10 +625,7 @@ async function loadMapFromFolderSelection(fileList) {
       console.warn("Failed to parse pointlights.json from selected folder", err);
     }
   } else {
-    clearPointLights();
-    bakePointLightsTexture();
-    updateLightEditorUi();
-    requestOverlayDraw();
+    console.warn("No pointlights.json found in selected folder");
   }
 
   const lightingFile = getFileFromFolderSelection(files, "lighting.json");
@@ -773,17 +816,42 @@ let pointLightsSaveConfirmTimer = null;
 let normalsImageData = null;
 let heightImageData = null;
 let pointLightBakeScheduled = false;
+let pointLightBakeDebounceTimer = null;
+let pointLightBakeRequestId = 0;
+let pointLightBakePendingRequestId = 0;
 const POINT_LIGHT_BLEND_EXPOSURE = 0.65;
 const POINT_LIGHT_SELECT_RADIUS = 3;
-let cachedPointLightBakeWidth = 0;
-let cachedPointLightBakeHeight = 0;
-let cachedPointLightRgba = new Uint8ClampedArray(0);
-let cachedPointLightAccumColor = new Float32Array(0);
-let cachedPointLightAccumWeight = new Float32Array(0);
+const POINT_LIGHT_BAKE_LIVE_SCALE = 0.5;
+const POINT_LIGHT_BAKE_DEBOUNCE_MS = 80;
 let overlayDirty = true;
 const DEFAULT_MAP_FOLDER = "assets/map1/";
 let currentMapFolderPath = DEFAULT_MAP_FOLDER;
 const DEFAULT_MAP_FOLDER_CANDIDATES = ["assets/map1/", "assets/Map 1/", "assets/"];
+const pointLightBakeTempCanvas = document.createElement("canvas");
+const pointLightBakeTempCtx = pointLightBakeTempCanvas.getContext("2d");
+let pointLightBakeWorker = null;
+try {
+  pointLightBakeWorker = new Worker(new URL("./pointLightBakeWorker.js", import.meta.url), { type: "module" });
+} catch (err) {
+  console.warn("Point-light bake worker unavailable; falling back to main-thread baking.", err);
+}
+if (pointLightBakeWorker) {
+  pointLightBakeWorker.addEventListener("message", (event) => {
+    const { requestId, width, height, rgbaBuffer, error } = event.data || {};
+    if (error) {
+      console.warn("Point-light bake worker error:", error);
+      if (requestId === pointLightBakePendingRequestId) {
+        bakePointLightsTextureSync(false);
+      }
+      return;
+    }
+    if (!Number.isFinite(requestId) || requestId < pointLightBakePendingRequestId) {
+      return;
+    }
+    pointLightBakePendingRequestId = requestId;
+    applyPointLightBakeRgba(new Uint8ClampedArray(rgbaBuffer), width, height);
+  });
+}
 
 function createFlatNormalImage(size = 2) {
   const c = document.createElement("canvas");
@@ -1110,78 +1178,126 @@ function hasLineOfSightToLight(surfaceX, surfaceY, surfaceH, lightX, lightY, lig
   return true;
 }
 
+function applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight) {
+  if (sourceWidth === pointLightBakeCanvas.width && sourceHeight === pointLightBakeCanvas.height) {
+    pointLightBakeCtx.putImageData(new ImageData(rgba, sourceWidth, sourceHeight), 0, 0);
+  } else if (pointLightBakeTempCtx) {
+    pointLightBakeTempCanvas.width = sourceWidth;
+    pointLightBakeTempCanvas.height = sourceHeight;
+    pointLightBakeTempCtx.putImageData(new ImageData(rgba, sourceWidth, sourceHeight), 0, 0);
+    pointLightBakeCtx.imageSmoothingEnabled = false;
+    pointLightBakeCtx.clearRect(0, 0, pointLightBakeCanvas.width, pointLightBakeCanvas.height);
+    pointLightBakeCtx.drawImage(pointLightBakeTempCanvas, 0, 0, pointLightBakeCanvas.width, pointLightBakeCanvas.height);
+  } else {
+    pointLightBakeCtx.putImageData(new ImageData(rgba, sourceWidth, sourceHeight), 0, 0);
+  }
+  uploadImageToTexture(pointLightTex, pointLightBakeCanvas);
+  requestOverlayDraw();
+}
+
 function schedulePointLightBake() {
-  if (pointLightBakeScheduled) return;
-  pointLightBakeScheduled = true;
-  requestAnimationFrame(() => {
-    pointLightBakeScheduled = false;
-    bakePointLightsTexture();
-  });
+  if (pointLightBakeDebounceTimer !== null) {
+    window.clearTimeout(pointLightBakeDebounceTimer);
+    pointLightBakeDebounceTimer = null;
+  }
+  const delayMs = pointLightLiveUpdateToggle.checked ? POINT_LIGHT_BAKE_DEBOUNCE_MS : 0;
+  pointLightBakeDebounceTimer = window.setTimeout(() => {
+    pointLightBakeDebounceTimer = null;
+    if (pointLightBakeScheduled) return;
+    pointLightBakeScheduled = true;
+    requestAnimationFrame(() => {
+      pointLightBakeScheduled = false;
+      bakePointLightsTexture();
+    });
+  }, delayMs);
 }
 
 function bakePointLightsTexture() {
   ensurePointLightBakeSize();
-  const w = pointLightBakeCanvas.width;
-  const h = pointLightBakeCanvas.height;
-  const heightScaleValue = Math.max(1, Number(heightScaleInput.value) || 1);
-  const pixelCount = w * h;
-  const rgbaSize = pixelCount * 4;
-  const accumColorSize = pixelCount * 3;
-
-  if (cachedPointLightBakeWidth !== w || cachedPointLightBakeHeight !== h) {
-    cachedPointLightBakeWidth = w;
-    cachedPointLightBakeHeight = h;
-    cachedPointLightRgba = new Uint8ClampedArray(rgbaSize);
-    cachedPointLightAccumColor = new Float32Array(accumColorSize);
-    cachedPointLightAccumWeight = new Float32Array(pixelCount);
+  const useReducedResolution = pointLightLiveUpdateToggle.checked;
+  if (!pointLightBakeWorker || !normalsImageData || !heightImageData) {
+    bakePointLightsTextureSync(useReducedResolution);
+    return;
   }
 
-  const rgba = cachedPointLightRgba;
-  rgba.fill(0);
+  const fullWidth = pointLightBakeCanvas.width;
+  const fullHeight = pointLightBakeCanvas.height;
+  const scale = useReducedResolution ? POINT_LIGHT_BAKE_LIVE_SCALE : 1;
+  const bakeWidth = Math.max(1, Math.round(fullWidth * scale));
+  const bakeHeight = Math.max(1, Math.round(fullHeight * scale));
+  const requestId = ++pointLightBakeRequestId;
+  pointLightBakePendingRequestId = requestId;
+  pointLightBakeWorker.postMessage({
+    requestId,
+    bakeWidth,
+    bakeHeight,
+    splatWidth: fullWidth,
+    splatHeight: fullHeight,
+    normalsWidth: normalsSize.width,
+    normalsHeight: normalsSize.height,
+    heightWidth: heightSize.width,
+    heightHeight: heightSize.height,
+    normalsData: normalsImageData.data,
+    heightData: heightImageData.data,
+    lights: pointLights,
+    heightScaleValue: Math.max(1, Number(heightScaleInput.value) || 1),
+    blendExposure: POINT_LIGHT_BLEND_EXPOSURE,
+  });
+}
+
+function bakePointLightsTextureSync(useReducedResolution = false) {
+  const fullWidth = pointLightBakeCanvas.width;
+  const fullHeight = pointLightBakeCanvas.height;
+  const scale = useReducedResolution ? POINT_LIGHT_BAKE_LIVE_SCALE : 1;
+  const w = Math.max(1, Math.round(fullWidth * scale));
+  const h = Math.max(1, Math.round(fullHeight * scale));
+  const mapScaleX = fullWidth / w;
+  const mapScaleY = fullHeight / h;
+  const mapScaleAvg = (mapScaleX + mapScaleY) * 0.5;
+  const heightScaleValue = Math.max(1, Number(heightScaleInput.value) || 1);
+  const pixelCount = w * h;
+  const rgba = new Uint8ClampedArray(pixelCount * 4);
+  const accumColor = new Float32Array(pixelCount * 3);
+  const accumWeight = new Float32Array(pixelCount);
+
   for (let i = 3; i < rgba.length; i += 4) {
     rgba[i] = 255;
   }
 
-  const accumColor = cachedPointLightAccumColor;
-  const accumWeight = cachedPointLightAccumWeight;
-  accumColor.fill(0);
-  accumWeight.fill(0);
-
   if (pointLights.length > 0) {
     for (const light of pointLights) {
-      const radiusPx = Math.max(1, light.strength);
+      const radiusMapPx = Math.max(1, Number(light.strength) || 1);
       const intensityMul = clamp(Number(light.intensity), 0, 4);
       if (intensityMul <= 0.0001) continue;
-      const radiusSq = radiusPx * radiusPx;
       const lightTerrainHeight = sampleHeightAtMapPixel(light.pixelX, light.pixelY) * heightScaleValue;
       const lightHeight = lightTerrainHeight + (Number(light.heightOffset) || 0);
-      const minX = Math.max(0, Math.floor(light.pixelX - radiusPx));
-      const maxX = Math.min(w - 1, Math.ceil(light.pixelX + radiusPx));
-      const minY = Math.max(0, Math.floor(light.pixelY - radiusPx));
-      const maxY = Math.min(h - 1, Math.ceil(light.pixelY + radiusPx));
+      const minX = Math.max(0, Math.floor((light.pixelX - radiusMapPx) / mapScaleX));
+      const maxX = Math.min(w - 1, Math.ceil((light.pixelX + radiusMapPx) / mapScaleX));
+      const minY = Math.max(0, Math.floor((light.pixelY - radiusMapPx) / mapScaleY));
+      const maxY = Math.min(h - 1, Math.ceil((light.pixelY + radiusMapPx) / mapScaleY));
+      const radiusSq = radiusMapPx * radiusMapPx;
 
       for (let y = minY; y <= maxY; y++) {
-        const dy = light.pixelY - y;
+        const mapY = (y + 0.5) * mapScaleY - 0.5;
+        const dy = light.pixelY - mapY;
         for (let x = minX; x <= maxX; x++) {
-          const dx = light.pixelX - x;
+          const mapX = (x + 0.5) * mapScaleX - 0.5;
+          const dx = light.pixelX - mapX;
           const distSq = dx * dx + dy * dy;
           if (distSq > radiusSq) continue;
-
-          const dist = Math.sqrt(distSq);
-          const falloff = Math.max(0, 1 - dist / radiusPx);
+          const falloff = Math.max(0, 1 - Math.sqrt(distSq) / radiusMapPx);
           if (falloff <= 0) continue;
-          const surfaceHeight = sampleHeightAtMapPixel(x, y) * heightScaleValue;
-          if (!hasLineOfSightToLight(x, y, surfaceHeight, light.pixelX, light.pixelY, lightHeight, heightScaleValue)) {
+          const surfaceHeight = sampleHeightAtMapPixel(mapX, mapY) * heightScaleValue;
+          if (!hasLineOfSightToLight(mapX, mapY, surfaceHeight, light.pixelX, light.pixelY, lightHeight, heightScaleValue)) {
             continue;
           }
-          const normal = sampleNormalAtMapPixel(x, y);
+          const normal = sampleNormalAtMapPixel(mapX, mapY);
           const toLight = normalize3(dx, dy, lightHeight - surfaceHeight);
           const ndotl = Math.max(0, normal[0] * toLight[0] + normal[1] * toLight[1] + normal[2] * toLight[2]);
           const contribution = falloff * ndotl * intensityMul;
           if (contribution <= 0) continue;
-
-          const baseIdx = (y * w + x) * 3;
           const pixelIdx = y * w + x;
+          const baseIdx = pixelIdx * 3;
           accumWeight[pixelIdx] += contribution;
           accumColor[baseIdx] += light.color[0] * contribution;
           accumColor[baseIdx + 1] += light.color[1] * contribution;
@@ -1189,26 +1305,23 @@ function bakePointLightsTexture() {
         }
       }
     }
-
-    for (let pixelIdx = 0, j = 0; pixelIdx < accumWeight.length; pixelIdx++, j += 4) {
-      const weight = accumWeight[pixelIdx];
-      if (weight <= 0.000001) continue;
-      const baseIdx = pixelIdx * 3;
-      const invWeight = 1 / weight;
-      const avgR = accumColor[baseIdx] * invWeight;
-      const avgG = accumColor[baseIdx + 1] * invWeight;
-      const avgB = accumColor[baseIdx + 2] * invWeight;
-      const intensity = 1 - Math.exp(-weight * POINT_LIGHT_BLEND_EXPOSURE);
-      rgba[j] = Math.round(clamp(avgR * intensity, 0, 1) * 255);
-      rgba[j + 1] = Math.round(clamp(avgG * intensity, 0, 1) * 255);
-      rgba[j + 2] = Math.round(clamp(avgB * intensity, 0, 1) * 255);
-    }
   }
 
-  const imageData = new ImageData(rgba, w, h);
-  pointLightBakeCtx.putImageData(imageData, 0, 0);
-  uploadImageToTexture(pointLightTex, pointLightBakeCanvas);
-  requestOverlayDraw();
+  for (let pixelIdx = 0, j = 0; pixelIdx < accumWeight.length; pixelIdx++, j += 4) {
+    const weight = accumWeight[pixelIdx];
+    if (weight <= 0.000001) continue;
+    const baseIdx = pixelIdx * 3;
+    const invWeight = 1 / weight;
+    const avgR = accumColor[baseIdx] * invWeight;
+    const avgG = accumColor[baseIdx + 1] * invWeight;
+    const avgB = accumColor[baseIdx + 2] * invWeight;
+    const intensity = 1 - Math.exp(-weight * POINT_LIGHT_BLEND_EXPOSURE);
+    rgba[j] = Math.round(clamp(avgR * intensity, 0, 1) * 255);
+    rgba[j + 1] = Math.round(clamp(avgG * intensity, 0, 1) * 255);
+    rgba[j + 2] = Math.round(clamp(avgB * intensity, 0, 1) * 255);
+  }
+
+  applyPointLightBakeRgba(rgba, w, h);
 }
 
 function updatePointLightStrengthLabel() {

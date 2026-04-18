@@ -8,13 +8,13 @@
   </head>
   <body>
     <nav class="topic-dock" aria-label="Settings topics">
-      <button class="topic-btn" type="button" data-topic="map" title="Load Map">M</button>
-      <button class="topic-btn" type="button" data-topic="interaction" title="Interaction">I</button>
-      <button class="topic-btn" type="button" data-topic="lighting" title="Main Lighting">L</button>
-      <button class="topic-btn" type="button" data-topic="parallax" title="Parallax">P</button>
-      <button class="topic-btn" type="button" data-topic="fog" title="Height Fog">F</button>
-      <button class="topic-btn" type="button" data-topic="editor" title="Point Light Editor">E</button>
-      <button class="topic-btn" type="button" data-topic="info" title="Info">?</button>
+      <button class="topic-btn" type="button" data-topic="map" title="Load Map" aria-label="Load map">M</button>
+      <button class="topic-btn" type="button" data-topic="interaction" title="Interaction" aria-label="Interaction settings">I</button>
+      <button class="topic-btn" type="button" data-topic="lighting" title="Main Lighting" aria-label="Main lighting">L</button>
+      <button class="topic-btn" type="button" data-topic="parallax" title="Parallax" aria-label="Parallax settings">P</button>
+      <button class="topic-btn" type="button" data-topic="fog" title="Height Fog" aria-label="Height fog">F</button>
+      <button class="topic-btn" type="button" data-topic="editor" title="Point Light Editor" aria-label="Point light editor">E</button>
+      <button class="topic-btn" type="button" data-topic="info" title="Info" aria-label="Information">?</button>
     </nav>
 
     <aside id="topicPanel" class="topic-panel hidden">
@@ -210,7 +210,7 @@
             </div>
             <div class="row">
               <label for="pointLightLiveUpdateToggle">Live Update</label>
-              <input id="pointLightLiveUpdateToggle" type="checkbox" checked />
+              <input id="pointLightLiveUpdateToggle" type="checkbox" />
             </div>
             <div class="light-editor-actions">
               <button id="lightSaveBtn" type="button">Save</button>
