@@ -987,9 +987,9 @@ function serializePointLights() {
       height: splatSize.height,
     },
     lights: pointLights.map((light) => ({
-      pixelX: light.pixelX,
-      pixelY: light.pixelY,
-      strength: light.strength,
+      x: light.pixelX,
+      y: light.pixelY,
+      range: light.strength,
       intensity: light.intensity,
       heightOffset: light.heightOffset,
       color: [light.color[0], light.color[1], light.color[2]],
@@ -1311,14 +1311,10 @@ function bakePointLightsTextureSync(useReducedResolution = false) {
     const weight = accumWeight[pixelIdx];
     if (weight <= 0.000001) continue;
     const baseIdx = pixelIdx * 3;
-    const invWeight = 1 / weight;
-    const avgR = accumColor[baseIdx] * invWeight;
-    const avgG = accumColor[baseIdx + 1] * invWeight;
-    const avgB = accumColor[baseIdx + 2] * invWeight;
     const intensity = 1 - Math.exp(-weight * POINT_LIGHT_BLEND_EXPOSURE);
-    rgba[j] = Math.round(clamp(avgR * intensity, 0, 1) * 255);
-    rgba[j + 1] = Math.round(clamp(avgG * intensity, 0, 1) * 255);
-    rgba[j + 2] = Math.round(clamp(avgB * intensity, 0, 1) * 255);
+    rgba[j] = Math.round(clamp(accumColor[baseIdx] * intensity, 0, 1) * 255);
+    rgba[j + 1] = Math.round(clamp(accumColor[baseIdx + 1] * intensity, 0, 1) * 255);
+    rgba[j + 2] = Math.round(clamp(accumColor[baseIdx + 2] * intensity, 0, 1) * 255);
   }
 
   applyPointLightBakeRgba(rgba, w, h);
