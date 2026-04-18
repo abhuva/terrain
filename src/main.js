@@ -443,6 +443,7 @@ canvas.addEventListener("auxclick", (e) => {
 
 async function tryAutoLoadAssets() {
   const loaded = [];
+  const failed = [];
 
   try {
     const splat = await loadImageFromUrl("./assets/splat.png");
@@ -450,7 +451,9 @@ async function tryAutoLoadAssets() {
     setSplatSizeFromImage(splat);
     resetCamera();
     loaded.push("splat.png");
-  } catch {
+  } catch (err) {
+    console.warn("Failed to load splat.png", err);
+    failed.push("splat.png");
     const fallbackSplat = createFallbackSplat(512);
     uploadImageToTexture(splatTex, fallbackSplat);
     setSplatSizeFromImage(fallbackSplat);
@@ -461,7 +464,9 @@ async function tryAutoLoadAssets() {
     const normals = await loadImageFromUrl("./assets/normals.png");
     uploadImageToTexture(normalsTex, normals);
     loaded.push("normals.png");
-  } catch {
+  } catch (err) {
+    console.warn("Failed to load normals.png", err);
+    failed.push("normals.png");
     uploadImageToTexture(normalsTex, defaultNormalImage);
   }
 
@@ -470,13 +475,19 @@ async function tryAutoLoadAssets() {
     uploadImageToTexture(heightTex, height);
     setHeightSizeFromImage(height);
     loaded.push("height.png");
-  } catch {
+  } catch (err) {
+    console.warn("Failed to load height.png", err);
+    failed.push("height.png");
     uploadImageToTexture(heightTex, defaultHeightImage);
     setHeightSizeFromImage(defaultHeightImage);
   }
 
-  if (loaded.length > 0) {
+  if (loaded.length > 0 && failed.length > 0) {
+    setStatus(`Loaded defaults: ${loaded.join(", ")} | Fallback used for: ${failed.join(", ")}`);
+  } else if (loaded.length > 0) {
     setStatus(`Loaded default assets: ${loaded.join(", ")}`);
+  } else if (failed.length > 0) {
+    setStatus(`Using fallback textures for: ${failed.join(", ")}. Add PNGs to assets/ or load via file pickers.`);
   } else {
     setStatus("Using fallback textures. Add PNGs to assets/ or load via file pickers.");
   }
