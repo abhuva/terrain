@@ -361,6 +361,22 @@ async function applyMapImages(splatImage, normalsImage, heightImage) {
   uploadImageToTexture(heightTex, heightImage);
   setHeightSizeFromImage(heightImage);
   heightImageData = extractImageData(heightImage);
+  syncPointLightWorkerMapData();
+}
+
+function syncPointLightWorkerMapData() {
+  if (!pointLightBakeWorker || !normalsImageData || !heightImageData) return;
+  pointLightBakeWorker.postMessage({
+    type: "setMapData",
+    splatWidth: splatSize.width,
+    splatHeight: splatSize.height,
+    normalsWidth: normalsSize.width,
+    normalsHeight: normalsSize.height,
+    heightWidth: heightSize.width,
+    heightHeight: heightSize.height,
+    normalsData: normalsImageData.data,
+    heightData: heightImageData.data,
+  });
 }
 
 function getFileFromFolderSelection(files, fileName) {
@@ -936,6 +952,7 @@ setHeightSizeFromImage(defaultHeightImage);
 setNormalsSizeFromImage(defaultNormalImage);
 normalsImageData = extractImageData(defaultNormalImage);
 heightImageData = extractImageData(defaultHeightImage);
+syncPointLightWorkerMapData();
 
 function getSelectedPointLight() {
   return pointLights.find((light) => light.id === selectedLightId) || null;
@@ -1228,17 +1245,10 @@ function bakePointLightsTexture() {
   const requestId = ++pointLightBakeRequestId;
   pointLightBakePendingRequestId = requestId;
   pointLightBakeWorker.postMessage({
+    type: "bake",
     requestId,
     bakeWidth,
     bakeHeight,
-    splatWidth: fullWidth,
-    splatHeight: fullHeight,
-    normalsWidth: normalsSize.width,
-    normalsHeight: normalsSize.height,
-    heightWidth: heightSize.width,
-    heightHeight: heightSize.height,
-    normalsData: normalsImageData.data,
-    heightData: heightImageData.data,
     lights: pointLights,
     heightScaleValue: Math.max(1, Number(heightScaleInput.value) || 1),
     blendExposure: POINT_LIGHT_BLEND_EXPOSURE,
@@ -1311,10 +1321,12 @@ function bakePointLightsTextureSync(useReducedResolution = false) {
     const weight = accumWeight[pixelIdx];
     if (weight <= 0.000001) continue;
     const baseIdx = pixelIdx * 3;
-    const intensity = 1 - Math.exp(-weight * POINT_LIGHT_BLEND_EXPOSURE);
-    rgba[j] = Math.round(clamp(accumColor[baseIdx] * intensity, 0, 1) * 255);
-    rgba[j + 1] = Math.round(clamp(accumColor[baseIdx + 1] * intensity, 0, 1) * 255);
-    rgba[j + 2] = Math.round(clamp(accumColor[baseIdx + 2] * intensity, 0, 1) * 255);
+    const intensityR = 1 - Math.exp(-accumColor[baseIdx] * POINT_LIGHT_BLEND_EXPOSURE);
+    const intensityG = 1 - Math.exp(-accumColor[baseIdx + 1] * POINT_LIGHT_BLEND_EXPOSURE);
+    const intensityB = 1 - Math.exp(-accumColor[baseIdx + 2] * POINT_LIGHT_BLEND_EXPOSURE);
+    rgba[j] = Math.round(clamp(accumColor[baseIdx] * intensityR, 0, 1) * 255);
+    rgba[j + 1] = Math.round(clamp(accumColor[baseIdx + 1] * intensityG, 0, 1) * 255);
+    rgba[j + 2] = Math.round(clamp(accumColor[baseIdx + 2] * intensityB, 0, 1) * 255);
   }
 
   applyPointLightBakeRgba(rgba, w, h);
@@ -2114,7 +2126,7 @@ function updateCycleTime(nowMs) {
   cycleState.lastRenderMs = nowMs;
 
   const cycleSpeedHoursPerSec = clamp(Number(cycleSpeedInput.value), 0, 1);
-  if (cycleSpeedHoursPerSec > 0) {
+  if (cycleSpeedHoursPerSec > 0 && !isCycleHourScrubbing) {
     cycleState.hour = wrapHour(cycleState.hour + cycleSpeedHoursPerSec * dtSec);
   }
   if (!isCycleHourScrubbing) {

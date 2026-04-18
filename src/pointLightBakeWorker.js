@@ -1,3 +1,5 @@
+let cachedMapData = null;
+
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
@@ -14,32 +16,45 @@ function mapPixelToTexIndex(pixel, mapSize, texSize) {
 
 self.addEventListener("message", (event) => {
   const data = event.data || {};
+  if (data.type === "setMapData") {
+    cachedMapData = {
+      splatWidth: Math.max(1, Math.floor(Number(data.splatWidth) || 1)),
+      splatHeight: Math.max(1, Math.floor(Number(data.splatHeight) || 1)),
+      normalsWidth: Math.max(1, Math.floor(Number(data.normalsWidth) || 1)),
+      normalsHeight: Math.max(1, Math.floor(Number(data.normalsHeight) || 1)),
+      heightWidth: Math.max(1, Math.floor(Number(data.heightWidth) || 1)),
+      heightHeight: Math.max(1, Math.floor(Number(data.heightHeight) || 1)),
+      normalsData: data.normalsData instanceof Uint8ClampedArray ? data.normalsData : new Uint8ClampedArray(data.normalsData || 0),
+      heightData: data.heightData instanceof Uint8ClampedArray ? data.heightData : new Uint8ClampedArray(data.heightData || 0),
+    };
+    return;
+  }
+
+  if (data.type !== "bake") {
+    return;
+  }
+
   const {
     requestId,
     bakeWidth,
     bakeHeight,
-    splatWidth,
-    splatHeight,
-    normalsWidth,
-    normalsHeight,
-    heightWidth,
-    heightHeight,
-    normalsData,
-    heightData,
     lights,
     heightScaleValue,
     blendExposure,
   } = data;
 
   try {
+    if (!cachedMapData) {
+      throw new Error("Map data not initialized in point-light worker.");
+    }
     const w = Math.max(1, Math.floor(Number(bakeWidth) || 1));
     const h = Math.max(1, Math.floor(Number(bakeHeight) || 1));
-    const mapW = Math.max(1, Math.floor(Number(splatWidth) || 1));
-    const mapH = Math.max(1, Math.floor(Number(splatHeight) || 1));
-    const nW = Math.max(1, Math.floor(Number(normalsWidth) || 1));
-    const nH = Math.max(1, Math.floor(Number(normalsHeight) || 1));
-    const hW = Math.max(1, Math.floor(Number(heightWidth) || 1));
-    const hH = Math.max(1, Math.floor(Number(heightHeight) || 1));
+    const mapW = cachedMapData.splatWidth;
+    const mapH = cachedMapData.splatHeight;
+    const nW = cachedMapData.normalsWidth;
+    const nH = cachedMapData.normalsHeight;
+    const hW = cachedMapData.heightWidth;
+    const hH = cachedMapData.heightHeight;
     const mapScaleX = mapW / w;
     const mapScaleY = mapH / h;
     const heightScale = Math.max(1, Number(heightScaleValue) || 1);
@@ -53,8 +68,8 @@ self.addEventListener("message", (event) => {
     }
 
     const safeLights = Array.isArray(lights) ? lights : [];
-    const normals = normalsData instanceof Uint8ClampedArray ? normalsData : new Uint8ClampedArray(normalsData || 0);
-    const heights = heightData instanceof Uint8ClampedArray ? heightData : new Uint8ClampedArray(heightData || 0);
+    const normals = cachedMapData.normalsData;
+    const heights = cachedMapData.heightData;
 
     function sampleHeightAtMapPixel(pixelX, pixelY) {
       if (!heights.length) return 0;
@@ -148,10 +163,12 @@ self.addEventListener("message", (event) => {
       const weight = accumWeight[pixelIdx];
       if (weight <= 0.000001) continue;
       const baseIdx = pixelIdx * 3;
-      const intensity = 1 - Math.exp(-weight * exposure);
-      rgba[j] = Math.round(clamp(accumColor[baseIdx] * intensity, 0, 1) * 255);
-      rgba[j + 1] = Math.round(clamp(accumColor[baseIdx + 1] * intensity, 0, 1) * 255);
-      rgba[j + 2] = Math.round(clamp(accumColor[baseIdx + 2] * intensity, 0, 1) * 255);
+      const intensityR = 1 - Math.exp(-accumColor[baseIdx] * exposure);
+      const intensityG = 1 - Math.exp(-accumColor[baseIdx + 1] * exposure);
+      const intensityB = 1 - Math.exp(-accumColor[baseIdx + 2] * exposure);
+      rgba[j] = Math.round(clamp(accumColor[baseIdx] * intensityR, 0, 1) * 255);
+      rgba[j + 1] = Math.round(clamp(accumColor[baseIdx + 1] * intensityG, 0, 1) * 255);
+      rgba[j + 2] = Math.round(clamp(accumColor[baseIdx + 2] * intensityB, 0, 1) * 255);
     }
 
     self.postMessage({ requestId, width: w, height: h, rgbaBuffer: rgba.buffer }, [rgba.buffer]);

@@ -6,9 +6,9 @@
   },
   "lights": [
     {
-      "pixelX": 670,
-      "pixelY": 353,
-      "strength": 30,
+      "x": 670,
+      "y": 353,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -18,9 +18,9 @@
       ]
     },
     {
-      "pixelX": 800,
-      "pixelY": 372,
-      "strength": 30,
+      "x": 800,
+      "y": 372,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -30,9 +30,9 @@
       ]
     },
     {
-      "pixelX": 767,
-      "pixelY": 349,
-      "strength": 30,
+      "x": 767,
+      "y": 349,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -42,9 +42,9 @@
       ]
     },
     {
-      "pixelX": 748,
-      "pixelY": 348,
-      "strength": 30,
+      "x": 748,
+      "y": 348,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -54,9 +54,9 @@
       ]
     },
     {
-      "pixelX": 716,
-      "pixelY": 358,
-      "strength": 30,
+      "x": 716,
+      "y": 358,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -66,9 +66,9 @@
       ]
     },
     {
-      "pixelX": 706,
-      "pixelY": 529,
-      "strength": 30,
+      "x": 706,
+      "y": 529,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -78,9 +78,9 @@
       ]
     },
     {
-      "pixelX": 711,
-      "pixelY": 545,
-      "strength": 30,
+      "x": 711,
+      "y": 545,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -90,9 +90,9 @@
       ]
     },
     {
-      "pixelX": 715,
-      "pixelY": 574,
-      "strength": 30,
+      "x": 715,
+      "y": 574,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -102,9 +102,9 @@
       ]
     },
     {
-      "pixelX": 727,
-      "pixelY": 597,
-      "strength": 30,
+      "x": 727,
+      "y": 597,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -114,9 +114,9 @@
       ]
     },
     {
-      "pixelX": 743,
-      "pixelY": 621,
-      "strength": 30,
+      "x": 743,
+      "y": 621,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -126,9 +126,9 @@
       ]
     },
     {
-      "pixelX": 686,
-      "pixelY": 545,
-      "strength": 30,
+      "x": 686,
+      "y": 545,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -138,9 +138,9 @@
       ]
     },
     {
-      "pixelX": 653,
-      "pixelY": 553,
-      "strength": 30,
+      "x": 653,
+      "y": 553,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -150,9 +150,9 @@
       ]
     },
     {
-      "pixelX": 668,
-      "pixelY": 548,
-      "strength": 30,
+      "x": 668,
+      "y": 548,
+      "range": 30,
       "intensity": 1,
       "heightOffset": 8,
       "color": [
@@ -162,10 +162,10 @@
       ]
     },
     {
-      "pixelX": 763,
-      "pixelY": 410,
-      "strength": 8,
-      "intensity": 4,
+      "x": 763,
+      "y": 410,
+      "range": 8,
+      "intensity": 1.9,
       "heightOffset": 8,
       "color": [
         1,
@@ -174,10 +174,10 @@
       ]
     },
     {
-      "pixelX": 755,
-      "pixelY": 418,
-      "strength": 8,
-      "intensity": 4,
+      "x": 755,
+      "y": 418,
+      "range": 8,
+      "intensity": 1.69,
       "heightOffset": 8,
       "color": [
         1,
@@ -186,10 +186,10 @@
       ]
     },
     {
-      "pixelX": 748,
-      "pixelY": 423,
-      "strength": 9,
-      "intensity": 4,
+      "x": 748,
+      "y": 423,
+      "range": 9,
+      "intensity": 1.89,
       "heightOffset": 20,
       "color": [
         1,

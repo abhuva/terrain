@@ -4,5 +4,7 @@
   "heightScale": 80,
   "shadowStrength": 0.6,
   "ambient": 0.35,
-  "diffuse": 1.24
+  "diffuse": 1.24,
+  "cycleHour": 1.2750636000018805,
+  "cycleSpeed": 0.08
 }
