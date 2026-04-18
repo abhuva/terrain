@@ -16,26 +16,27 @@ if (!gl) {
 const VERT_SRC = `#version 300 es
 precision highp float;
 layout(location = 0) in vec2 aPosition;
-out vec2 vUv;
 void main() {
-  vUv = aPosition * 0.5 + 0.5;
   gl_Position = vec4(aPosition, 0.0, 1.0);
 }`;
 
 const FRAG_SRC = `#version 300 es
 precision highp float;
-in vec2 vUv;
 out vec4 outColor;
 
 uniform sampler2D uSplat;
 uniform sampler2D uNormals;
 uniform sampler2D uHeight;
 uniform vec2 uMapTexelSize;
+uniform vec2 uResolution;
 uniform vec3 uSunDir;
 uniform float uAmbient;
 uniform float uHeightScale;
 uniform float uShadowStrength;
 uniform float uUseShadows;
+uniform float uMapAspect;
+uniform vec2 uViewHalfExtents;
+uniform vec2 uPanWorld;
 
 float readHeight(vec2 uv) {
   return texture(uHeight, uv).r * uHeightScale;
@@ -45,11 +46,12 @@ float calcShadow(vec2 uv, vec3 sunDir) {
   if (uUseShadows < 0.5) return 1.0;
   if (sunDir.z <= 0.01) return 0.0;
 
-  vec2 dir2 = normalize(sunDir.xy);
-  if (length(dir2) < 0.0001) return 1.0;
+  float dirLen = length(sunDir.xy);
+  if (dirLen < 0.0001) return 1.0;
+  vec2 dir2 = sunDir.xy / dirLen;
 
   float h0 = readHeight(uv);
-  float slope = sunDir.z / max(length(sunDir.xy), 0.0001);
+  float slope = sunDir.z / max(dirLen, 0.0001);
   float bias = 0.7;
   float stepPixels = 1.5;
   vec2 stepUv = dir2 * uMapTexelSize * stepPixels;
@@ -72,12 +74,21 @@ float calcShadow(vec2 uv, vec3 sunDir) {
 }
 
 void main() {
-  vec3 base = texture(uSplat, vUv).rgb;
-  vec3 n = texture(uNormals, vUv).xyz * 2.0 - 1.0;
+  vec2 ndc = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
+  vec2 world = uPanWorld + ndc * uViewHalfExtents;
+  vec2 uv = vec2(world.x / uMapAspect + 0.5, world.y + 0.5);
+
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
+    outColor = vec4(0.02, 0.025, 0.03, 1.0);
+    return;
+  }
+
+  vec3 base = texture(uSplat, uv).rgb;
+  vec3 n = texture(uNormals, uv).xyz * 2.0 - 1.0;
   n = normalize(n);
 
   float diffuse = max(dot(n, uSunDir), 0.0);
-  float shadow = calcShadow(vUv, uSunDir);
+  float shadow = calcShadow(uv, uSunDir);
   float light = clamp(uAmbient + diffuse * shadow, 0.0, 1.0);
   outColor = vec4(base * light, 1.0);
 }`;
@@ -161,11 +172,15 @@ const uniforms = {
   uNormals: gl.getUniformLocation(program, "uNormals"),
   uHeight: gl.getUniformLocation(program, "uHeight"),
   uMapTexelSize: gl.getUniformLocation(program, "uMapTexelSize"),
+  uResolution: gl.getUniformLocation(program, "uResolution"),
   uSunDir: gl.getUniformLocation(program, "uSunDir"),
   uAmbient: gl.getUniformLocation(program, "uAmbient"),
   uHeightScale: gl.getUniformLocation(program, "uHeightScale"),
   uShadowStrength: gl.getUniformLocation(program, "uShadowStrength"),
   uUseShadows: gl.getUniformLocation(program, "uUseShadows"),
+  uMapAspect: gl.getUniformLocation(program, "uMapAspect"),
+  uViewHalfExtents: gl.getUniformLocation(program, "uViewHalfExtents"),
+  uPanWorld: gl.getUniformLocation(program, "uPanWorld"),
 };
 
 const quad = gl.createBuffer();
@@ -189,7 +204,8 @@ const splatTex = createTexture();
 const normalsTex = createTexture();
 const heightTex = createTexture();
 
-const mapSize = { width: 1, height: 1 };
+const splatSize = { width: 1, height: 1 };
+const heightSize = { width: 1, height: 1 };
 
 function createFlatNormalImage(size = 2) {
   const c = document.createElement("canvas");
@@ -234,12 +250,23 @@ function createFallbackSplat(size = 512) {
   return c;
 }
 
-uploadImageToTexture(normalsTex, createFlatNormalImage());
-uploadImageToTexture(heightTex, createFlatHeightImage());
-uploadImageToTexture(splatTex, createFallbackSplat());
+const defaultNormalImage = createFlatNormalImage();
+const defaultHeightImage = createFlatHeightImage();
+const defaultSplatImage = createFallbackSplat();
+uploadImageToTexture(normalsTex, defaultNormalImage);
+uploadImageToTexture(heightTex, defaultHeightImage);
+uploadImageToTexture(splatTex, defaultSplatImage);
+setSplatSizeFromImage(defaultSplatImage);
+setHeightSizeFromImage(defaultHeightImage);
 
 let sunAzimuth = 0.9;
 let sunAltitude = 0.7;
+let zoom = 1;
+const zoomMin = 0.5;
+const zoomMax = 32;
+const panWorld = { x: 0, y: 0 };
+let isMiddleDragging = false;
+let lastDragClient = { x: 0, y: 0 };
 
 function updateSunFromMouse(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
@@ -256,6 +283,7 @@ function updateSunFromMouse(clientX, clientY) {
 }
 
 canvas.addEventListener("mousemove", (e) => {
+  if (isMiddleDragging) return;
   updateSunFromMouse(e.clientX, e.clientY);
 });
 
@@ -265,37 +293,145 @@ canvas.addEventListener("touchmove", (e) => {
   updateSunFromMouse(t.clientX, t.clientY);
 }, { passive: true });
 
-function setMapSizeFromImage(img) {
-  mapSize.width = img.width || 1;
-  mapSize.height = img.height || 1;
+function setSplatSizeFromImage(img) {
+  splatSize.width = img.width || 1;
+  splatSize.height = img.height || 1;
 }
+
+function setHeightSizeFromImage(img) {
+  heightSize.width = img.width || 1;
+  heightSize.height = img.height || 1;
+}
+
+function resetCamera() {
+  zoom = 1;
+  panWorld.x = 0;
+  panWorld.y = 0;
+}
+
+function getScreenAspect() {
+  return canvas.width > 0 && canvas.height > 0 ? canvas.width / canvas.height : 1;
+}
+
+function getMapAspect() {
+  return splatSize.width / splatSize.height;
+}
+
+function getBaseViewHalfExtents() {
+  const screenAspect = getScreenAspect();
+  const mapAspect = getMapAspect();
+  if (screenAspect >= mapAspect) {
+    return { x: screenAspect, y: 1 };
+  }
+  return { x: mapAspect, y: mapAspect / screenAspect };
+}
+
+function getViewHalfExtents(zoomValue = zoom) {
+  const base = getBaseViewHalfExtents();
+  return {
+    x: base.x / zoomValue,
+    y: base.y / zoomValue,
+  };
+}
+
+function clientToNdc(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const y = 1 - ((clientY - rect.top) / rect.height) * 2;
+  return { x, y };
+}
+
+function worldFromNdc(ndc, zoomValue = zoom, pan = panWorld) {
+  const ext = getViewHalfExtents(zoomValue);
+  return {
+    x: pan.x + ndc.x * ext.x,
+    y: pan.y + ndc.y * ext.y,
+  };
+}
+
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const ndc = clientToNdc(e.clientX, e.clientY);
+  const worldBefore = worldFromNdc(ndc, zoom, panWorld);
+  const nextZoom = Math.min(zoomMax, Math.max(zoomMin, zoom * Math.exp(-e.deltaY * 0.0015)));
+  const worldAfter = worldFromNdc(ndc, nextZoom, panWorld);
+  panWorld.x += worldBefore.x - worldAfter.x;
+  panWorld.y += worldBefore.y - worldAfter.y;
+  zoom = nextZoom;
+}, { passive: false });
+
+canvas.addEventListener("mousedown", (e) => {
+  if (e.button !== 1) return;
+  e.preventDefault();
+  isMiddleDragging = true;
+  lastDragClient.x = e.clientX;
+  lastDragClient.y = e.clientY;
+});
+
+window.addEventListener("mouseup", (e) => {
+  if (e.button !== 1) return;
+  isMiddleDragging = false;
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  if (!isMiddleDragging) return;
+  const prevNdc = clientToNdc(lastDragClient.x, lastDragClient.y);
+  const currNdc = clientToNdc(e.clientX, e.clientY);
+  const worldPrev = worldFromNdc(prevNdc, zoom, panWorld);
+  const worldCurr = worldFromNdc(currNdc, zoom, panWorld);
+  panWorld.x += worldPrev.x - worldCurr.x;
+  panWorld.y += worldPrev.y - worldCurr.y;
+  lastDragClient.x = e.clientX;
+  lastDragClient.y = e.clientY;
+});
+
+canvas.addEventListener("auxclick", (e) => {
+  if (e.button === 1) e.preventDefault();
+});
 
 async function tryAutoLoadAssets() {
   const results = [];
+  const loadFirstExisting = async (candidates) => {
+    for (const url of candidates) {
+      try {
+        const image = await loadImageFromUrl(url);
+        return { image, url };
+      } catch {
+        // Try next extension.
+      }
+    }
+    return null;
+  };
 
-  try {
-    const img = await loadImageFromUrl("./assets/splat.png");
-    uploadImageToTexture(splatTex, img);
-    setMapSizeFromImage(img);
-    results.push("splat");
-  } catch {
-    setMapSizeFromImage(createFallbackSplat(512));
+  const splatLoaded = await loadFirstExisting(["./assets/splat.png", "./assets/splat.jpg", "./assets/splat.jpeg"]);
+  if (splatLoaded) {
+    uploadImageToTexture(splatTex, splatLoaded.image);
+    setSplatSizeFromImage(splatLoaded.image);
+    resetCamera();
+    results.push(`splat (${splatLoaded.url.split("/").pop()})`);
+  } else {
+    const fallbackSplat = createFallbackSplat(512);
+    uploadImageToTexture(splatTex, fallbackSplat);
+    setSplatSizeFromImage(fallbackSplat);
+    resetCamera();
   }
 
-  try {
-    const img = await loadImageFromUrl("./assets/normals.png");
-    uploadImageToTexture(normalsTex, img);
-    results.push("normals");
-  } catch {
-    uploadImageToTexture(normalsTex, createFlatNormalImage());
+  const normalsLoaded = await loadFirstExisting(["./assets/normals.png", "./assets/normals.jpg", "./assets/normals.jpeg"]);
+  if (normalsLoaded) {
+    uploadImageToTexture(normalsTex, normalsLoaded.image);
+    results.push(`normals (${normalsLoaded.url.split("/").pop()})`);
+  } else {
+    uploadImageToTexture(normalsTex, defaultNormalImage);
   }
 
-  try {
-    const img = await loadImageFromUrl("./assets/height.png");
-    uploadImageToTexture(heightTex, img);
-    results.push("height");
-  } catch {
-    uploadImageToTexture(heightTex, createFlatHeightImage());
+  const heightLoaded = await loadFirstExisting(["./assets/height.png", "./assets/height.jpg", "./assets/height.jpeg"]);
+  if (heightLoaded) {
+    uploadImageToTexture(heightTex, heightLoaded.image);
+    setHeightSizeFromImage(heightLoaded.image);
+    results.push(`height (${heightLoaded.url.split("/").pop()})`);
+  } else {
+    uploadImageToTexture(heightTex, defaultHeightImage);
+    setHeightSizeFromImage(defaultHeightImage);
   }
 
   if (results.length > 0) {
@@ -308,26 +444,46 @@ async function tryAutoLoadAssets() {
 splatInput.addEventListener("change", async () => {
   const file = splatInput.files && splatInput.files[0];
   if (!file) return;
-  const image = await loadImageFromFile(file);
-  uploadImageToTexture(splatTex, image);
-  setMapSizeFromImage(image);
-  setStatus(`Loaded splat: ${file.name} (${image.width}x${image.height})`);
+  try {
+    const image = await loadImageFromFile(file);
+    uploadImageToTexture(splatTex, image);
+    setSplatSizeFromImage(image);
+    resetCamera();
+    setStatus(`Loaded splat: ${file.name} (${image.width}x${image.height})`);
+  } catch (error) {
+    console.error("Failed to load splat file:", file.name, error);
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`Failed to load splat '${file.name}': ${message}`);
+  }
 });
 
 normalInput.addEventListener("change", async () => {
   const file = normalInput.files && normalInput.files[0];
   if (!file) return;
-  const image = await loadImageFromFile(file);
-  uploadImageToTexture(normalsTex, image);
-  setStatus(`Loaded normals: ${file.name}`);
+  try {
+    const image = await loadImageFromFile(file);
+    uploadImageToTexture(normalsTex, image);
+    setStatus(`Loaded normals: ${file.name}`);
+  } catch (error) {
+    console.error("Failed to load normals file:", file.name, error);
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`Failed to load normals '${file.name}': ${message}`);
+  }
 });
 
 heightInput.addEventListener("change", async () => {
   const file = heightInput.files && heightInput.files[0];
   if (!file) return;
-  const image = await loadImageFromFile(file);
-  uploadImageToTexture(heightTex, image);
-  setStatus(`Loaded height: ${file.name}`);
+  try {
+    const image = await loadImageFromFile(file);
+    uploadImageToTexture(heightTex, image);
+    setHeightSizeFromImage(image);
+    setStatus(`Loaded height: ${file.name}`);
+  } catch (error) {
+    console.error("Failed to load height file:", file.name, error);
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`Failed to load height '${file.name}': ${message}`);
+  }
 });
 
 function resize() {
@@ -366,12 +522,17 @@ function render() {
   gl.bindTexture(gl.TEXTURE_2D, heightTex);
   gl.uniform1i(uniforms.uHeight, 2);
 
-  gl.uniform2f(uniforms.uMapTexelSize, 1 / mapSize.width, 1 / mapSize.height);
+  const viewHalf = getViewHalfExtents();
+  gl.uniform2f(uniforms.uMapTexelSize, 1 / heightSize.width, 1 / heightSize.height);
+  gl.uniform2f(uniforms.uResolution, canvas.width, canvas.height);
   gl.uniform3f(uniforms.uSunDir, sunDir[0], sunDir[1], sunDir[2]);
   gl.uniform1f(uniforms.uAmbient, Number(ambientInput.value));
   gl.uniform1f(uniforms.uHeightScale, Number(heightScaleInput.value));
   gl.uniform1f(uniforms.uShadowStrength, Number(shadowStrengthInput.value));
   gl.uniform1f(uniforms.uUseShadows, shadowsToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uMapAspect, getMapAspect());
+  gl.uniform2f(uniforms.uViewHalfExtents, viewHalf.x, viewHalf.y);
+  gl.uniform2f(uniforms.uPanWorld, panWorld.x, panWorld.y);
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
   requestAnimationFrame(render);
@@ -380,5 +541,5 @@ function render() {
 window.addEventListener("resize", resize);
 
 await tryAutoLoadAssets();
-setStatus(`${statusEl.textContent} | Move mouse over the map to steer the sun.`);
+setStatus(`${statusEl.textContent} | Mouse: sun direction, wheel: zoom, middle-drag: pan.`);
 render();
