@@ -1,5 +1,10 @@
-const canvas = document.getElementById("glCanvas");
+﻿const canvas = document.getElementById("glCanvas");
 const overlayCanvas = document.getElementById("overlayCanvas");
+const topicButtons = Array.from(document.querySelectorAll(".topic-btn"));
+const topicPanelEl = document.getElementById("topicPanel");
+const topicPanelTitleEl = document.getElementById("topicPanelTitle");
+const topicPanelCloseBtn = document.getElementById("topicPanelClose");
+const topicCards = Array.from(document.querySelectorAll(".topic-card"));
 const statusEl = document.getElementById("status");
 const cycleInfoEl = document.getElementById("cycleInfo");
 const splatInput = document.getElementById("splatInput");
@@ -7,6 +12,15 @@ const normalInput = document.getElementById("normalInput");
 const heightInput = document.getElementById("heightInput");
 const circleRadiusInput = document.getElementById("circleRadius");
 const circleRadiusValue = document.getElementById("circleRadiusValue");
+const lightingModeToggle = document.getElementById("lightingModeToggle");
+const cursorLightModeToggle = document.getElementById("cursorLightModeToggle");
+const cursorLightFollowHeightToggle = document.getElementById("cursorLightFollowHeightToggle");
+const cursorLightColorInput = document.getElementById("cursorLightColor");
+const cursorLightStrengthInput = document.getElementById("cursorLightStrength");
+const cursorLightStrengthValue = document.getElementById("cursorLightStrengthValue");
+const cursorLightHeightOffsetInput = document.getElementById("cursorLightHeightOffset");
+const cursorLightHeightOffsetValue = document.getElementById("cursorLightHeightOffsetValue");
+const cursorLightGizmoToggle = document.getElementById("cursorLightGizmoToggle");
 const cycleSpeedInput = document.getElementById("cycleSpeed");
 const shadowsToggle = document.getElementById("shadowsToggle");
 const parallaxToggle = document.getElementById("parallaxToggle");
@@ -28,6 +42,15 @@ const heightScaleInput = document.getElementById("heightScale");
 const shadowStrengthInput = document.getElementById("shadowStrength");
 const ambientInput = document.getElementById("ambient");
 const diffuseInput = document.getElementById("diffuse");
+const lightEditorEmptyEl = document.getElementById("lightEditorEmpty");
+const lightEditorFieldsEl = document.getElementById("lightEditorFields");
+const lightCoordEl = document.getElementById("lightCoord");
+const pointLightColorInput = document.getElementById("pointLightColor");
+const pointLightStrengthInput = document.getElementById("pointLightStrength");
+const pointLightStrengthValue = document.getElementById("pointLightStrengthValue");
+const lightSaveBtn = document.getElementById("lightSaveBtn");
+const lightCancelBtn = document.getElementById("lightCancelBtn");
+const lightDeleteBtn = document.getElementById("lightDeleteBtn");
 const overlayCtx = overlayCanvas.getContext("2d");
 
 const gl = canvas.getContext("webgl2");
@@ -49,6 +72,14 @@ out vec4 outColor;
 uniform sampler2D uSplat;
 uniform sampler2D uNormals;
 uniform sampler2D uHeight;
+uniform sampler2D uPointLightTex;
+uniform float uUseCursorLight;
+uniform vec2 uCursorLightUv;
+uniform vec3 uCursorLightColor;
+uniform float uCursorLightStrength;
+uniform float uCursorLightHeightOffset;
+uniform float uUseCursorTerrainHeight;
+uniform vec2 uCursorLightMapSize;
 uniform vec2 uMapTexelSize;
 uniform vec2 uResolution;
 uniform vec3 uSunDir;
@@ -178,7 +209,27 @@ void main() {
   vec3 ambientLit = base * (uAmbient * uAmbientColor);
   vec3 sunLit = base * (sunDiffuse * sunShadow * uSunStrength) * uSunColor;
   vec3 moonLit = base * (moonDiffuse * moonShadow * uMoonStrength) * uMoonColor;
-  vec3 lit = clamp(ambientLit + sunLit + moonLit, 0.0, 1.0);
+  vec3 pointLightIntensity = texture(uPointLightTex, uv).rgb;
+  vec3 pointLit = base * pointLightIntensity;
+  vec3 cursorLit = vec3(0.0);
+  if (uUseCursorLight > 0.5 && uCursorLightStrength > 0.001) {
+    vec2 deltaPx = (uCursorLightUv - uv) * uCursorLightMapSize;
+    float distPx = length(deltaPx);
+    float atten = max(0.0, 1.0 - distPx / uCursorLightStrength);
+    if (atten > 0.0) {
+      float dz = max(1.5, uCursorLightStrength * 0.2);
+      if (uUseCursorTerrainHeight > 0.5) {
+        float surfaceHeight = readHeight(uv);
+        float lightGroundHeight = readHeight(uCursorLightUv);
+        float lightHeight = lightGroundHeight + uCursorLightHeightOffset;
+        dz = max(0.5, lightHeight - surfaceHeight);
+      }
+      vec3 toCursorLight = normalize(vec3(deltaPx, dz));
+      float cursorDiffuse = max(dot(n, toCursorLight), 0.0);
+      cursorLit = base * (atten * cursorDiffuse) * uCursorLightColor;
+    }
+  }
+  vec3 lit = clamp(ambientLit + sunLit + moonLit + pointLit + cursorLit, 0.0, 1.0);
 
   if (uUseFog > 0.5) {
     float terrainHeight = texture(uHeight, uv).r;
@@ -343,6 +394,14 @@ const uniforms = {
   uSplat: gl.getUniformLocation(program, "uSplat"),
   uNormals: gl.getUniformLocation(program, "uNormals"),
   uHeight: gl.getUniformLocation(program, "uHeight"),
+  uPointLightTex: gl.getUniformLocation(program, "uPointLightTex"),
+  uUseCursorLight: gl.getUniformLocation(program, "uUseCursorLight"),
+  uCursorLightUv: gl.getUniformLocation(program, "uCursorLightUv"),
+  uCursorLightColor: gl.getUniformLocation(program, "uCursorLightColor"),
+  uCursorLightStrength: gl.getUniformLocation(program, "uCursorLightStrength"),
+  uCursorLightHeightOffset: gl.getUniformLocation(program, "uCursorLightHeightOffset"),
+  uUseCursorTerrainHeight: gl.getUniformLocation(program, "uUseCursorTerrainHeight"),
+  uCursorLightMapSize: gl.getUniformLocation(program, "uCursorLightMapSize"),
   uMapTexelSize: gl.getUniformLocation(program, "uMapTexelSize"),
   uResolution: gl.getUniformLocation(program, "uResolution"),
   uSunDir: gl.getUniformLocation(program, "uSunDir"),
@@ -392,9 +451,22 @@ gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 const splatTex = createTexture();
 const normalsTex = createTexture();
 const heightTex = createTexture();
+const pointLightTex = createTexture();
 
 const splatSize = { width: 1, height: 1 };
 const heightSize = { width: 1, height: 1 };
+const normalsSize = { width: 1, height: 1 };
+
+const pointLightBakeCanvas = document.createElement("canvas");
+const pointLightBakeCtx = pointLightBakeCanvas.getContext("2d");
+
+const pointLights = [];
+let selectedLightId = null;
+let lightEditDraft = null;
+let nextPointLightId = 1;
+let normalsImageData = null;
+let heightImageData = null;
+let pointLightBakeScheduled = false;
 
 function createFlatNormalImage(size = 2) {
   const c = document.createElement("canvas");
@@ -440,13 +512,32 @@ function createFallbackSplat(size = 512) {
 }
 
 function setSplatSizeFromImage(img) {
+  const prevW = splatSize.width;
+  const prevH = splatSize.height;
   splatSize.width = img.width || 1;
   splatSize.height = img.height || 1;
+  return splatSize.width !== prevW || splatSize.height !== prevH;
 }
 
 function setHeightSizeFromImage(img) {
   heightSize.width = img.width || 1;
   heightSize.height = img.height || 1;
+}
+
+function setNormalsSizeFromImage(img) {
+  normalsSize.width = img.width || 1;
+  normalsSize.height = img.height || 1;
+}
+
+function extractImageData(source) {
+  const width = source.width || 1;
+  const height = source.height || 1;
+  const c = document.createElement("canvas");
+  c.width = width;
+  c.height = height;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(source, 0, 0);
+  return ctx.getImageData(0, 0, width, height);
 }
 
 const defaultNormalImage = createFlatNormalImage();
@@ -457,6 +548,265 @@ uploadImageToTexture(heightTex, defaultHeightImage);
 uploadImageToTexture(splatTex, defaultSplatImage);
 setSplatSizeFromImage(defaultSplatImage);
 setHeightSizeFromImage(defaultHeightImage);
+setNormalsSizeFromImage(defaultNormalImage);
+normalsImageData = extractImageData(defaultNormalImage);
+heightImageData = extractImageData(defaultHeightImage);
+
+function getSelectedPointLight() {
+  return pointLights.find((light) => light.id === selectedLightId) || null;
+}
+
+function clearPointLights() {
+  pointLights.length = 0;
+  selectedLightId = null;
+  lightEditDraft = null;
+}
+
+function ensurePointLightBakeSize() {
+  const w = Math.max(1, Math.floor(splatSize.width));
+  const h = Math.max(1, Math.floor(splatSize.height));
+  if (pointLightBakeCanvas.width !== w || pointLightBakeCanvas.height !== h) {
+    pointLightBakeCanvas.width = w;
+    pointLightBakeCanvas.height = h;
+  }
+}
+
+function normalize3(x, y, z) {
+  const len = Math.hypot(x, y, z);
+  if (len < 0.000001) return [0, 0, 1];
+  return [x / len, y / len, z / len];
+}
+
+function sampleNormalAtMapPixel(pixelX, pixelY) {
+  if (!normalsImageData || !normalsImageData.data) {
+    return [0, 0, 1];
+  }
+  const nx = clamp(Math.round((pixelX + 0.5) / splatSize.width * normalsSize.width - 0.5), 0, normalsSize.width - 1);
+  const ny = clamp(Math.round((pixelY + 0.5) / splatSize.height * normalsSize.height - 0.5), 0, normalsSize.height - 1);
+  const idx = (ny * normalsSize.width + nx) * 4;
+  const d = normalsImageData.data;
+  const vx = (d[idx] / 255) * 2 - 1;
+  const vy = (d[idx + 1] / 255) * 2 - 1;
+  const vz = (d[idx + 2] / 255) * 2 - 1;
+  return normalize3(vx, vy, vz);
+}
+
+function sampleHeightAtMapPixel(pixelX, pixelY) {
+  if (!heightImageData || !heightImageData.data) {
+    return 0;
+  }
+  const hx = clamp(Math.round((pixelX + 0.5) / splatSize.width * heightSize.width - 0.5), 0, heightSize.width - 1);
+  const hy = clamp(Math.round((pixelY + 0.5) / splatSize.height * heightSize.height - 0.5), 0, heightSize.height - 1);
+  const idx = (hy * heightSize.width + hx) * 4;
+  return heightImageData.data[idx] / 255;
+}
+
+function hasLineOfSightToLight(surfaceX, surfaceY, surfaceH, lightX, lightY, lightH, heightScaleValue) {
+  const dx = lightX - surfaceX;
+  const dy = lightY - surfaceY;
+  const dist = Math.hypot(dx, dy);
+  if (dist <= 1.0) return true;
+
+  const stepSize = 1.0;
+  const stepCount = Math.max(1, Math.floor(dist / stepSize));
+  const invSteps = 1 / stepCount;
+  const heightBias = 0.7;
+
+  for (let i = 1; i < stepCount; i++) {
+    const t = i * invSteps;
+    const sx = surfaceX + dx * t;
+    const sy = surfaceY + dy * t;
+    const rayH = surfaceH + (lightH - surfaceH) * t;
+    const terrainH = sampleHeightAtMapPixel(sx, sy) * heightScaleValue;
+    if (terrainH > rayH + heightBias) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function schedulePointLightBake() {
+  if (pointLightBakeScheduled) return;
+  pointLightBakeScheduled = true;
+  requestAnimationFrame(() => {
+    pointLightBakeScheduled = false;
+    bakePointLightsTexture();
+  });
+}
+
+function bakePointLightsTexture() {
+  if (!pointLightBakeCtx) return;
+  ensurePointLightBakeSize();
+  const w = pointLightBakeCanvas.width;
+  const h = pointLightBakeCanvas.height;
+  const heightScaleValue = Math.max(1, Number(heightScaleInput.value) || 1);
+  const rgba = new Uint8ClampedArray(w * h * 4);
+  for (let i = 3; i < rgba.length; i += 4) {
+    rgba[i] = 255;
+  }
+
+  if (pointLights.length > 0) {
+    const accum = new Float32Array(w * h * 3);
+    for (const light of pointLights) {
+      const radiusPx = Math.max(1, light.strength);
+      const radiusSq = radiusPx * radiusPx;
+      const lightTerrainHeight = sampleHeightAtMapPixel(light.pixelX, light.pixelY) * heightScaleValue;
+      const lightLift = Math.max(2.0, radiusPx * 0.2);
+      const lightHeight = lightTerrainHeight + lightLift;
+      const minX = Math.max(0, Math.floor(light.pixelX - radiusPx));
+      const maxX = Math.min(w - 1, Math.ceil(light.pixelX + radiusPx));
+      const minY = Math.max(0, Math.floor(light.pixelY - radiusPx));
+      const maxY = Math.min(h - 1, Math.ceil(light.pixelY + radiusPx));
+
+      for (let y = minY; y <= maxY; y++) {
+        const dy = light.pixelY - y;
+        for (let x = minX; x <= maxX; x++) {
+          const dx = light.pixelX - x;
+          const distSq = dx * dx + dy * dy;
+          if (distSq > radiusSq) continue;
+
+          const dist = Math.sqrt(distSq);
+          const falloff = Math.max(0, 1 - dist / radiusPx);
+          if (falloff <= 0) continue;
+          const surfaceHeight = sampleHeightAtMapPixel(x, y) * heightScaleValue;
+          if (!hasLineOfSightToLight(x, y, surfaceHeight, light.pixelX, light.pixelY, lightHeight, heightScaleValue)) {
+            continue;
+          }
+          const normal = sampleNormalAtMapPixel(x, y);
+          const toLight = normalize3(dx, dy, lightHeight - surfaceHeight);
+          const ndotl = Math.max(0, normal[0] * toLight[0] + normal[1] * toLight[1] + normal[2] * toLight[2]);
+          const contribution = falloff * ndotl;
+          if (contribution <= 0) continue;
+
+          const baseIdx = (y * w + x) * 3;
+          accum[baseIdx] += light.color[0] * contribution;
+          accum[baseIdx + 1] += light.color[1] * contribution;
+          accum[baseIdx + 2] += light.color[2] * contribution;
+        }
+      }
+    }
+
+    for (let i = 0, j = 0; i < accum.length; i += 3, j += 4) {
+      rgba[j] = Math.round(clamp(accum[i], 0, 1) * 255);
+      rgba[j + 1] = Math.round(clamp(accum[i + 1], 0, 1) * 255);
+      rgba[j + 2] = Math.round(clamp(accum[i + 2], 0, 1) * 255);
+    }
+  }
+
+  const imageData = new ImageData(rgba, w, h);
+  pointLightBakeCtx.putImageData(imageData, 0, 0);
+  uploadImageToTexture(pointLightTex, pointLightBakeCanvas);
+}
+
+function updatePointLightStrengthLabel() {
+  const value = Math.round(clamp(Number(pointLightStrengthInput.value), 1, 200));
+  pointLightStrengthValue.textContent = `${value} px`;
+}
+
+function updateCursorLightStrengthLabel() {
+  const value = Math.round(clamp(Number(cursorLightStrengthInput.value), 1, 200));
+  cursorLightStrengthValue.textContent = `${value} px`;
+}
+
+function updateCursorLightHeightOffsetLabel() {
+  const value = Math.round(clamp(Number(cursorLightHeightOffsetInput.value), 0, 120));
+  cursorLightHeightOffsetValue.textContent = `${value}`;
+}
+
+function updateCursorLightModeUi() {
+  const followTerrain = cursorLightFollowHeightToggle.checked;
+  cursorLightHeightOffsetInput.disabled = !followTerrain;
+}
+
+function setTopicPanelVisible(visible) {
+  topicPanelEl.classList.toggle("hidden", !visible);
+}
+
+function setActiveTopic(topicName) {
+  let opened = false;
+  for (const btn of topicButtons) {
+    const active = btn.dataset.topic === topicName;
+    btn.classList.toggle("active", active);
+    if (active) opened = true;
+  }
+  for (const card of topicCards) {
+    const active = card.dataset.topic === topicName;
+    card.classList.toggle("active", active);
+    if (active) {
+      topicPanelTitleEl.textContent = card.dataset.title || "Settings";
+    }
+  }
+  setTopicPanelVisible(opened);
+}
+
+function updateCursorLightFromPointer(clientX, clientY) {
+  if (!cursorLightModeToggle.checked) {
+    cursorLightState.active = false;
+    return;
+  }
+  const ndc = clientToNdc(clientX, clientY);
+  const world = worldFromNdc(ndc);
+  const uv = worldToUv(world);
+  const inside = uv.x >= 0 && uv.x <= 1 && uv.y >= 0 && uv.y <= 1;
+  cursorLightState.active = inside;
+  if (!inside) return;
+  cursorLightState.uvX = uv.x;
+  cursorLightState.uvY = uv.y;
+}
+
+function updateLightEditorUi() {
+  const selected = getSelectedPointLight();
+  if (!selected || !lightEditDraft) {
+    lightEditorEmptyEl.style.display = "block";
+    lightEditorFieldsEl.classList.remove("active");
+    lightCoordEl.textContent = "Coord: (-, -)";
+    return;
+  }
+
+  lightEditorEmptyEl.style.display = "none";
+  lightEditorFieldsEl.classList.add("active");
+  lightCoordEl.textContent = `Coord: (${selected.pixelX}, ${selected.pixelY})`;
+  pointLightColorInput.value = rgbToHex(lightEditDraft.color);
+  pointLightStrengthInput.value = String(Math.round(lightEditDraft.strength));
+  updatePointLightStrengthLabel();
+}
+
+function beginLightEdit(light) {
+  selectedLightId = light.id;
+  lightEditDraft = {
+    color: [...light.color],
+    strength: light.strength,
+  };
+  updateLightEditorUi();
+}
+
+function findPointLightAtPixel(pixelX, pixelY) {
+  return pointLights.find((light) => light.pixelX === pixelX && light.pixelY === pixelY) || null;
+}
+
+function createPointLight(pixelX, pixelY) {
+  const light = {
+    id: nextPointLightId++,
+    pixelX,
+    pixelY,
+    strength: 30,
+    color: hexToRgb01("#ff9b2f"),
+  };
+  pointLights.push(light);
+  bakePointLightsTexture();
+  beginLightEdit(light);
+  setStatus(`Created point light at (${pixelX}, ${pixelY})`);
+}
+
+function applyMapSizeChangeIfNeeded(changed) {
+  if (!changed) return;
+  clearPointLights();
+  bakePointLightsTexture();
+  updateLightEditorUi();
+}
+bakePointLightsTexture();
+updateLightEditorUi();
 
 let zoom = 1;
 const zoomMin = 0.5;
@@ -466,6 +816,16 @@ let isMiddleDragging = false;
 let lastDragClient = { x: 0, y: 0 };
 let lastMarker = null;
 let fogColorManual = false;
+const cursorLightState = {
+  uvX: 0.5,
+  uvY: 0.5,
+  active: false,
+  color: hexToRgb01(cursorLightColorInput.value),
+  strength: Math.round(clamp(Number(cursorLightStrengthInput.value), 1, 200)),
+  heightOffset: Math.round(clamp(Number(cursorLightHeightOffsetInput.value), 0, 120)),
+  useTerrainHeight: cursorLightFollowHeightToggle.checked,
+  showGizmo: cursorLightGizmoToggle.checked,
+};
 
 const cycleState = {
   hour: 9.5,
@@ -622,17 +982,69 @@ function hexToRgb01(hex) {
 function drawOverlay() {
   if (!overlayCtx) return;
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  if (!lastMarker) return;
+  const worldPerMapPixel = getMapAspect() / splatSize.width;
+
+  if (lightingModeToggle.checked) {
+    for (const light of pointLights) {
+      const selected = light.id === selectedLightId;
+      const displayStrength = selected && lightEditDraft ? lightEditDraft.strength : light.strength;
+      const displayColor = selected && lightEditDraft ? lightEditDraft.color : light.color;
+      const centerWorld = mapPixelToWorld(light.pixelX, light.pixelY);
+      const centerScreen = worldToScreen(centerWorld);
+      const edgeWorld = { x: centerWorld.x + worldPerMapPixel * displayStrength, y: centerWorld.y };
+      const edgeScreen = worldToScreen(edgeWorld);
+      const screenRadius = Math.max(1, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
+      const rgb = displayColor.map((v) => Math.round(clamp(v, 0, 1) * 255));
+
+      overlayCtx.beginPath();
+      overlayCtx.arc(centerScreen.x, centerScreen.y, screenRadius, 0, Math.PI * 2);
+      overlayCtx.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${selected ? 0.95 : 0.7})`;
+      overlayCtx.lineWidth = selected ? 2 : 1;
+      overlayCtx.stroke();
+
+      overlayCtx.beginPath();
+      overlayCtx.arc(centerScreen.x, centerScreen.y, selected ? 5 : 4, 0, Math.PI * 2);
+      overlayCtx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+      overlayCtx.fill();
+
+      if (selected) {
+        overlayCtx.beginPath();
+        overlayCtx.arc(centerScreen.x, centerScreen.y, 7, 0, Math.PI * 2);
+        overlayCtx.strokeStyle = "rgba(255,255,255,0.85)";
+        overlayCtx.lineWidth = 1.5;
+        overlayCtx.stroke();
+      }
+    }
+  }
+
+  if (cursorLightModeToggle.checked && cursorLightState.active && cursorLightState.showGizmo) {
+    const cursorPixelX = clamp(Math.floor(cursorLightState.uvX * splatSize.width), 0, splatSize.width - 1);
+    const cursorPixelY = clamp(Math.floor((1 - cursorLightState.uvY) * splatSize.height), 0, splatSize.height - 1);
+    const centerWorld = mapPixelToWorld(cursorPixelX, cursorPixelY);
+    const centerScreen = worldToScreen(centerWorld);
+    const edgeWorld = { x: centerWorld.x + worldPerMapPixel * cursorLightState.strength, y: centerWorld.y };
+    const edgeScreen = worldToScreen(edgeWorld);
+    const screenRadius = Math.max(1, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
+    const rgb = cursorLightState.color.map((v) => Math.round(clamp(v, 0, 1) * 255));
+
+    overlayCtx.beginPath();
+    overlayCtx.arc(centerScreen.x, centerScreen.y, screenRadius, 0, Math.PI * 2);
+    overlayCtx.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.8)`;
+    overlayCtx.lineWidth = 2;
+    overlayCtx.stroke();
+
+    overlayCtx.beginPath();
+    overlayCtx.arc(centerScreen.x, centerScreen.y, 4.5, 0, Math.PI * 2);
+    overlayCtx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+    overlayCtx.fill();
+  }
+
+  if (!lastMarker || lightingModeToggle.checked) return;
 
   const centerWorld = mapPixelToWorld(lastMarker.pixelX, lastMarker.pixelY);
   const centerScreen = worldToScreen(centerWorld);
-
   const radiusMapPx = clamp(Number(circleRadiusInput.value), 0.5, 50);
-  const worldPerMapPixel = getMapAspect() / splatSize.width;
-  const edgeWorld = {
-    x: centerWorld.x + worldPerMapPixel * radiusMapPx,
-    y: centerWorld.y,
-  };
+  const edgeWorld = { x: centerWorld.x + worldPerMapPixel * radiusMapPx, y: centerWorld.y };
   const edgeScreen = worldToScreen(edgeWorld);
   const screenRadius = Math.max(0.001, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
 
@@ -667,7 +1079,13 @@ window.addEventListener("mouseup", (e) => {
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (!isMiddleDragging) return;
+  updateCursorLightFromPointer(e.clientX, e.clientY);
+  if (!isMiddleDragging) {
+    if (cursorLightModeToggle.checked) {
+      drawOverlay();
+    }
+    return;
+  }
   const prevNdc = clientToNdc(lastDragClient.x, lastDragClient.y);
   const currNdc = clientToNdc(e.clientX, e.clientY);
   const worldPrev = worldFromNdc(prevNdc, zoom, panWorld);
@@ -676,6 +1094,9 @@ canvas.addEventListener("mousemove", (e) => {
   panWorld.y += worldPrev.y - worldCurr.y;
   lastDragClient.x = e.clientX;
   lastDragClient.y = e.clientY;
+  if (cursorLightModeToggle.checked) {
+    drawOverlay();
+  }
 });
 
 canvas.addEventListener("click", (e) => {
@@ -688,17 +1109,21 @@ canvas.addEventListener("click", (e) => {
   }
 
   const pixel = uvToMapPixelIndex(uv);
-  const pixelCenterUv = mapPixelIndexToUv(pixel.x, pixel.y);
-  lastMarker = {
-    uvX: pixelCenterUv.x,
-    uvY: pixelCenterUv.y,
-    pixelX: pixel.x,
-    pixelY: pixel.y,
-  };
+  if (lightingModeToggle.checked) {
+    const existing = findPointLightAtPixel(pixel.x, pixel.y);
+    if (existing) {
+      beginLightEdit(existing);
+      setStatus(`Selected point light at (${existing.pixelX}, ${existing.pixelY})`);
+    } else {
+      createPointLight(pixel.x, pixel.y);
+    }
+    drawOverlay();
+    return;
+  }
 
-  setStatus(
-    `Marker map coords: (${lastMarker.pixelX}, ${lastMarker.pixelY}) | uv=(${lastMarker.uvX.toFixed(4)}, ${lastMarker.uvY.toFixed(4)})`
-  );
+  const pixelCenterUv = mapPixelIndexToUv(pixel.x, pixel.y);
+  lastMarker = { uvX: pixelCenterUv.x, uvY: pixelCenterUv.y, pixelX: pixel.x, pixelY: pixel.y };
+  setStatus(`Marker map coords: (${lastMarker.pixelX}, ${lastMarker.pixelY}) | uv=(${lastMarker.uvX.toFixed(4)}, ${lastMarker.uvY.toFixed(4)})`);
   drawOverlay();
 });
 
@@ -706,9 +1131,123 @@ canvas.addEventListener("auxclick", (e) => {
   if (e.button === 1) e.preventDefault();
 });
 
+canvas.addEventListener("mouseleave", () => {
+  if (!cursorLightModeToggle.checked) return;
+  cursorLightState.active = false;
+  drawOverlay();
+});
+
 circleRadiusInput.addEventListener("input", () => {
   updateRadiusLabel();
   drawOverlay();
+});
+heightScaleInput.addEventListener("input", schedulePointLightBake);
+
+for (const btn of topicButtons) {
+  btn.addEventListener("click", () => {
+    const topic = btn.dataset.topic || "";
+    const isAlreadyActive = btn.classList.contains("active");
+    setActiveTopic(isAlreadyActive ? "" : topic);
+  });
+}
+
+topicPanelCloseBtn.addEventListener("click", () => {
+  setActiveTopic("");
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    setActiveTopic("");
+  }
+});
+
+lightingModeToggle.addEventListener("change", () => {
+  setStatus(lightingModeToggle.checked ? "Lighting mode enabled: click terrain to add/select point lights." : "Lighting mode disabled: click terrain to set marker.");
+  drawOverlay();
+});
+
+cursorLightModeToggle.addEventListener("change", () => {
+  if (!cursorLightModeToggle.checked) {
+    cursorLightState.active = false;
+    drawOverlay();
+    setStatus("Cursor light disabled.");
+    return;
+  }
+  setStatus("Cursor light enabled: move mouse over terrain for live point light.");
+});
+
+cursorLightFollowHeightToggle.addEventListener("change", () => {
+  cursorLightState.useTerrainHeight = cursorLightFollowHeightToggle.checked;
+  updateCursorLightModeUi();
+});
+
+cursorLightColorInput.addEventListener("input", () => {
+  cursorLightState.color = hexToRgb01(cursorLightColorInput.value);
+  drawOverlay();
+});
+
+cursorLightStrengthInput.addEventListener("input", () => {
+  cursorLightState.strength = Math.round(clamp(Number(cursorLightStrengthInput.value), 1, 200));
+  updateCursorLightStrengthLabel();
+  drawOverlay();
+});
+
+cursorLightHeightOffsetInput.addEventListener("input", () => {
+  cursorLightState.heightOffset = Math.round(clamp(Number(cursorLightHeightOffsetInput.value), 0, 120));
+  updateCursorLightHeightOffsetLabel();
+  drawOverlay();
+});
+
+cursorLightGizmoToggle.addEventListener("change", () => {
+  cursorLightState.showGizmo = cursorLightGizmoToggle.checked;
+  drawOverlay();
+});
+
+pointLightColorInput.addEventListener("input", () => {
+  if (!lightEditDraft) return;
+  lightEditDraft.color = hexToRgb01(pointLightColorInput.value);
+  drawOverlay();
+});
+
+pointLightStrengthInput.addEventListener("input", () => {
+  if (!lightEditDraft) return;
+  lightEditDraft.strength = Math.round(clamp(Number(pointLightStrengthInput.value), 1, 200));
+  updatePointLightStrengthLabel();
+  drawOverlay();
+});
+
+lightSaveBtn.addEventListener("click", () => {
+  const selected = getSelectedPointLight();
+  if (!selected || !lightEditDraft) return;
+  selected.color = [...lightEditDraft.color];
+  selected.strength = Math.round(clamp(lightEditDraft.strength, 1, 200));
+  bakePointLightsTexture();
+  updateLightEditorUi();
+  drawOverlay();
+  setStatus(`Saved point light at (${selected.pixelX}, ${selected.pixelY})`);
+});
+
+lightCancelBtn.addEventListener("click", () => {
+  selectedLightId = null;
+  lightEditDraft = null;
+  updateLightEditorUi();
+  drawOverlay();
+  setStatus("Point light edit canceled.");
+});
+
+lightDeleteBtn.addEventListener("click", () => {
+  const selected = getSelectedPointLight();
+  if (!selected) return;
+  const idx = pointLights.findIndex((light) => light.id === selected.id);
+  if (idx >= 0) {
+    pointLights.splice(idx, 1);
+  }
+  selectedLightId = null;
+  lightEditDraft = null;
+  bakePointLightsTexture();
+  updateLightEditorUi();
+  drawOverlay();
+  setStatus(`Deleted point light at (${selected.pixelX}, ${selected.pixelY})`);
 });
 
 parallaxStrengthInput.addEventListener("input", updateParallaxStrengthLabel);
@@ -730,7 +1269,7 @@ async function tryAutoLoadAssets() {
   try {
     const splat = await loadImageFromUrl("./assets/splat.png");
     uploadImageToTexture(splatTex, splat);
-    setSplatSizeFromImage(splat);
+    applyMapSizeChangeIfNeeded(setSplatSizeFromImage(splat));
     resetCamera();
     loaded.push("splat.png");
   } catch (err) {
@@ -738,30 +1277,40 @@ async function tryAutoLoadAssets() {
     failed.push("splat.png");
     const fallbackSplat = createFallbackSplat(512);
     uploadImageToTexture(splatTex, fallbackSplat);
-    setSplatSizeFromImage(fallbackSplat);
+    applyMapSizeChangeIfNeeded(setSplatSizeFromImage(fallbackSplat));
     resetCamera();
   }
 
   try {
     const normals = await loadImageFromUrl("./assets/normals.png");
     uploadImageToTexture(normalsTex, normals);
+    setNormalsSizeFromImage(normals);
+    normalsImageData = extractImageData(normals);
+    bakePointLightsTexture();
     loaded.push("normals.png");
   } catch (err) {
     console.warn("Failed to load normals.png", err);
     failed.push("normals.png");
     uploadImageToTexture(normalsTex, defaultNormalImage);
+    setNormalsSizeFromImage(defaultNormalImage);
+    normalsImageData = extractImageData(defaultNormalImage);
+    bakePointLightsTexture();
   }
 
   try {
     const height = await loadImageFromUrl("./assets/height.png");
     uploadImageToTexture(heightTex, height);
     setHeightSizeFromImage(height);
+    heightImageData = extractImageData(height);
+    bakePointLightsTexture();
     loaded.push("height.png");
   } catch (err) {
     console.warn("Failed to load height.png", err);
     failed.push("height.png");
     uploadImageToTexture(heightTex, defaultHeightImage);
     setHeightSizeFromImage(defaultHeightImage);
+    heightImageData = extractImageData(defaultHeightImage);
+    bakePointLightsTexture();
   }
 
   if (loaded.length > 0 && failed.length > 0) {
@@ -781,7 +1330,7 @@ splatInput.addEventListener("change", async () => {
   try {
     const image = await loadImageFromFile(file);
     uploadImageToTexture(splatTex, image);
-    setSplatSizeFromImage(image);
+    applyMapSizeChangeIfNeeded(setSplatSizeFromImage(image));
     resetCamera();
     setStatus(`Loaded splat: ${file.name} (${image.width}x${image.height})`);
   } catch (error) {
@@ -797,6 +1346,9 @@ normalInput.addEventListener("change", async () => {
   try {
     const image = await loadImageFromFile(file);
     uploadImageToTexture(normalsTex, image);
+    setNormalsSizeFromImage(image);
+    normalsImageData = extractImageData(image);
+    bakePointLightsTexture();
     setStatus(`Loaded normals: ${file.name}`);
   } catch (error) {
     console.error("Failed to load normals file:", file.name, error);
@@ -812,6 +1364,8 @@ heightInput.addEventListener("change", async () => {
     const image = await loadImageFromFile(file);
     uploadImageToTexture(heightTex, image);
     setHeightSizeFromImage(image);
+    heightImageData = extractImageData(image);
+    bakePointLightsTexture();
     setStatus(`Loaded height: ${file.name}`);
   } catch (error) {
     console.error("Failed to load height file:", file.name, error);
@@ -927,6 +1481,10 @@ function render(nowMs) {
   gl.bindTexture(gl.TEXTURE_2D, heightTex);
   gl.uniform1i(uniforms.uHeight, 2);
 
+  gl.activeTexture(gl.TEXTURE3);
+  gl.bindTexture(gl.TEXTURE_2D, pointLightTex);
+  gl.uniform1i(uniforms.uPointLightTex, 3);
+
   const viewHalf = getViewHalfExtents();
   gl.uniform2f(uniforms.uMapTexelSize, 1 / heightSize.width, 1 / heightSize.height);
   gl.uniform2f(uniforms.uResolution, canvas.width, canvas.height);
@@ -953,6 +1511,13 @@ function render(nowMs) {
   gl.uniform1f(uniforms.uFogStartOffset, clamp(Number(fogStartOffsetInput.value), 0, 1));
   gl.uniform1f(uniforms.uCameraHeightNorm, cameraHeightNorm);
   gl.uniform1f(uniforms.uMapAspect, getMapAspect());
+  gl.uniform1f(uniforms.uUseCursorLight, cursorLightModeToggle.checked && cursorLightState.active ? 1 : 0);
+  gl.uniform2f(uniforms.uCursorLightUv, cursorLightState.uvX, cursorLightState.uvY);
+  gl.uniform3f(uniforms.uCursorLightColor, cursorLightState.color[0], cursorLightState.color[1], cursorLightState.color[2]);
+  gl.uniform1f(uniforms.uCursorLightStrength, cursorLightState.strength);
+  gl.uniform1f(uniforms.uCursorLightHeightOffset, cursorLightState.heightOffset);
+  gl.uniform1f(uniforms.uUseCursorTerrainHeight, cursorLightState.useTerrainHeight ? 1 : 0);
+  gl.uniform2f(uniforms.uCursorLightMapSize, splatSize.width, splatSize.height);
   gl.uniform2f(uniforms.uViewHalfExtents, viewHalf.x, viewHalf.y);
   gl.uniform2f(uniforms.uPanWorld, panWorld.x, panWorld.y);
 
@@ -974,7 +1539,14 @@ updateParallaxBandsLabel();
 updateFogAlphaLabels();
 updateFogFalloffLabel();
 updateFogStartOffsetLabel();
+updatePointLightStrengthLabel();
+updateCursorLightStrengthLabel();
+updateCursorLightHeightOffsetLabel();
+updateLightEditorUi();
+updateCursorLightModeUi();
 updateParallaxUi();
 updateFogUi();
-setStatus(`${statusEl.textContent} | Day cycle: speed slider (0..1 h/s), diffuse slider, wheel zoom, middle-drag pan, left-click marker, optional parallax and height fog.`);
+setActiveTopic("");
+setStatus(`${statusEl.textContent} | Left icon dock opens one settings topic at a time. Wheel zoom, middle-drag pan, lighting mode for placed lights, cursor light for live preview.`);
 requestAnimationFrame(render);
+

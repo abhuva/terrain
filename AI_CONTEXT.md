@@ -19,6 +19,7 @@ No game engine is used.
 - Entry point: `index.html`
 - Main implementation: `src/main.js`
 - Rendering backend: WebGL2 terrain pass + 2D overlay canvas for interaction markers
+- Settings UI: left vertical topic-icon dock + single side panel (one topic open at a time)
 - Assets loaded by default:
   - `assets/splat.png`
   - `assets/normals.png`
@@ -39,6 +40,21 @@ No game engine is used.
 - Shadows:
   - texture-space raymarch over `uHeight`
   - texel step uses height-map dimensions (`heightSize`)
+- Optional point lights:
+  - `Lighting Mode` toggle switches click behavior to light placement/selection
+  - each point light stores map pixel coordinate + color + strength (radius in px)
+  - default new light: orange, strength `30`
+  - linear radial falloff
+  - normal interaction is baked into a map-space `pointLightTex` on add/edit/delete or normal/height-map update
+  - terrain height occlusion is baked by a light-to-surface line-of-sight test (cliffs can block local light spread)
+  - main fragment shader samples `uPointLightTex` and applies it to base color
+- Optional cursor light mode:
+  - mouse position drives a single live point light in shader uniforms
+  - linear falloff + normal interaction
+  - supports two elevation modes:
+    - terrain-following (`height at cursor + offset`)
+    - old fixed-height behavior (derived from light strength)
+  - no bake per mouse move (direct fragment shading path)
 - Optional parallax mode (toggle in UI):
   - combines continuous height-based UV offset (option 1)
   - plus quantized height-band offset (option 2)
@@ -60,6 +76,13 @@ No game engine is used.
 - Mouse wheel: zoom (cursor-centered)
 - Middle mouse drag: pan
 - Left click: store last clicked map coordinate (`uv` + pixel) and place marker
+- Lighting mode on:
+  - Left click adds a point light unless one already exists at that map pixel
+  - Clicking an existing light selects it and opens the side editor
+  - Side editor supports `Color`, `Strength`, `Save`, `Cancel`, `Delete`
+- Cursor light mode on:
+  - mouse movement updates live point-light position on terrain
+  - optional overlay gizmo shows live cursor-light radius preview
 - Marker is drawn on a separate overlay layer (`overlayCanvas`) to keep path/UI drawing decoupled from terrain shading
 - Render is pixel-sharp while zooming (`NEAREST` texture filtering)
 
@@ -69,6 +92,8 @@ Main light uniforms:
 - `uSunDir`, `uSunColor`, `uSunStrength`
 - `uMoonDir`, `uMoonColor`, `uMoonStrength`
 - `uAmbientColor`, `uAmbient`
+- `uPointLightTex`
+- `uUseCursorLight`, `uCursorLightUv`, `uCursorLightColor`, `uCursorLightStrength`, `uCursorLightHeightOffset`, `uUseCursorTerrainHeight`, `uCursorLightMapSize`
 
 Map/camera uniforms:
 - `uSplat`, `uNormals`, `uHeight`
@@ -97,6 +122,8 @@ After lighting/camera/map-load changes, verify:
 4. Daylight looks warm at sunrise/sunset.
 5. Night is dim but readable due to moon light.
 6. Height-map shadows still react to light direction.
+7. Lighting mode toggle correctly swaps marker click behavior with point-light placement/editing.
+8. Point-light edits (save/delete) visibly rebake terrain local lighting.
 
 ## Known Non-Goals (Current Prototype)
 

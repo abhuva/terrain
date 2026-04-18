@@ -6,6 +6,7 @@ Prototype goals:
 - Load height PNG and compute directional shadows
 - Simulate a full day/night sun cycle with adjustable speed
 - Capture left-click map coordinates and draw a marker on a separate overlay layer
+- Add editable point lights in a dedicated lighting placement mode
 
 ## Files
 
@@ -52,6 +53,20 @@ Then open:
 - Middle mouse drag pans the map.
 - Left click stores the last clicked map coordinate and draws a solid red circle marker.
 - Marker radius is controlled by the `Circle Radius` slider (`0.5..50` map pixels).
+- `Lighting Mode` changes left click behavior from marker placement to point-light placement/edit selection.
+- `Cursor Light` mode turns the mouse into a live point light (no bake per mouse move).
+- Cursor light supports:
+  - terrain-following elevation (`cursor terrain height + offset`)
+  - old fixed-height behavior (height derived from light strength)
+- `Cursor Gizmo` toggle controls whether the cursor-light preview ring/dot is drawn.
+- Point lights are stored as map pixel coordinates + color + strength/radius.
+- New lights default to orange with strength `30` (linear falloff to zero at radius edge).
+- Clicking an existing light coordinate selects it instead of creating a duplicate.
+- Point-light edits are done in the `Editor` topic panel (`Color`, `Strength`, `Save`, `Cancel`, `Delete`).
+- Point lighting is baked into a map-space light texture only when lights or normal/height inputs change.
+- Point-light baking also uses height-map line-of-sight occlusion so steep terrain can block local light spread.
+- Terrain shading samples that baked texture during normal rendering, so frame-time cost stays low.
+- Settings are opened from a left vertical icon dock, one topic panel at a time.
 - `Parallax` toggle enables a combined depth illusion from the height map:
   - continuous height-based UV offset while panning
   - quantized height-band offset for layered depth separation

@@ -37,7 +37,7 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
 
 ## Lighting Model (Prototype)
 
-- Directional sun (not point light)
+- Directional sun/moon + optional baked point lights
 - Simulated day/night cycle:
   - Hour over day drives azimuth and altitude from a simple lookup table
   - Cycle speed is adjustable from `0` to `1` hour per second
@@ -46,6 +46,16 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
   - Secondary directional moon light keeps nights readable
   - Moon ambient tint is cool and dim, with dusk/dawn overlap
 - Height-based shadow raymarch in texture space
+- Optional editable point-light system:
+  - Placement mode via UI toggle
+  - Point lights are map-pixel anchored (`x`, `y`, `strength`, `color`)
+  - Linear radius falloff (current default strength: `30` px, default color: orange)
+  - Per-light normal interaction baked into a map-space texture on change
+  - Main render pass samples baked point-light texture for fast runtime
+- Optional live cursor-light mode:
+  - Cursor position is used as a single real-time point light
+  - Rendered directly in shader (no per-move bake)
+  - Uses linear falloff and normal interaction
 - Optional parallax illusion from height map (continuous + banded)
 - Optional height fog illusion based on zoom-derived camera height vs terrain height
 
