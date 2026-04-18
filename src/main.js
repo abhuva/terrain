@@ -9,6 +9,7 @@ const shadowsToggle = document.getElementById("shadowsToggle");
 const heightScaleInput = document.getElementById("heightScale");
 const shadowStrengthInput = document.getElementById("shadowStrength");
 const ambientInput = document.getElementById("ambient");
+const diffuseInput = document.getElementById("diffuse");
 
 const gl = canvas.getContext("webgl2");
 if (!gl) {
@@ -33,6 +34,10 @@ uniform vec2 uMapTexelSize;
 uniform vec2 uResolution;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
+uniform float uSunStrength;
+uniform vec3 uMoonDir;
+uniform vec3 uMoonColor;
+uniform float uMoonStrength;
 uniform vec3 uAmbientColor;
 uniform float uAmbient;
 uniform float uHeightScale;
@@ -91,6 +96,15 @@ void main() {
   vec3 n = texture(uNormals, uv).xyz * 2.0 - 1.0;
   n = normalize(n);
 
+  float sunDiffuse = max(dot(n, uSunDir), 0.0);
+  float moonDiffuse = max(dot(n, uMoonDir), 0.0);
+  float sunShadow = calcShadow(uv, uSunDir);
+  float moonShadow = calcShadow(uv, uMoonDir);
+
+  vec3 ambientLit = base * (uAmbient * uAmbientColor);
+  vec3 sunLit = base * (sunDiffuse * sunShadow * uSunStrength) * uSunColor;
+  vec3 moonLit = base * (moonDiffuse * moonShadow * uMoonStrength) * uMoonColor;
+  vec3 lit = clamp(ambientLit + sunLit + moonLit, 0.0, 1.0);
   float diffuse = max(dot(n, uSunDir), 0.0);
   float shadow = calcShadow(uv, uSunDir);
 
@@ -132,8 +146,8 @@ function createProgram(vsSrc, fsSrc) {
 function createTexture() {
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -192,6 +206,11 @@ function lerpAngleDeg(a, b, t) {
   return a + delta * t;
 }
 
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 function wrapHour(hour) {
   const h = hour % 24;
   return h < 0 ? h + 24 : h;
@@ -247,6 +266,10 @@ const uniforms = {
   uResolution: gl.getUniformLocation(program, "uResolution"),
   uSunDir: gl.getUniformLocation(program, "uSunDir"),
   uSunColor: gl.getUniformLocation(program, "uSunColor"),
+  uSunStrength: gl.getUniformLocation(program, "uSunStrength"),
+  uMoonDir: gl.getUniformLocation(program, "uMoonDir"),
+  uMoonColor: gl.getUniformLocation(program, "uMoonColor"),
+  uMoonStrength: gl.getUniformLocation(program, "uMoonStrength"),
   uAmbientColor: gl.getUniformLocation(program, "uAmbientColor"),
   uAmbient: gl.getUniformLocation(program, "uAmbient"),
   uHeightScale: gl.getUniformLocation(program, "uHeightScale"),
@@ -451,6 +474,7 @@ async function tryAutoLoadAssets() {
     setSplatSizeFromImage(splat);
     resetCamera();
     loaded.push("splat.png");
+  } catch {
   } catch (err) {
     console.warn("Failed to load splat.png", err);
     failed.push("splat.png");
@@ -464,6 +488,7 @@ async function tryAutoLoadAssets() {
     const normals = await loadImageFromUrl("./assets/normals.png");
     uploadImageToTexture(normalsTex, normals);
     loaded.push("normals.png");
+  } catch {
   } catch (err) {
     console.warn("Failed to load normals.png", err);
     failed.push("normals.png");
@@ -475,6 +500,7 @@ async function tryAutoLoadAssets() {
     uploadImageToTexture(heightTex, height);
     setHeightSizeFromImage(height);
     loaded.push("height.png");
+  } catch {
   } catch (err) {
     console.warn("Failed to load height.png", err);
     failed.push("height.png");
@@ -482,6 +508,8 @@ async function tryAutoLoadAssets() {
     setHeightSizeFromImage(defaultHeightImage);
   }
 
+  if (loaded.length > 0) {
+    setStatus(`Loaded default assets: ${loaded.join(", ")}`);
   if (loaded.length > 0 && failed.length > 0) {
     setStatus(`Loaded defaults: ${loaded.join(", ")} | Fallback used for: ${failed.join(", ")}`);
   } else if (loaded.length > 0) {
@@ -564,6 +592,7 @@ function render(nowMs) {
   }
 
   const sun = sampleSunAtHour(cycleState.hour);
+  const moonTrack = sampleSunAtHour(wrapHour(cycleState.hour + 12));
   const azimuthRad = sun.azimuthDeg * Math.PI / 180;
   const altitudeRad = sun.altitudeDeg * Math.PI / 180;
   const cosAlt = Math.cos(altitudeRad);
@@ -572,6 +601,42 @@ function render(nowMs) {
     Math.sin(azimuthRad) * cosAlt,
     Math.sin(altitudeRad),
   ];
+  const moonAzimuthRad = moonTrack.azimuthDeg * Math.PI / 180;
+  const moonAltitudeDeg = moonTrack.altitudeDeg * 0.9;
+  const moonAltitudeRad = moonAltitudeDeg * Math.PI / 180;
+  const moonCosAlt = Math.cos(moonAltitudeRad);
+  const moonDir = [
+    Math.cos(moonAzimuthRad) * moonCosAlt,
+    Math.sin(moonAzimuthRad) * moonCosAlt,
+    Math.sin(moonAltitudeRad),
+  ];
+
+  const ambientBase = Number(ambientInput.value);
+  const diffuseBase = clamp(Number(diffuseInput.value), 0, 2);
+  const sunVisible = smoothstep(-4, 2, sun.altitudeDeg);
+  const moonVisible = smoothstep(-10, 6, moonAltitudeDeg);
+  const sunStrength = sunVisible * diffuseBase;
+  const moonStrength = 0.22 * moonVisible * diffuseBase;
+
+  const moonAmbientColor = [0.20, 0.26, 0.40];
+  const sunAmbientWeight = sun.ambientScale;
+  const moonAmbientWeight = 0.24 * moonVisible;
+  const totalAmbientWeight = sunAmbientWeight + moonAmbientWeight;
+  let ambientColor = [0.08, 0.10, 0.14];
+  if (totalAmbientWeight > 0.0001) {
+    ambientColor = [
+      (sun.ambientColor[0] * sunAmbientWeight + moonAmbientColor[0] * moonAmbientWeight) / totalAmbientWeight,
+      (sun.ambientColor[1] * sunAmbientWeight + moonAmbientColor[1] * moonAmbientWeight) / totalAmbientWeight,
+      (sun.ambientColor[2] * sunAmbientWeight + moonAmbientColor[2] * moonAmbientWeight) / totalAmbientWeight,
+    ];
+  }
+  const ambientFinal = ambientBase * (sunAmbientWeight + moonAmbientWeight);
+  const moonColor = [0.34, 0.40, 0.54];
+
+  cycleInfoEl.textContent = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeedHoursPerSec.toFixed(2)} h/s`;
+
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
 
   const ambientBase = Number(ambientInput.value);
   const ambientFinal = ambientBase * sun.ambientScale;
@@ -599,6 +664,11 @@ function render(nowMs) {
   gl.uniform2f(uniforms.uResolution, canvas.width, canvas.height);
   gl.uniform3f(uniforms.uSunDir, sunDir[0], sunDir[1], sunDir[2]);
   gl.uniform3f(uniforms.uSunColor, sun.sunColor[0], sun.sunColor[1], sun.sunColor[2]);
+  gl.uniform1f(uniforms.uSunStrength, sunStrength);
+  gl.uniform3f(uniforms.uMoonDir, moonDir[0], moonDir[1], moonDir[2]);
+  gl.uniform3f(uniforms.uMoonColor, moonColor[0], moonColor[1], moonColor[2]);
+  gl.uniform1f(uniforms.uMoonStrength, moonStrength);
+  gl.uniform3f(uniforms.uAmbientColor, ambientColor[0], ambientColor[1], ambientColor[2]);
   gl.uniform3f(uniforms.uAmbientColor, sun.ambientColor[0], sun.ambientColor[1], sun.ambientColor[2]);
   gl.uniform1f(uniforms.uAmbient, ambientFinal);
   gl.uniform1f(uniforms.uHeightScale, Number(heightScaleInput.value));
@@ -614,6 +684,13 @@ function render(nowMs) {
 
 window.addEventListener("resize", resize);
 
+void tryAutoLoadAssets().catch((error) => {
+  console.error("Auto-load failed:", error);
+  const message = error instanceof Error ? error.message : String(error);
+  setStatus(`Auto-load failed: ${message}`);
+});
+setStatus(`${statusEl.textContent} | Day cycle: speed slider (0..1 h/s), diffuse slider, wheel zoom, middle-drag pan.`);
+requestAnimationFrame(render);
 await tryAutoLoadAssets();
 setStatus(`${statusEl.textContent} | Day cycle: speed slider (0..1 h/s), wheel zoom, middle-drag pan.`);
 requestAnimationFrame(render);
