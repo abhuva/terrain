@@ -86,6 +86,7 @@ const gl = canvas.getContext("webgl2");
 if (!gl) {
   throw new Error("WebGL2 is required for this prototype.");
 }
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
 const VERT_SRC = `#version 300 es
 precision highp float;
@@ -315,7 +316,6 @@ function createTexture() {
 }
 
 function uploadImageToTexture(tex, image) {
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 }
