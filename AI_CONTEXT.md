@@ -18,7 +18,7 @@ No game engine is used.
 
 - Entry point: `index.html`
 - Main implementation: `src/main.js`
-- Rendering backend: WebGL2, single full-screen quad + fragment shader
+- Rendering backend: WebGL2 terrain pass + 2D overlay canvas for interaction markers
 - Assets loaded by default:
   - `assets/splat.png`
   - `assets/normals.png`
@@ -39,11 +39,28 @@ No game engine is used.
 - Shadows:
   - texture-space raymarch over `uHeight`
   - texel step uses height-map dimensions (`heightSize`)
+- Optional parallax mode (toggle in UI):
+  - combines continuous height-based UV offset (option 1)
+  - plus quantized height-band offset (option 2)
+  - effect is anchored to the current view center (focal UV), so relative displacement is stronger away from center
+  - effect is scaled by zoom to reduce "strong when zoomed out / weak when zoomed in" mismatch
+  - displaced UV is fitted back to map bounds near edges to avoid border holes/cutouts
+  - strength is controlled by `parallaxStrength`
+  - band count is controlled by `parallaxBands` (default 6)
+- Optional height fog mode (toggle in UI):
+  - camera-height proxy is derived from zoom (`zoomed out => higher camera`)
+  - per-pixel fog is based on `cameraHeightNorm - terrainHeight`
+  - fog alpha range is controlled by `fogMinAlpha` / `fogMaxAlpha`
+  - fog response curve is controlled by `fogFalloff`
+  - fog onset threshold is controlled by `fogStartOffset`
+  - fog color defaults to auto light-matched tint and becomes fixed when user edits the color picker
 
 ## Camera/Interaction
 
 - Mouse wheel: zoom (cursor-centered)
 - Middle mouse drag: pan
+- Left click: store last clicked map coordinate (`uv` + pixel) and place marker
+- Marker is drawn on a separate overlay layer (`overlayCanvas`) to keep path/UI drawing decoupled from terrain shading
 - Render is pixel-sharp while zooming (`NEAREST` texture filtering)
 
 ## Shader Uniform Contract
@@ -58,6 +75,8 @@ Map/camera uniforms:
 - `uMapTexelSize` (must come from height texture size)
 - `uMapAspect` (must come from splat texture size)
 - `uResolution`, `uViewHalfExtents`, `uPanWorld`
+- `uUseParallax`, `uParallaxStrength`, `uParallaxBands`, `uZoom`
+- `uUseFog`, `uFogColor`, `uFogMinAlpha`, `uFogMaxAlpha`, `uFogFalloff`, `uFogStartOffset`, `uCameraHeightNorm`
 
 ## Change Rules
 

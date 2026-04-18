@@ -1,15 +1,34 @@
-﻿const canvas = document.getElementById("glCanvas");
+const canvas = document.getElementById("glCanvas");
+const overlayCanvas = document.getElementById("overlayCanvas");
 const statusEl = document.getElementById("status");
 const cycleInfoEl = document.getElementById("cycleInfo");
 const splatInput = document.getElementById("splatInput");
 const normalInput = document.getElementById("normalInput");
 const heightInput = document.getElementById("heightInput");
+const circleRadiusInput = document.getElementById("circleRadius");
+const circleRadiusValue = document.getElementById("circleRadiusValue");
 const cycleSpeedInput = document.getElementById("cycleSpeed");
 const shadowsToggle = document.getElementById("shadowsToggle");
+const parallaxToggle = document.getElementById("parallaxToggle");
+const parallaxStrengthInput = document.getElementById("parallaxStrength");
+const parallaxStrengthValue = document.getElementById("parallaxStrengthValue");
+const parallaxBandsInput = document.getElementById("parallaxBands");
+const parallaxBandsValue = document.getElementById("parallaxBandsValue");
+const fogToggle = document.getElementById("fogToggle");
+const fogColorInput = document.getElementById("fogColor");
+const fogMinAlphaInput = document.getElementById("fogMinAlpha");
+const fogMinAlphaValue = document.getElementById("fogMinAlphaValue");
+const fogMaxAlphaInput = document.getElementById("fogMaxAlpha");
+const fogMaxAlphaValue = document.getElementById("fogMaxAlphaValue");
+const fogFalloffInput = document.getElementById("fogFalloff");
+const fogFalloffValue = document.getElementById("fogFalloffValue");
+const fogStartOffsetInput = document.getElementById("fogStartOffset");
+const fogStartOffsetValue = document.getElementById("fogStartOffsetValue");
 const heightScaleInput = document.getElementById("heightScale");
 const shadowStrengthInput = document.getElementById("shadowStrength");
 const ambientInput = document.getElementById("ambient");
 const diffuseInput = document.getElementById("diffuse");
+const overlayCtx = overlayCanvas.getContext("2d");
 
 const gl = canvas.getContext("webgl2");
 if (!gl) {
@@ -43,12 +62,64 @@ uniform float uAmbient;
 uniform float uHeightScale;
 uniform float uShadowStrength;
 uniform float uUseShadows;
+uniform float uUseParallax;
+uniform float uParallaxStrength;
+uniform float uParallaxBands;
+uniform float uZoom;
+uniform float uUseFog;
+uniform vec3 uFogColor;
+uniform float uFogMinAlpha;
+uniform float uFogMaxAlpha;
+uniform float uFogFalloff;
+uniform float uFogStartOffset;
+uniform float uCameraHeightNorm;
 uniform float uMapAspect;
 uniform vec2 uViewHalfExtents;
 uniform vec2 uPanWorld;
 
 float readHeight(vec2 uv) {
   return texture(uHeight, uv).r * uHeightScale;
+}
+
+vec2 applyParallax(vec2 baseUv, vec2 focalUv) {
+  if (uUseParallax < 0.5) return baseUv;
+
+  float hRaw = texture(uHeight, baseUv).r;
+  vec2 fromFocal = baseUv - focalUv;
+  float dist = length(fromFocal);
+  float edgeBoost = smoothstep(0.0, 0.9, dist);
+  float zoomNorm = max(0.35, uZoom);
+  float amount = uParallaxStrength * (0.35 + 0.65 * edgeBoost) * zoomNorm;
+
+  float centeredHeight = hRaw - 0.5;
+  vec2 continuousOffset = -fromFocal * (centeredHeight * amount * 0.48);
+
+  float bandSteps = max(2.0, uParallaxBands);
+  float bandNorm = floor(hRaw * bandSteps) / max(1.0, bandSteps - 1.0);
+  float centeredBand = bandNorm - 0.5;
+  vec2 bandOffset = -fromFocal * (centeredBand * amount * 0.70);
+
+  return baseUv + continuousOffset + bandOffset;
+}
+
+vec2 fitUvOffsetToBounds(vec2 baseUv, vec2 displacedUv) {
+  vec2 offset = displacedUv - baseUv;
+  float scale = 1.0;
+
+  if (offset.x > 0.0) {
+    scale = min(scale, (1.0 - baseUv.x) / max(0.000001, offset.x));
+  } else if (offset.x < 0.0) {
+    scale = min(scale, baseUv.x / max(0.000001, -offset.x));
+  }
+
+  if (offset.y > 0.0) {
+    scale = min(scale, (1.0 - baseUv.y) / max(0.000001, offset.y));
+  } else if (offset.y < 0.0) {
+    scale = min(scale, baseUv.y / max(0.000001, -offset.y));
+  }
+
+  scale = clamp(scale, 0.0, 1.0);
+  return baseUv + offset * scale;
 }
 
 float calcShadow(vec2 uv, vec3 sunDir) {
@@ -85,12 +156,15 @@ float calcShadow(vec2 uv, vec3 sunDir) {
 void main() {
   vec2 ndc = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
   vec2 world = uPanWorld + ndc * uViewHalfExtents;
-  vec2 uv = vec2(world.x / uMapAspect + 0.5, world.y + 0.5);
+  vec2 baseUv = vec2(world.x / uMapAspect + 0.5, world.y + 0.5);
 
-  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
+  if (baseUv.x < 0.0 || baseUv.y < 0.0 || baseUv.x > 1.0 || baseUv.y > 1.0) {
     outColor = vec4(0.02, 0.025, 0.03, 1.0);
     return;
   }
+
+  vec2 focalUv = vec2(uPanWorld.x / uMapAspect + 0.5, uPanWorld.y + 0.5);
+  vec2 uv = fitUvOffsetToBounds(baseUv, applyParallax(baseUv, focalUv));
 
   vec3 base = texture(uSplat, uv).rgb;
   vec3 n = texture(uNormals, uv).xyz * 2.0 - 1.0;
@@ -105,12 +179,19 @@ void main() {
   vec3 sunLit = base * (sunDiffuse * sunShadow * uSunStrength) * uSunColor;
   vec3 moonLit = base * (moonDiffuse * moonShadow * uMoonStrength) * uMoonColor;
   vec3 lit = clamp(ambientLit + sunLit + moonLit, 0.0, 1.0);
-  float diffuse = max(dot(n, uSunDir), 0.0);
-  float shadow = calcShadow(uv, uSunDir);
 
-  vec3 ambientLit = base * (uAmbient * uAmbientColor);
-  vec3 sunLit = base * (diffuse * shadow) * uSunColor;
-  vec3 lit = clamp(ambientLit + sunLit, 0.0, 1.0);
+  if (uUseFog > 0.5) {
+    float terrainHeight = texture(uHeight, uv).r;
+    float heightDelta = max(0.0, uCameraHeightNorm - terrainHeight);
+    float adjustedDelta = max(0.0, heightDelta - uFogStartOffset);
+    float fogBase = smoothstep(0.02, 0.92, adjustedDelta);
+    float fogAmount = pow(clamp(fogBase, 0.0, 1.0), max(0.05, uFogFalloff));
+    float fogMin = min(uFogMinAlpha, uFogMaxAlpha);
+    float fogMax = max(uFogMinAlpha, uFogMaxAlpha);
+    float fogAlpha = mix(fogMin, fogMax, fogAmount);
+    lit = mix(lit, uFogColor, fogAlpha);
+  }
+
   outColor = vec4(lit, 1.0);
 }`;
 
@@ -275,6 +356,17 @@ const uniforms = {
   uHeightScale: gl.getUniformLocation(program, "uHeightScale"),
   uShadowStrength: gl.getUniformLocation(program, "uShadowStrength"),
   uUseShadows: gl.getUniformLocation(program, "uUseShadows"),
+  uUseParallax: gl.getUniformLocation(program, "uUseParallax"),
+  uParallaxStrength: gl.getUniformLocation(program, "uParallaxStrength"),
+  uParallaxBands: gl.getUniformLocation(program, "uParallaxBands"),
+  uZoom: gl.getUniformLocation(program, "uZoom"),
+  uUseFog: gl.getUniformLocation(program, "uUseFog"),
+  uFogColor: gl.getUniformLocation(program, "uFogColor"),
+  uFogMinAlpha: gl.getUniformLocation(program, "uFogMinAlpha"),
+  uFogMaxAlpha: gl.getUniformLocation(program, "uFogMaxAlpha"),
+  uFogFalloff: gl.getUniformLocation(program, "uFogFalloff"),
+  uFogStartOffset: gl.getUniformLocation(program, "uFogStartOffset"),
+  uCameraHeightNorm: gl.getUniformLocation(program, "uCameraHeightNorm"),
   uMapAspect: gl.getUniformLocation(program, "uMapAspect"),
   uViewHalfExtents: gl.getUniformLocation(program, "uViewHalfExtents"),
   uPanWorld: gl.getUniformLocation(program, "uPanWorld"),
@@ -372,6 +464,8 @@ const zoomMax = 32;
 const panWorld = { x: 0, y: 0 };
 let isMiddleDragging = false;
 let lastDragClient = { x: 0, y: 0 };
+let lastMarker = null;
+let fogColorManual = false;
 
 const cycleState = {
   hour: 9.5,
@@ -424,6 +518,130 @@ function worldFromNdc(ndc, zoomValue = zoom, pan = panWorld) {
   };
 }
 
+function worldToUv(world) {
+  return {
+    x: world.x / getMapAspect() + 0.5,
+    y: world.y + 0.5,
+  };
+}
+
+function uvToMapPixelIndex(uv) {
+  return {
+    x: Math.floor(clamp(uv.x, 0, 0.999999) * splatSize.width),
+    y: Math.floor((1 - clamp(uv.y, 0, 0.999999)) * splatSize.height),
+  };
+}
+
+function mapPixelIndexToUv(pixelX, pixelY) {
+  return {
+    x: (pixelX + 0.5) / splatSize.width,
+    y: 1 - (pixelY + 0.5) / splatSize.height,
+  };
+}
+
+function mapPixelToWorld(pixelX, pixelY) {
+  const uv = mapPixelIndexToUv(pixelX, pixelY);
+  return {
+    x: (uv.x - 0.5) * getMapAspect(),
+    y: uv.y - 0.5,
+  };
+}
+
+function worldToScreen(world) {
+  const viewHalf = getViewHalfExtents();
+  const ndcX = (world.x - panWorld.x) / viewHalf.x;
+  const ndcY = (world.y - panWorld.y) / viewHalf.y;
+  return {
+    x: (ndcX * 0.5 + 0.5) * overlayCanvas.width,
+    y: (1 - (ndcY * 0.5 + 0.5)) * overlayCanvas.height,
+  };
+}
+
+function updateRadiusLabel() {
+  const value = Number(circleRadiusInput.value);
+  const display = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  circleRadiusValue.textContent = `${display} px`;
+}
+
+function updateParallaxStrengthLabel() {
+  const value = clamp(Number(parallaxStrengthInput.value), 0, 1);
+  parallaxStrengthValue.textContent = value.toFixed(2);
+}
+
+function updateParallaxBandsLabel() {
+  const value = Math.round(clamp(Number(parallaxBandsInput.value), 2, 256));
+  parallaxBandsValue.textContent = String(value);
+}
+
+function updateFogAlphaLabels() {
+  fogMinAlphaValue.textContent = clamp(Number(fogMinAlphaInput.value), 0, 1).toFixed(2);
+  fogMaxAlphaValue.textContent = clamp(Number(fogMaxAlphaInput.value), 0, 1).toFixed(2);
+}
+
+function updateFogFalloffLabel() {
+  fogFalloffValue.textContent = clamp(Number(fogFalloffInput.value), 0.2, 4).toFixed(2);
+}
+
+function updateFogStartOffsetLabel() {
+  fogStartOffsetValue.textContent = clamp(Number(fogStartOffsetInput.value), 0, 1).toFixed(2);
+}
+
+function updateParallaxUi() {
+  parallaxStrengthInput.disabled = !parallaxToggle.checked;
+  parallaxBandsInput.disabled = !parallaxToggle.checked;
+}
+
+function updateFogUi() {
+  const enabled = fogToggle.checked;
+  fogColorInput.disabled = !enabled;
+  fogMinAlphaInput.disabled = !enabled;
+  fogMaxAlphaInput.disabled = !enabled;
+  fogFalloffInput.disabled = !enabled;
+  fogStartOffsetInput.disabled = !enabled;
+}
+
+function rgbToHex(rgb) {
+  const r = Math.round(clamp(rgb[0], 0, 1) * 255);
+  const g = Math.round(clamp(rgb[1], 0, 1) * 255);
+  const b = Math.round(clamp(rgb[2], 0, 1) * 255);
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function hexToRgb01(hex) {
+  const text = String(hex || "").trim();
+  const match = /^#?([0-9a-fA-F]{6})$/.exec(text);
+  if (!match) return [0.5, 0.5, 0.5];
+  const value = match[1];
+  return [
+    parseInt(value.slice(0, 2), 16) / 255,
+    parseInt(value.slice(2, 4), 16) / 255,
+    parseInt(value.slice(4, 6), 16) / 255,
+  ];
+}
+
+function drawOverlay() {
+  if (!overlayCtx) return;
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  if (!lastMarker) return;
+
+  const centerWorld = mapPixelToWorld(lastMarker.pixelX, lastMarker.pixelY);
+  const centerScreen = worldToScreen(centerWorld);
+
+  const radiusMapPx = clamp(Number(circleRadiusInput.value), 0.5, 50);
+  const worldPerMapPixel = getMapAspect() / splatSize.width;
+  const edgeWorld = {
+    x: centerWorld.x + worldPerMapPixel * radiusMapPx,
+    y: centerWorld.y,
+  };
+  const edgeScreen = worldToScreen(edgeWorld);
+  const screenRadius = Math.max(0.001, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
+
+  overlayCtx.beginPath();
+  overlayCtx.arc(centerScreen.x, centerScreen.y, screenRadius, 0, Math.PI * 2);
+  overlayCtx.fillStyle = "rgb(255,0,0)";
+  overlayCtx.fill();
+}
+
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
   const ndc = clientToNdc(e.clientX, e.clientY);
@@ -460,8 +678,49 @@ canvas.addEventListener("mousemove", (e) => {
   lastDragClient.y = e.clientY;
 });
 
+canvas.addEventListener("click", (e) => {
+  if (e.button !== 0) return;
+  const ndc = clientToNdc(e.clientX, e.clientY);
+  const world = worldFromNdc(ndc);
+  const uv = worldToUv(world);
+  if (uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) {
+    return;
+  }
+
+  const pixel = uvToMapPixelIndex(uv);
+  const pixelCenterUv = mapPixelIndexToUv(pixel.x, pixel.y);
+  lastMarker = {
+    uvX: pixelCenterUv.x,
+    uvY: pixelCenterUv.y,
+    pixelX: pixel.x,
+    pixelY: pixel.y,
+  };
+
+  setStatus(
+    `Marker map coords: (${lastMarker.pixelX}, ${lastMarker.pixelY}) | uv=(${lastMarker.uvX.toFixed(4)}, ${lastMarker.uvY.toFixed(4)})`
+  );
+  drawOverlay();
+});
+
 canvas.addEventListener("auxclick", (e) => {
   if (e.button === 1) e.preventDefault();
+});
+
+circleRadiusInput.addEventListener("input", () => {
+  updateRadiusLabel();
+  drawOverlay();
+});
+
+parallaxStrengthInput.addEventListener("input", updateParallaxStrengthLabel);
+parallaxBandsInput.addEventListener("input", updateParallaxBandsLabel);
+parallaxToggle.addEventListener("change", updateParallaxUi);
+fogMinAlphaInput.addEventListener("input", updateFogAlphaLabels);
+fogMaxAlphaInput.addEventListener("input", updateFogAlphaLabels);
+fogFalloffInput.addEventListener("input", updateFogFalloffLabel);
+fogStartOffsetInput.addEventListener("input", updateFogStartOffsetLabel);
+fogToggle.addEventListener("change", updateFogUi);
+fogColorInput.addEventListener("input", () => {
+  fogColorManual = true;
 });
 
 async function tryAutoLoadAssets() {
@@ -569,6 +828,10 @@ function resize() {
     canvas.width = w;
     canvas.height = h;
   }
+  if (overlayCanvas.width !== w || overlayCanvas.height !== h) {
+    overlayCanvas.width = w;
+    overlayCanvas.height = h;
+  }
   gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
@@ -627,6 +890,24 @@ function render(nowMs) {
   }
   const ambientFinal = ambientBase * (sunAmbientWeight + moonAmbientWeight);
   const moonColor = [0.34, 0.40, 0.54];
+  const zoomNorm = clamp((zoom - zoomMin) / (zoomMax - zoomMin), 0, 1);
+  const cameraHeightNorm = 1 - zoomNorm;
+
+  const fogSunWeight = 0.16 + 0.28 * sunVisible;
+  const fogMoonWeight = 0.10 * moonVisible;
+  const fogAmbientWeight = 0.70;
+  const fogBaseWeight = 0.35;
+  const fogBaseColor = [0.34, 0.40, 0.46];
+  const fogWeightSum = fogSunWeight + fogMoonWeight + fogAmbientWeight + fogBaseWeight;
+  const fogColorAuto = [
+    (sun.sunColor[0] * fogSunWeight + moonColor[0] * fogMoonWeight + ambientColor[0] * fogAmbientWeight + fogBaseColor[0] * fogBaseWeight) / fogWeightSum,
+    (sun.sunColor[1] * fogSunWeight + moonColor[1] * fogMoonWeight + ambientColor[1] * fogAmbientWeight + fogBaseColor[1] * fogBaseWeight) / fogWeightSum,
+    (sun.sunColor[2] * fogSunWeight + moonColor[2] * fogMoonWeight + ambientColor[2] * fogAmbientWeight + fogBaseColor[2] * fogBaseWeight) / fogWeightSum,
+  ];
+  if (!fogColorManual) {
+    fogColorInput.value = rgbToHex(fogColorAuto);
+  }
+  const fogColor = fogColorManual ? hexToRgb01(fogColorInput.value) : fogColorAuto;
 
   cycleInfoEl.textContent = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeedHoursPerSec.toFixed(2)} h/s`;
 
@@ -660,11 +941,23 @@ function render(nowMs) {
   gl.uniform1f(uniforms.uHeightScale, Number(heightScaleInput.value));
   gl.uniform1f(uniforms.uShadowStrength, Number(shadowStrengthInput.value));
   gl.uniform1f(uniforms.uUseShadows, shadowsToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uUseParallax, parallaxToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uParallaxStrength, clamp(Number(parallaxStrengthInput.value), 0, 1));
+  gl.uniform1f(uniforms.uParallaxBands, Math.round(clamp(Number(parallaxBandsInput.value), 2, 256)));
+  gl.uniform1f(uniforms.uZoom, zoom);
+  gl.uniform1f(uniforms.uUseFog, fogToggle.checked ? 1 : 0);
+  gl.uniform3f(uniforms.uFogColor, fogColor[0], fogColor[1], fogColor[2]);
+  gl.uniform1f(uniforms.uFogMinAlpha, clamp(Number(fogMinAlphaInput.value), 0, 1));
+  gl.uniform1f(uniforms.uFogMaxAlpha, clamp(Number(fogMaxAlphaInput.value), 0, 1));
+  gl.uniform1f(uniforms.uFogFalloff, clamp(Number(fogFalloffInput.value), 0.2, 4));
+  gl.uniform1f(uniforms.uFogStartOffset, clamp(Number(fogStartOffsetInput.value), 0, 1));
+  gl.uniform1f(uniforms.uCameraHeightNorm, cameraHeightNorm);
   gl.uniform1f(uniforms.uMapAspect, getMapAspect());
   gl.uniform2f(uniforms.uViewHalfExtents, viewHalf.x, viewHalf.y);
   gl.uniform2f(uniforms.uPanWorld, panWorld.x, panWorld.y);
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+  drawOverlay();
   requestAnimationFrame(render);
 }
 
@@ -675,5 +968,13 @@ void tryAutoLoadAssets().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   setStatus(`Auto-load failed: ${message}`);
 });
-setStatus(`${statusEl.textContent} | Day cycle: speed slider (0..1 h/s), diffuse slider, wheel zoom, middle-drag pan.`);
+updateRadiusLabel();
+updateParallaxStrengthLabel();
+updateParallaxBandsLabel();
+updateFogAlphaLabels();
+updateFogFalloffLabel();
+updateFogStartOffsetLabel();
+updateParallaxUi();
+updateFogUi();
+setStatus(`${statusEl.textContent} | Day cycle: speed slider (0..1 h/s), diffuse slider, wheel zoom, middle-drag pan, left-click marker, optional parallax and height fog.`);
 requestAnimationFrame(render);

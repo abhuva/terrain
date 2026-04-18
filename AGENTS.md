@@ -1,5 +1,7 @@
 # AGENTS.md
 
+ALWAYS read AI_CONTEXT.md first.
+
 ## Project Goal
 
 Build a self-contained prototype for top-down terrain rendering from Gaea-exported maps:
@@ -44,6 +46,8 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
   - Secondary directional moon light keeps nights readable
   - Moon ambient tint is cool and dim, with dusk/dawn overlap
 - Height-based shadow raymarch in texture space
+- Optional parallax illusion from height map (continuous + banded)
+- Optional height fog illusion based on zoom-derived camera height vs terrain height
 
 
 ## Quality Bar for Iteration

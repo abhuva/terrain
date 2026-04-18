@@ -27,6 +27,17 @@ body {
   height: 100vh;
   display: block;
   cursor: crosshair;
+  z-index: 0;
+}
+
+#overlayCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .hud {
@@ -58,6 +69,18 @@ body {
 input[type="range"],
 input[type="file"] {
   width: 100%;
+}
+
+.inline-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-control span {
+  min-width: 42px;
+  text-align: right;
+  font-size: 12px;
 }
 
 .help,

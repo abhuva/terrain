@@ -11,15 +11,6 @@
       <h1>Terrain Prototype</h1>
       <div class="row">
         <label for="splatInput">Splat</label>
-        <input id="splatInput" type="file" accept="image/png,image/jpeg" />
-      </div>
-      <div class="row">
-        <label for="normalInput">Normals</label>
-        <input id="normalInput" type="file" accept="image/png,image/jpeg" />
-      </div>
-      <div class="row">
-        <label for="heightInput">Height</label>
-        <input id="heightInput" type="file" accept="image/png,image/jpeg" />
         <input id="splatInput" type="file" accept="image/png" />
       </div>
       <div class="row">
@@ -31,12 +22,73 @@
         <input id="heightInput" type="file" accept="image/png" />
       </div>
       <div class="row">
+        <label for="circleRadius">Circle Radius</label>
+        <div class="inline-control">
+          <input id="circleRadius" type="range" min="0.5" max="50" step="0.5" value="20" />
+          <span id="circleRadiusValue">20 px</span>
+        </div>
+      </div>
+      <div class="row">
         <label for="cycleSpeed">Day Speed</label>
         <input id="cycleSpeed" type="range" min="0" max="1" step="0.01" value="0.08" />
       </div>
       <div class="row">
         <label for="shadowsToggle">Shadows</label>
         <input id="shadowsToggle" type="checkbox" checked />
+      </div>
+      <div class="row">
+        <label for="parallaxToggle">Parallax</label>
+        <input id="parallaxToggle" type="checkbox" />
+      </div>
+      <div class="row">
+        <label for="parallaxStrength">Parallax Strength</label>
+        <div class="inline-control">
+          <input id="parallaxStrength" type="range" min="0" max="1" step="0.01" value="0.35" />
+          <span id="parallaxStrengthValue">0.35</span>
+        </div>
+      </div>
+      <div class="row">
+        <label for="parallaxBands">Parallax Bands</label>
+        <div class="inline-control">
+          <input id="parallaxBands" type="range" min="2" max="256" step="1" value="6" />
+          <span id="parallaxBandsValue">6</span>
+        </div>
+      </div>
+      <div class="row">
+        <label for="fogToggle">Height Fog</label>
+        <input id="fogToggle" type="checkbox" />
+      </div>
+      <div class="row">
+        <label for="fogColor">Fog Color</label>
+        <input id="fogColor" type="color" value="#7f8d99" />
+      </div>
+      <div class="row">
+        <label for="fogMinAlpha">Fog Min Alpha</label>
+        <div class="inline-control">
+          <input id="fogMinAlpha" type="range" min="0" max="1" step="0.01" value="0.06" />
+          <span id="fogMinAlphaValue">0.06</span>
+        </div>
+      </div>
+      <div class="row">
+        <label for="fogMaxAlpha">Fog Max Alpha</label>
+        <div class="inline-control">
+          <input id="fogMaxAlpha" type="range" min="0" max="1" step="0.01" value="0.55" />
+          <span id="fogMaxAlphaValue">0.55</span>
+        </div>
+      </div>
+      <div class="row">
+        <label for="fogFalloff">Fog Falloff</label>
+        <div class="inline-control">
+          <input id="fogFalloff" type="range" min="0.2" max="4" step="0.05" value="1.20" />
+          <span id="fogFalloffValue">1.20</span>
+        </div>
+      </div>
+      <div class="row">
+        <label for="fogStartOffset">Fog Start Offset</label>
+        <div class="inline-control">
+          <input id="fogStartOffset" type="range" min="0" max="1" step="0.01" value="0.00" />
+          <span id="fogStartOffsetValue">0.00</span>
+        </div>
       </div>
       <div class="row">
         <label for="heightScale">Height Scale</label>
@@ -54,12 +106,13 @@
         <label for="diffuse">Diffuse</label>
         <input id="diffuse" type="range" min="0" max="2" step="0.01" value="1" />
       </div>
-      <p class="help">Day cycle runs automatically. Wheel zooms. Middle mouse drag pans.</p>
+      <p class="help">Left click sets marker. Wheel zooms. Middle mouse drag pans. Parallax and height fog are optional depth cues.</p>
       <p id="cycleInfo" class="status">Time: --:-- | Speed: -- h/s</p>
       <p id="status" class="status">Initializing...</p>
     </div>
 
     <canvas id="glCanvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
