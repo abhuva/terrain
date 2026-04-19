@@ -1889,6 +1889,8 @@ function setInteractionMode(mode) {
   interactionMode = nextMode;
   dockLightingModeToggle.classList.toggle("active", nextMode === "lighting");
   dockPathfindingModeToggle.classList.toggle("active", nextMode === "pathfinding");
+  dockLightingModeToggle.setAttribute("aria-pressed", nextMode === "lighting" ? "true" : "false");
+  dockPathfindingModeToggle.setAttribute("aria-pressed", nextMode === "pathfinding" ? "true" : "false");
   if (nextMode !== "pathfinding") {
     movePreviewState.hoverPixel = null;
     movePreviewState.pathPixels = [];
@@ -1966,7 +1968,7 @@ function computeMoveStepCost(fromX, fromY, toX, toY) {
   const heightWeight = clamp(Number(pathWeightHeightInput.value), 0, 10);
   const waterWeight = clamp(Number(pathWeightWaterInput.value), 0, 100);
   const baseCost = clamp(Number(pathBaseCostInput.value), 0, 2);
-  const weightedCost = slopeWeight * slope * uphill + heightWeight * uphill + waterWeight * water;
+  const weightedCost = slopeWeight * slope + heightWeight * uphill + waterWeight * water;
   return dist * (baseCost + weightedCost);
 }
 
@@ -2402,27 +2404,39 @@ canvas.addEventListener("mouseleave", () => {
 
 pathfindingRangeInput.addEventListener("input", () => {
   updatePathfindingRangeLabel();
-  rebuildMovementField();
+  if (interactionMode === "pathfinding") {
+    rebuildMovementField();
+  }
 });
 pathWeightSlopeInput.addEventListener("input", () => {
   updatePathWeightLabels();
-  rebuildMovementField();
+  if (interactionMode === "pathfinding") {
+    rebuildMovementField();
+  }
 });
 pathWeightHeightInput.addEventListener("input", () => {
   updatePathWeightLabels();
-  rebuildMovementField();
+  if (interactionMode === "pathfinding") {
+    rebuildMovementField();
+  }
 });
 pathWeightWaterInput.addEventListener("input", () => {
   updatePathWeightLabels();
-  rebuildMovementField();
+  if (interactionMode === "pathfinding") {
+    rebuildMovementField();
+  }
 });
 pathSlopeCutoffInput.addEventListener("input", () => {
   updatePathSlopeCutoffLabel();
-  rebuildMovementField();
+  if (interactionMode === "pathfinding") {
+    rebuildMovementField();
+  }
 });
 pathBaseCostInput.addEventListener("input", () => {
   updatePathBaseCostLabel();
-  rebuildMovementField();
+  if (interactionMode === "pathfinding") {
+    rebuildMovementField();
+  }
 });
 heightScaleInput.addEventListener("input", schedulePointLightBake);
 
