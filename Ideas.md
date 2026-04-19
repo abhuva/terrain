@@ -1,0 +1,9 @@
+- **flickering lights**
+- **water based travel** (boat on water, is restricted to movement on water), we need to be close to it to enter, once entered we still technically control our char - but now its on water and movement is restricted to water (or board on a land tile)
+- **animated movement**. Or rather movement tied to time-progress. Each step takes 0.01 hours (minimal timestep) * move-cost of the tile.  (the one from dijsktra). This means that easy terrain is traveled fast, while challenging terrain takes a while.
+  Once we clicked from the pathfinding - we do not teleport any longer, instead the choosen path is saved. The game turns from "stop" to "running" mode (time progresses - by how much can be choosen). And then we do each step, wait the apropriate time, do the next step and so on. 
+  Of course the action can be canceled at any time, wich leaves the player at the current spot and stops time again?
+- **info box** - on the side, should show height, slope etc.
+- **details with sprites** (1 pixel equals 1 sprite i.e. 16x16 or 32x32)
+  When we zoom close enough, each "material" like water, rock etc. (needs to be identified and mapped still) gets an assigned sprite (or group of sprites for variations). This is like a normal sprite based map. But we overlay our normal colored map over this --> the sprite map just gives details once we zoom in close enough. Therefor we do not need to build a huge texture. Only like 100x100 sprites or so (depending on when we start to blend this in)
+- **player gets light attached**, so once he is moving, the light moves with him.
