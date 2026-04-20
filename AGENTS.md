@@ -59,7 +59,7 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
   - Stop chaining additional commands.
   - Retry with a simpler equivalent command and report the exact failure mode.
 - Lint rule (docs):
-  - Verified environment note: no markdown/python linter CLI is currently installed globally (`markdownlint-cli2`, `markdownlint`, `pymarkdown`, `mdformat`, `ruff` not found).
+  - Do not rely on point-in-time global tool installs; follow project migration/checklist for required linters.
   - If a markdown linter is available, run it on changed `.md` files before commit.
   - Preferred command when available: `npx markdownlint-cli2 "**/*.md"`.
   - If unavailable, explicitly state in the commit/PR notes that markdown lint was not run due to missing tool.

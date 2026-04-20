@@ -1,6 +1,7 @@
 # Tauri Migration Task List
 
 ## Working Agreement For This Branch
+
 - This file is the active task manager for `tauri-migration`.
 - Add discoveries, blockers, and decisions directly here while we work.
 - Current scope: Windows-only release path first.
@@ -8,6 +9,7 @@
 ## Rendering Work During Migration: Safe vs Risky
 
 ### Safe (can continue without much migration risk)
+
 - Tuning existing slider ranges/defaults/text labels.
 - Small visual bug fixes that do not change file I/O or app bootstrap.
 - Isolated shader/math fixes that preserve current input/output contract.
@@ -15,6 +17,7 @@
 - Overlay/UI polish that does not alter save/load behavior.
 
 ### Risky (likely to slow migration or cause merge pain)
+
 - New rendering subsystems (new textures/passes/workers/pipelines).
 - Refactors that move or split core render loop / shader uniform contract.
 - Changes to map file conventions or Save/Load JSON schema.
@@ -22,10 +25,12 @@
 - Cross-cutting features touching both rendering and filesystem behavior.
 
 ### Practical Rule
+
 - Keep rendering changes to bug fixes and low-scope tuning until Phase 2 (file I/O migration) is stable.
 - If a rendering task is bigger than ~1 file or changes schema/contracts, park it in backlog.
 
 ## Current Status Snapshot (2026-04-20)
+
 - Target platform: Windows first.
 - Branch: `tauri-migration`.
 - Baseline synced to latest `main` merge: `bdc2e49`.
@@ -36,12 +41,14 @@
   - Tauri CLI: installed via Cargo and usable (`cargo tauri ...`)
 
 ## Immediate Next Actions
+
 - [x] Resolve Rust PATH visibility in terminal session (`rustc`, `cargo`, `rustup` must resolve in this shell).
 - [x] Re-check Tauri CLI availability after Rust is visible in shell.
 - [x] Initialize Tauri scaffold only after the above checks pass.
 - [x] Record every command/result here as migration notes.
 
 ## Context Reset Handoff (Fresh-Window Resume)
+
 - Branch: `tauri-migration`
 - Current code baseline: `bdc2e49` (includes latest rendering + Map 2 merge from `main`)
 - Local working tree note: this migration file is currently untracked until first commit
@@ -55,52 +62,58 @@
 ## Tauri Overview (From Previous Answer)
 
 ### What Tauri is
+
 - Desktop app shell for web apps.
 - The current HTML/JS/WebGL app can stay mostly unchanged.
 - Backend is Rust (small native launcher + command bridge).
 - Uses OS WebView (Edge WebView2 on Windows, WebKit on macOS, WebKitGTK on Linux).
 
 ### Why it fits this terrain prototype
+
 - Small install size vs Electron.
 - Good performance for WebGL2 apps.
 - Native file access and dialogs (good for map/json workflow).
 - Can package installers for normal users.
 
 ### What we need to add
+
 1. Tauri project scaffold
 - Add `src-tauri/` (Rust app).
 - Configure window, app metadata, icons.
 
-2. File I/O migration
+1. File I/O migration
 - Replace browser-only save/load flows with Tauri APIs where needed.
 - Use app data directories for persistence.
 - Keep folder picker UX with native dialogs.
 
-3. Build/release pipeline
+1. Build/release pipeline
 - Windows installer generation.
 - Code signing setup (later, but recommended before wide sharing).
 
-4. Dependency prerequisites (dev machine)
+1. Dependency prerequisites (dev machine)
 - Rust toolchain.
 - Node/npm.
 - WebView2 runtime on Windows (usually already installed).
 
 ### Tradeoffs to know
+
 - Uses system WebView version, so rendering behavior can vary slightly across machines/OS versions.
 - Rust is required for native commands.
 - Packaging/signing is more setup than browser-only, but worth it for distribution.
 
 ### Suggested rollout
+
 1. Phase 1: Wrap current app in Tauri, no logic changes.
-2. Phase 2: Move save/load to Tauri file APIs.
-3. Phase 3: Add proper installers + update mechanism.
-4. Phase 4: Optional sandbox/hardening/signing.
+1. Phase 2: Move save/load to Tauri file APIs.
+1. Phase 3: Add proper installers + update mechanism.
+1. Phase 4: Optional sandbox/hardening/signing.
 
 ---
 
 ## Tauri For This Repo: Concrete Checklist
 
 ### Phase 0 - Prep
+
 - [x] Confirm branch strategy for migration work (`tauri-migration` -> future PR to `main`).
 - [x] Freeze policy clarified (safe vs risky rendering work documented above).
 - [x] Confirm target platforms for first release:
@@ -109,6 +122,7 @@
   - [ ] Linux
 
 ### Phase 1 - Bootstrap Tauri Wrapper (No Behavior Change)
+
 - [x] Initialize Tauri in this repo (keep existing frontend files):
   - [x] `index.html`
   - [x] `src/main.js`
@@ -123,6 +137,7 @@
 - [x] Verify app launches and renders terrain exactly as browser build.
 
 ### Phase 2 - File and Map I/O Migration
+
 - [x] Audit current browser APIs used for file access:
   - [x] `showSaveFilePicker`
   - [x] `showDirectoryPicker`
@@ -144,12 +159,14 @@
 - [x] Add fallback behavior if desktop file APIs fail.
 
 ### Phase 3 - Security and Runtime Hardening
+
 - [x] Lock down Tauri allowlist/capabilities to only required APIs.
 - [x] Disable unnecessary shell/command access.
 - [x] Review file-path handling and sanitize user-selected paths.
 - [x] Add error boundaries and user-facing status for filesystem failures.
 
 ### Phase 4 - Packaging and Distribution
+
 - [x] Create release builds:
   - [x] Windows installer (`.msi` or `.exe` bundle)
   - [x] portable zip (optional)
@@ -160,6 +177,7 @@
 - [x] Add release notes template for map format and save-location notes.
 
 ### Phase 5 - QA Checklist (Repo-Specific)
+
 - [x] Rendering parity with browser version:
   - [x] map aspect preserved
   - [x] zoom remains pixel-sharp
@@ -177,6 +195,7 @@
   - [x] manual map folder loading (including new maps like `Map 2`)
 
 ### Effort Estimate (Initial)
+
 - Phase 1: 0.5-1 day
 - Phase 2: 1-2 days
 - Phase 3: 0.5 day
@@ -185,6 +204,7 @@
 - Total: ~3-5 working days for a solid first Windows release
 
 ## Migration Notes (2026-04-20)
+
 - `cargo tauri init` completed.
 - Set unique Tauri app identifier in `src-tauri/tauri.conf.json` (no default `com.tauri.dev`).
 - Isolated frontend assets into `../.tauri-dist` for `build.frontendDist`.
@@ -192,6 +212,7 @@
 - Added window minimum size (`minWidth: 800`, `minHeight: 600`).
 
 ## Phase 2 Discovery Notes (2026-04-20)
+
 - Browser file API usage audit (confirmed):
   - `showDirectoryPicker` for Save All JSON export (around `src/main.js:923`).
   - `showSaveFilePicker` for point light save flow (around `src/main.js:1648`).
@@ -204,6 +225,7 @@
 - Next implementation target: first Rust command set for JSON save/load + required map file validation.
 
 ## Phase 2 Implementation Notes (2026-04-20)
+
 - Added Tauri invoke commands in `src-tauri/src/lib.rs`:
   - `save_json_file(path, content)`
   - `load_json_file(path)`
@@ -240,6 +262,7 @@
 - Clean-machine validation completed successfully (user-verified) — 2026-04-20.
 
 ## Phase 5 Local QA Pass (2026-04-20)
+
 - Completed non-interactive verification in this environment:
   - Build integrity:
     - `cargo check --manifest-path src-tauri/Cargo.toml` passes.
@@ -256,3 +279,9 @@
   - Manual folder load handler is wired (`src/main.js:3245-3255`).
 - Still pending interactive runtime verification (manual):
   - Completed by user: visual parity + interaction behavior checks pass.
+
+## Linter Tool Detection (2026-04-20)
+
+- `markdownlint-cli2`: resolved via `npm exec --package=markdownlint-cli2`
+- `markdownlint`: not found globally on PATH
+- `pymarkdown` / `mdformat` / `ruff`: not found in current Python environment
