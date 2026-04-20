@@ -87,6 +87,7 @@ const cloudSunParallaxValue = getRequiredElementById("cloudSunParallaxValue");
 const cloudSunProjectToggle = getRequiredElementById("cloudSunProjectToggle");
 const waterFxToggle = getRequiredElementById("waterFxToggle");
 const waterFlowDownhillToggle = getRequiredElementById("waterFlowDownhillToggle");
+const waterFlowInvertDownhillToggle = getRequiredElementById("waterFlowInvertDownhillToggle");
 const waterFlowDebugToggle = getRequiredElementById("waterFlowDebugToggle");
 const waterFlowDirectionInput = getRequiredElementById("waterFlowDirection");
 const waterFlowDirectionValue = getRequiredElementById("waterFlowDirectionValue");
@@ -98,6 +99,8 @@ const waterFlowScaleInput = getRequiredElementById("waterFlowScale");
 const waterFlowScaleValue = getRequiredElementById("waterFlowScaleValue");
 const waterLocalFlowMixInput = getRequiredElementById("waterLocalFlowMix");
 const waterLocalFlowMixValue = getRequiredElementById("waterLocalFlowMixValue");
+const waterDownhillBoostInput = getRequiredElementById("waterDownhillBoost");
+const waterDownhillBoostValue = getRequiredElementById("waterDownhillBoostValue");
 const waterFlowRadius1Input = getRequiredElementById("waterFlowRadius1");
 const waterFlowRadius1Value = getRequiredElementById("waterFlowRadius1Value");
 const waterFlowRadius2Input = getRequiredElementById("waterFlowRadius2");
@@ -122,6 +125,9 @@ const waterShoreWidthInput = getRequiredElementById("waterShoreWidth");
 const waterShoreWidthValue = getRequiredElementById("waterShoreWidthValue");
 const waterReflectivityInput = getRequiredElementById("waterReflectivity");
 const waterReflectivityValue = getRequiredElementById("waterReflectivityValue");
+const waterTintColorInput = getRequiredElementById("waterTintColor");
+const waterTintStrengthInput = getRequiredElementById("waterTintStrength");
+const waterTintStrengthValue = getRequiredElementById("waterTintStrengthValue");
 const heightScaleInput = getRequiredElementById("heightScale");
 const shadowStrengthInput = getRequiredElementById("shadowStrength");
 const shadowBlurInput = getRequiredElementById("shadowBlur");
@@ -253,9 +259,11 @@ uniform float uCloudSunParallax;
 uniform float uCloudUseSunProjection;
 uniform float uUseWaterFx;
 uniform float uWaterFlowDownhill;
+uniform float uWaterFlowInvertDownhill;
 uniform float uWaterFlowDebug;
 uniform vec2 uWaterFlowDir;
 uniform float uWaterLocalFlowMix;
+uniform float uWaterDownhillBoost;
 uniform float uWaterFlowStrength;
 uniform float uWaterFlowSpeed;
 uniform float uWaterFlowScale;
@@ -265,6 +273,8 @@ uniform float uWaterGlintSharpness;
 uniform float uWaterShoreFoamStrength;
 uniform float uWaterShoreWidth;
 uniform float uWaterReflectivity;
+uniform vec3 uWaterTintColor;
+uniform float uWaterTintStrength;
 uniform vec3 uSkyColor;
 
 float readHeight(vec2 uv) {
@@ -351,53 +361,60 @@ float cloudMaskAtUv(vec2 uv, float timeSec, vec3 sunDir) {
 
 vec3 applyWaterFx(vec2 uv, vec3 baseLit, vec3 terrainN, float timeSec, float sunVisibility) {
   if (uUseWaterFx < 0.5) return baseLit;
-  float waterRaw = texture(uWater, uv).r;
+  // Lock water evaluation to terrain texel centers so each map pixel gets one water result.
+  vec2 waterUv = (floor(uv / uMapTexelSize) + vec2(0.5)) * uMapTexelSize;
+  waterUv = clamp(waterUv, vec2(0.0), vec2(1.0));
+  float waterRaw = texture(uWater, waterUv).r;
   float waterMask = smoothstep(0.46, 0.54, waterRaw);
   if (waterMask <= 0.0001) return baseLit;
 
   vec2 flowDir = normalize(uWaterFlowDir);
   if (uWaterFlowDownhill > 0.5) {
-    vec3 flowMapSample = texture(uFlowMap, uv).rgb;
-    vec2 mapDir = flowMapSample.xy * 2.0 - 1.0;
+    vec2 mapDir = texture(uFlowMap, waterUv).xy * 2.0 - 1.0;
     float mapLen = length(mapDir);
-    float hL = texture(uHeight, clamp(uv - vec2(uMapTexelSize.x, 0.0), vec2(0.0), vec2(1.0))).r;
-    float hR = texture(uHeight, clamp(uv + vec2(uMapTexelSize.x, 0.0), vec2(0.0), vec2(1.0))).r;
-    float hD = texture(uHeight, clamp(uv - vec2(0.0, uMapTexelSize.y), vec2(0.0), vec2(1.0))).r;
-    float hU = texture(uHeight, clamp(uv + vec2(0.0, uMapTexelSize.y), vec2(0.0), vec2(1.0))).r;
+    float hL = texture(uHeight, clamp(waterUv - vec2(uMapTexelSize.x, 0.0), vec2(0.0), vec2(1.0))).r;
+    float hR = texture(uHeight, clamp(waterUv + vec2(uMapTexelSize.x, 0.0), vec2(0.0), vec2(1.0))).r;
+    float hD = texture(uHeight, clamp(waterUv - vec2(0.0, uMapTexelSize.y), vec2(0.0), vec2(1.0))).r;
+    float hU = texture(uHeight, clamp(waterUv + vec2(0.0, uMapTexelSize.y), vec2(0.0), vec2(1.0))).r;
     vec2 localDir = vec2(0.0);
     float localLen = length(vec2(hR - hL, hU - hD));
     if (localLen > 0.00002) {
       localDir = normalize(-vec2(hR - hL, hU - hD));
     }
 
-    vec2 trendDir = flowDir;
-    if (mapLen > 0.00002) {
-      float trend = clamp(flowMapSample.z * 1.35, 0.0, 1.0);
-      trendDir = normalize(mix(flowDir, mapDir / mapLen, trend));
-    }
-    if (localLen > 0.00002) {
-      flowDir = normalize(mix(trendDir, localDir, clamp(uWaterLocalFlowMix, 0.0, 1.0)));
+    // In downhill mode, do not seed direction from the fixed-direction slider.
+    if (mapLen > 0.00002 && localLen > 0.00002) {
+      flowDir = normalize(mix(mapDir / mapLen, localDir, clamp(uWaterLocalFlowMix, 0.0, 1.0)));
+    } else if (localLen > 0.00002) {
+      flowDir = localDir;
+    } else if (mapLen > 0.00002) {
+      flowDir = mapDir / mapLen;
     } else {
-      flowDir = trendDir;
+      flowDir = vec2(0.0, 1.0);
+    }
+    if (uWaterFlowInvertDownhill > 0.5) {
+      flowDir = -flowDir;
     }
   }
 
   float flowScale = max(0.05, uWaterFlowScale);
   float flowSpeed = max(0.0, uWaterFlowSpeed);
+  float downhillBoost = (uWaterFlowDownhill > 0.5) ? max(0.0, uWaterDownhillBoost) : 1.0;
+  float flowStrength = uWaterFlowStrength * downhillBoost;
   vec2 flowOffset = flowDir * (timeSec * flowSpeed * 0.045);
   vec2 sideDir = vec2(-flowDir.y, flowDir.x);
-  float nA = texture(uCloudNoiseTex, fract(uv * flowScale + flowOffset)).r;
-  float nB = texture(uCloudNoiseTex, fract(uv * (flowScale * 1.73) + sideDir * 0.29 - flowOffset * 1.31)).r;
-  float nC = texture(uCloudNoiseTex, fract(uv * (flowScale * 3.4) + flowOffset * 2.2)).r;
+  float nA = texture(uCloudNoiseTex, fract(waterUv * flowScale + flowOffset)).r;
+  float nB = texture(uCloudNoiseTex, fract(waterUv * (flowScale * 1.73) + sideDir * 0.29 - flowOffset * 1.31)).r;
+  float nC = texture(uCloudNoiseTex, fract(waterUv * (flowScale * 3.4) + flowOffset * 2.2)).r;
   float shimmer = ((nA * 0.5 + nB * 0.35 + nC * 0.15) - 0.5) * 2.0;
 
-  float alongCoord = dot(uv * (flowScale * 2.1), flowDir);
+  float alongCoord = dot(waterUv * (flowScale * 2.1), flowDir);
   float lineWave = 0.5 + 0.5 * sin(alongCoord * 48.0 + timeSec * flowSpeed * 6.0 + (nB - 0.5) * 5.0);
   float flowLines = smoothstep(0.58, 0.96, lineWave * 0.7 + nA * 0.3);
 
   vec3 waterN = normalize(vec3(
-    terrainN.x + shimmer * uWaterFlowStrength * 1.9,
-    terrainN.y + (nB - 0.5) * uWaterFlowStrength * 1.6,
+    terrainN.x + shimmer * flowStrength * 1.9,
+    terrainN.y + (nB - 0.5) * flowStrength * 1.6,
     max(0.05, terrainN.z)
   ));
 
@@ -412,20 +429,21 @@ vec3 applyWaterFx(vec2 uv, vec3 baseLit, vec3 terrainN, float timeSec, float sun
   float moonGlintCore = pow(max(dot(waterN, halfVecMoon), 0.0), mix(20.0, 120.0, clamp(uWaterGlintSharpness, 0.0, 1.0)));
   float moonGlint = moonGlintCore * (uWaterGlintStrength * 0.16) * max(0.0, uMoonStrength);
 
-  float hEdge = abs(texture(uWater, clamp(uv - vec2(uMapTexelSize.x * uWaterShoreWidth, 0.0), vec2(0.0), vec2(1.0))).r - waterRaw);
-  float vEdge = abs(texture(uWater, clamp(uv - vec2(0.0, uMapTexelSize.y * uWaterShoreWidth), vec2(0.0), vec2(1.0))).r - waterRaw);
+  float hEdge = abs(texture(uWater, clamp(waterUv - vec2(uMapTexelSize.x * uWaterShoreWidth, 0.0), vec2(0.0), vec2(1.0))).r - waterRaw);
+  float vEdge = abs(texture(uWater, clamp(waterUv - vec2(0.0, uMapTexelSize.y * uWaterShoreWidth), vec2(0.0), vec2(1.0))).r - waterRaw);
   float shoreline = smoothstep(0.02, 0.33, max(hEdge, vEdge)) * waterMask;
   float foamPulse = 0.45 + 0.55 * (0.5 + 0.5 * sin(timeSec * (2.2 + flowSpeed * 1.6) + nC * 6.2831853));
   float foam = shoreline * uWaterShoreFoamStrength * foamPulse;
 
   float fakeFresnel = 0.10 + 0.55 * (1.0 - clamp(waterN.z, 0.0, 1.0));
   vec3 reflection = uSkyColor * uWaterReflectivity * (0.24 + 0.76 * fakeFresnel);
-  vec3 flowTint = vec3(shimmer * uWaterShimmerStrength * 0.55 + flowLines * uWaterFlowStrength * 0.35);
+  vec3 flowTint = vec3(shimmer * uWaterShimmerStrength * 0.55 + flowLines * flowStrength * 0.35);
   vec3 glintColor = mix(uSunColor, vec3(1.0), 0.35) * sunGlint + uMoonColor * moonGlint;
   vec3 shoreFoamColor = vec3(0.78, 0.86, 0.92) * foam;
 
   vec3 waterLit = baseLit;
   waterLit = waterLit + flowTint + reflection + glintColor + shoreFoamColor;
+  waterLit = mix(waterLit, waterLit * uWaterTintColor, clamp(uWaterTintStrength, 0.0, 1.0));
   if (uWaterFlowDebug > 0.5) {
     vec3 debugColor = vec3(0.5 + 0.5 * flowDir.x, 0.5 + 0.5 * flowDir.y, 0.22 + 0.78 * flowLines);
     return mix(baseLit, debugColor, waterMask);
@@ -707,8 +725,8 @@ function uploadImageToTexture(tex, image) {
 }
 
 function buildFlowMapImageDataFromHeight(imageData, sourceWidth, sourceHeight) {
-  const lowWidth = Math.max(32, Math.min(256, Math.round(sourceWidth / 4)));
-  const lowHeight = Math.max(32, Math.min(256, Math.round(sourceHeight / 4)));
+  const lowWidth = Math.max(64, Math.min(512, Math.round(sourceWidth / 2)));
+  const lowHeight = Math.max(64, Math.min(512, Math.round(sourceHeight / 2)));
   const lowHeights = new Float32Array(lowWidth * lowHeight);
   const src = imageData.data;
 
@@ -1152,9 +1170,11 @@ const DEFAULT_CLOUD_SETTINGS = {
 const DEFAULT_WATER_SETTINGS = {
   useWaterFx: false,
   waterFlowDownhill: true,
+  waterFlowInvertDownhill: false,
   waterFlowDebug: false,
   waterFlowDirectionDeg: 135,
   waterLocalFlowMix: 0.35,
+  waterDownhillBoost: 1.0,
   waterFlowRadius1: 1,
   waterFlowRadius2: 3,
   waterFlowRadius3: 6,
@@ -1170,6 +1190,8 @@ const DEFAULT_WATER_SETTINGS = {
   waterShoreFoamStrength: 0.14,
   waterShoreWidth: 2.2,
   waterReflectivity: 0.33,
+  waterTintColor: "#4aa6c8",
+  waterTintStrength: 0.2,
 };
 
 const DEFAULT_INTERACTION_SETTINGS = {
@@ -1321,9 +1343,11 @@ function serializeWaterSettings() {
     version: 1,
     useWaterFx: waterFxToggle.checked,
     waterFlowDownhill: waterFlowDownhillToggle.checked,
+    waterFlowInvertDownhill: waterFlowInvertDownhillToggle.checked,
     waterFlowDebug: waterFlowDebugToggle.checked,
     waterFlowDirectionDeg: Math.round(clamp(Number(waterFlowDirectionInput.value), 0, 360)),
     waterLocalFlowMix: clamp(Number(waterLocalFlowMixInput.value), 0, 1),
+    waterDownhillBoost: clamp(Number(waterDownhillBoostInput.value), 0, 4),
     waterFlowRadius1: Math.round(clamp(Number(waterFlowRadius1Input.value), 1, 12)),
     waterFlowRadius2: Math.round(clamp(Number(waterFlowRadius2Input.value), 1, 24)),
     waterFlowRadius3: Math.round(clamp(Number(waterFlowRadius3Input.value), 1, 40)),
@@ -1339,6 +1363,8 @@ function serializeWaterSettings() {
     waterShoreFoamStrength: clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5),
     waterShoreWidth: clamp(Number(waterShoreWidthInput.value), 0.4, 6),
     waterReflectivity: clamp(Number(waterReflectivityInput.value), 0, 1),
+    waterTintColor: waterTintColorInput.value,
+    waterTintStrength: clamp(Number(waterTintStrengthInput.value), 0, 1),
   };
 }
 
@@ -1455,6 +1481,9 @@ function applyWaterSettings(rawData) {
   if (typeof data.waterFlowDownhill === "boolean") {
     waterFlowDownhillToggle.checked = data.waterFlowDownhill;
   }
+  if (typeof data.waterFlowInvertDownhill === "boolean") {
+    waterFlowInvertDownhillToggle.checked = data.waterFlowInvertDownhill;
+  }
   if (typeof data.waterFlowDebug === "boolean") {
     waterFlowDebugToggle.checked = data.waterFlowDebug;
   }
@@ -1463,6 +1492,9 @@ function applyWaterSettings(rawData) {
   }
   if (Number.isFinite(Number(data.waterLocalFlowMix))) {
     waterLocalFlowMixInput.value = String(clamp(Number(data.waterLocalFlowMix), 0, 1));
+  }
+  if (Number.isFinite(Number(data.waterDownhillBoost))) {
+    waterDownhillBoostInput.value = String(clamp(Number(data.waterDownhillBoost), 0, 4));
   }
   if (Number.isFinite(Number(data.waterFlowRadius1))) {
     waterFlowRadius1Input.value = String(Math.round(clamp(Number(data.waterFlowRadius1), 1, 12)));
@@ -1508,6 +1540,12 @@ function applyWaterSettings(rawData) {
   }
   if (Number.isFinite(Number(data.waterReflectivity))) {
     waterReflectivityInput.value = String(clamp(Number(data.waterReflectivity), 0, 1));
+  }
+  if (typeof data.waterTintColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(data.waterTintColor)) {
+    waterTintColorInput.value = data.waterTintColor.startsWith("#") ? data.waterTintColor : `#${data.waterTintColor}`;
+  }
+  if (Number.isFinite(Number(data.waterTintStrength))) {
+    waterTintStrengthInput.value = String(clamp(Number(data.waterTintStrength), 0, 1));
   }
   updateWaterLabels();
   updateWaterUi();
@@ -2052,9 +2090,11 @@ const uniforms = {
   uCloudUseSunProjection: gl.getUniformLocation(program, "uCloudUseSunProjection"),
   uUseWaterFx: gl.getUniformLocation(program, "uUseWaterFx"),
   uWaterFlowDownhill: gl.getUniformLocation(program, "uWaterFlowDownhill"),
+  uWaterFlowInvertDownhill: gl.getUniformLocation(program, "uWaterFlowInvertDownhill"),
   uWaterFlowDebug: gl.getUniformLocation(program, "uWaterFlowDebug"),
   uWaterFlowDir: gl.getUniformLocation(program, "uWaterFlowDir"),
   uWaterLocalFlowMix: gl.getUniformLocation(program, "uWaterLocalFlowMix"),
+  uWaterDownhillBoost: gl.getUniformLocation(program, "uWaterDownhillBoost"),
   uWaterFlowStrength: gl.getUniformLocation(program, "uWaterFlowStrength"),
   uWaterFlowSpeed: gl.getUniformLocation(program, "uWaterFlowSpeed"),
   uWaterFlowScale: gl.getUniformLocation(program, "uWaterFlowScale"),
@@ -2064,6 +2104,8 @@ const uniforms = {
   uWaterShoreFoamStrength: gl.getUniformLocation(program, "uWaterShoreFoamStrength"),
   uWaterShoreWidth: gl.getUniformLocation(program, "uWaterShoreWidth"),
   uWaterReflectivity: gl.getUniformLocation(program, "uWaterReflectivity"),
+  uWaterTintColor: gl.getUniformLocation(program, "uWaterTintColor"),
+  uWaterTintStrength: gl.getUniformLocation(program, "uWaterTintStrength"),
   uSkyColor: gl.getUniformLocation(program, "uSkyColor"),
 };
 
@@ -3356,6 +3398,7 @@ function updateCloudLabels() {
 function updateWaterLabels() {
   waterFlowDirectionValue.textContent = `${Math.round(clamp(Number(waterFlowDirectionInput.value), 0, 360))} deg`;
   waterLocalFlowMixValue.textContent = clamp(Number(waterLocalFlowMixInput.value), 0, 1).toFixed(2);
+  waterDownhillBoostValue.textContent = clamp(Number(waterDownhillBoostInput.value), 0, 4).toFixed(2);
   waterFlowRadius1Value.textContent = String(Math.round(clamp(Number(waterFlowRadius1Input.value), 1, 12)));
   waterFlowRadius2Value.textContent = String(Math.round(clamp(Number(waterFlowRadius2Input.value), 1, 24)));
   waterFlowRadius3Value.textContent = String(Math.round(clamp(Number(waterFlowRadius3Input.value), 1, 40)));
@@ -3371,6 +3414,7 @@ function updateWaterLabels() {
   waterShoreFoamStrengthValue.textContent = clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5).toFixed(2);
   waterShoreWidthValue.textContent = `${clamp(Number(waterShoreWidthInput.value), 0.4, 6).toFixed(1)} px`;
   waterReflectivityValue.textContent = clamp(Number(waterReflectivityInput.value), 0, 1).toFixed(2);
+  waterTintStrengthValue.textContent = clamp(Number(waterTintStrengthInput.value), 0, 1).toFixed(2);
 }
 
 function updateParallaxUi() {
@@ -3403,9 +3447,11 @@ function updateWaterUi() {
   const enabled = waterFxToggle.checked;
   const downhill = waterFlowDownhillToggle.checked;
   waterFlowDownhillToggle.disabled = !enabled;
+  waterFlowInvertDownhillToggle.disabled = !enabled || !downhill;
   waterFlowDebugToggle.disabled = !enabled;
   waterFlowDirectionInput.disabled = !enabled || downhill;
   waterLocalFlowMixInput.disabled = !enabled || !downhill;
+  waterDownhillBoostInput.disabled = !enabled || !downhill;
   waterFlowRadius1Input.disabled = !enabled || !downhill;
   waterFlowRadius2Input.disabled = !enabled || !downhill;
   waterFlowRadius3Input.disabled = !enabled || !downhill;
@@ -3421,6 +3467,8 @@ function updateWaterUi() {
   waterShoreFoamStrengthInput.disabled = !enabled;
   waterShoreWidthInput.disabled = !enabled;
   waterReflectivityInput.disabled = !enabled;
+  waterTintColorInput.disabled = !enabled;
+  waterTintStrengthInput.disabled = !enabled;
 }
 
 function updateCycleHourLabel() {
@@ -3917,6 +3965,7 @@ cloudSunParallaxInput.addEventListener("input", updateCloudLabels);
 cloudToggle.addEventListener("change", updateCloudUi);
 waterFlowDirectionInput.addEventListener("input", updateWaterLabels);
 waterLocalFlowMixInput.addEventListener("input", updateWaterLabels);
+waterDownhillBoostInput.addEventListener("input", updateWaterLabels);
 waterFlowRadius1Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
 waterFlowRadius2Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
 waterFlowRadius3Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
@@ -3932,8 +3981,10 @@ waterGlintSharpnessInput.addEventListener("input", updateWaterLabels);
 waterShoreFoamStrengthInput.addEventListener("input", updateWaterLabels);
 waterShoreWidthInput.addEventListener("input", updateWaterLabels);
 waterReflectivityInput.addEventListener("input", updateWaterLabels);
+waterTintStrengthInput.addEventListener("input", updateWaterLabels);
 waterFxToggle.addEventListener("change", updateWaterUi);
 waterFlowDownhillToggle.addEventListener("change", () => { updateWaterUi(); rebuildFlowMapTexture(); });
+waterFlowInvertDownhillToggle.addEventListener("change", updateWaterUi);
 
 cycleHourInput.addEventListener("pointerdown", () => {
   isCycleHourScrubbing = true;
@@ -4241,9 +4292,11 @@ function uploadUniforms(params, nowSec) {
   gl.uniform1f(uniforms.uCloudUseSunProjection, cloudSunProjectToggle.checked ? 1 : 0);
   gl.uniform1f(uniforms.uUseWaterFx, waterFxToggle.checked ? 1 : 0);
   gl.uniform1f(uniforms.uWaterFlowDownhill, waterFlowDownhillToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uWaterFlowInvertDownhill, waterFlowInvertDownhillToggle.checked ? 1 : 0);
   gl.uniform1f(uniforms.uWaterFlowDebug, waterFlowDebugToggle.checked ? 1 : 0);
   gl.uniform2f(uniforms.uWaterFlowDir, flowDirX, flowDirY);
   gl.uniform1f(uniforms.uWaterLocalFlowMix, clamp(Number(waterLocalFlowMixInput.value), 0, 1));
+  gl.uniform1f(uniforms.uWaterDownhillBoost, clamp(Number(waterDownhillBoostInput.value), 0, 4));
   gl.uniform1f(uniforms.uWaterFlowStrength, clamp(Number(waterFlowStrengthInput.value), 0, 0.15));
   gl.uniform1f(uniforms.uWaterFlowSpeed, clamp(Number(waterFlowSpeedInput.value), 0, 2.5));
   gl.uniform1f(uniforms.uWaterFlowScale, clamp(Number(waterFlowScaleInput.value), 0.5, 14));
@@ -4253,6 +4306,9 @@ function uploadUniforms(params, nowSec) {
   gl.uniform1f(uniforms.uWaterShoreFoamStrength, clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5));
   gl.uniform1f(uniforms.uWaterShoreWidth, clamp(Number(waterShoreWidthInput.value), 0.4, 6));
   gl.uniform1f(uniforms.uWaterReflectivity, clamp(Number(waterReflectivityInput.value), 0, 1));
+  const waterTintColor = hexToRgb01(waterTintColorInput.value);
+  gl.uniform3f(uniforms.uWaterTintColor, waterTintColor[0], waterTintColor[1], waterTintColor[2]);
+  gl.uniform1f(uniforms.uWaterTintStrength, clamp(Number(waterTintStrengthInput.value), 0, 1));
   gl.uniform3f(uniforms.uSkyColor, params.skyColor[0], params.skyColor[1], params.skyColor[2]);
 }
 

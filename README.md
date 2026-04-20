@@ -141,7 +141,7 @@ One-command helper:
   - `interaction.json` (pathfinding window/weights/cutoff/base-cost + cursor-light UI settings)
   - `fog.json` (`useFog`, color, alpha/falloff/start settings)
   - `clouds.json` (`useClouds`, coverage/softness/opacity/scale, two-layer scroll speeds, sun-projection controls)
-  - `waterfx.json` (`useWaterFx`, downhill/fixed flow + local-mix, trend radii/weights, debug overlay, shimmer/specular/shore/reflection controls)
+  - `waterfx.json` (`useWaterFx`, downhill/fixed flow, `waterFlowInvertDownhill`, `waterDownhillBoost`, local-mix, trend radii/weights, debug overlay, shimmer/specular/shore/reflection controls, `waterTintColor`, `waterTintStrength`)
   - `npc.json` (`charID`, `pixelX`, `pixelY`, `color`)
 - Map loading automatically applies these JSON files when present in the selected map folder.
 - Point lighting is baked into a map-space light texture only when lights or normal/height inputs change.
@@ -172,7 +172,11 @@ One-command helper:
   - shoreline foam/lapping near water-land transitions
   - sky-tint reflection blended by reflectivity
 - Flow can use fixed direction or downhill mode.
+- Downhill flow includes an `Invert Downhill` toggle to quickly flip detected flow direction.
 - Downhill mode samples a precomputed multi-scale flow map (from `height.png`) and can be blended with local 1-texel downhill flow via `Local Flow Mix`.
+- `Downhill Boost` amplifies downhill water-motion intensity without changing fixed-direction mode.
+- `Water Tint` color plus `Tint Strength` (`0..1`) applies controllable water color tinting.
+- Water shading is now evaluated at map-texel centers (pixel-locked), so water influence is resolved per map pixel instead of per screen fragment.
 - Trend precompute is tunable with `Trend Radius 1/2/3` + `Trend Weight 1/2/3`.
 - `Flow Debug` renders direction overlay on water to inspect computed flow behavior.
 - `Volumetric Scatter` (Main Lighting panel) adds a lightweight single-pass in-scattering estimate:

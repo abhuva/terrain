@@ -355,6 +355,10 @@
             <input id="waterFlowDownhillToggle" type="checkbox" checked />
           </div>
           <div class="row">
+            <label for="waterFlowInvertDownhillToggle">Invert Downhill</label>
+            <input id="waterFlowInvertDownhillToggle" type="checkbox" />
+          </div>
+          <div class="row">
             <label for="waterFlowDebugToggle">Flow Debug</label>
             <input id="waterFlowDebugToggle" type="checkbox" />
           </div>
@@ -391,6 +395,13 @@
             <div class="inline-control">
               <input id="waterLocalFlowMix" type="range" min="0" max="1" step="0.01" value="0.35" />
               <span id="waterLocalFlowMixValue">0.35</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterDownhillBoost">Downhill Boost</label>
+            <div class="inline-control">
+              <input id="waterDownhillBoost" type="range" min="0" max="4" step="0.05" value="1" />
+              <span id="waterDownhillBoostValue">1.00</span>
             </div>
           </div>
           <div class="row">
@@ -475,6 +486,17 @@
             <div class="inline-control">
               <input id="waterReflectivity" type="range" min="0" max="1" step="0.01" value="0.33" />
               <span id="waterReflectivityValue">0.33</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterTintColor">Water Tint</label>
+            <input id="waterTintColor" type="color" value="#4aa6c8" />
+          </div>
+          <div class="row">
+            <label for="waterTintStrength">Tint Strength</label>
+            <div class="inline-control">
+              <input id="waterTintStrength" type="range" min="0" max="1" step="0.01" value="0.20" />
+              <span id="waterTintStrengthValue">0.20</span>
             </div>
           </div>
         </section>

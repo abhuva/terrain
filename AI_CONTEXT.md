@@ -118,9 +118,12 @@ No game engine is used.
 - Optional water FX mode (toggle in Water UI):
   - masked by `water.png`
   - animated shimmer + flow-line cues from fixed or downhill direction
+  - water tint color + tint-strength control can apply additional stylized color influence
+  - downhill flow direction can be flipped with an explicit invert toggle
   - downhill direction samples a precomputed multi-scale flow-map texture built from `height.png`
   - flow-map precompute uses user-controlled 3-radius / 3-weight trend settings; runtime can blend trend with local 1-texel downhill flow
   - optional flow debug overlay displays computed water direction on water pixels
+  - water shading is evaluated at map texel centers (pixel-locked) so water influence is per map pixel
   - altitude-aware sun/moon glints, shoreline foam band, and sky-tint reflection
 - Map-level persistence:
   - `Load Map -> Save All` writes `pointlights.json`, `lighting.json`, `parallax.json`, `interaction.json`, `fog.json`, `clouds.json`, `waterfx.json`, and `npc.json`
@@ -165,7 +168,7 @@ Main light uniforms:
 - `uUseCursorLight`, `uCursorLightUv`, `uCursorLightColor`, `uCursorLightStrength`, `uCursorLightHeightOffset`, `uUseCursorTerrainHeight`, `uCursorLightMapSize`
 - `uTimeSec`, `uPointFlickerEnabled`, `uPointFlickerStrength`, `uPointFlickerSpeed`, `uPointFlickerSpatial`
 - `uUseClouds`, `uCloudCoverage`, `uCloudSoftness`, `uCloudOpacity`, `uCloudScale`, `uCloudSpeed1`, `uCloudSpeed2`, `uCloudSunParallax`, `uCloudUseSunProjection`
-- `uUseWaterFx`, `uWaterFlowDownhill`, `uWaterFlowDebug`, `uWaterFlowDir`, `uWaterLocalFlowMix`, `uWaterFlowStrength`, `uWaterFlowSpeed`, `uWaterFlowScale`, `uWaterShimmerStrength`, `uWaterGlintStrength`, `uWaterGlintSharpness`, `uWaterShoreFoamStrength`, `uWaterShoreWidth`, `uWaterReflectivity`, `uSkyColor`
+- `uUseWaterFx`, `uWaterFlowDownhill`, `uWaterFlowInvertDownhill`, `uWaterFlowDebug`, `uWaterFlowDir`, `uWaterLocalFlowMix`, `uWaterFlowStrength`, `uWaterFlowSpeed`, `uWaterFlowScale`, `uWaterShimmerStrength`, `uWaterGlintStrength`, `uWaterGlintSharpness`, `uWaterShoreFoamStrength`, `uWaterShoreWidth`, `uWaterReflectivity`, `uWaterTintColor`, `uWaterTintStrength`, `uSkyColor`
 
 Map/camera uniforms:
 - `uSplat`, `uNormals`, `uHeight`
@@ -241,8 +244,14 @@ Current code now includes the following major rendering/pipeline changes:
 - Downhill flow implementation (latest state):
   - Runtime no longer computes only local slope for downhill direction.
   - A precomputed multi-scale flow-map texture (`uFlowMap`) is generated from `height.png` on map load and sampled in shader.
+  - In downhill mode, fixed-direction slider input is no longer used to seed flow direction; direction comes only from flow-map trend + local height gradient.
   - Precompute is controlled by 3 user radii and 3 user weights.
   - Runtime direction can blend trend flow-map direction with local 1-texel downhill via `Local Flow Mix`.
+  - `Downhill Boost` scales downhill water-motion intensity (normal perturbation + flow-line tint) without affecting fixed-direction mode.
+  - Water tint applies in the shader as a controllable (`0..1`) color mix over water-lit shading.
+  - Downhill direction now has an `Invert Downhill` toggle for rapid direction flip when source gradients appear reversed.
+  - Flow-map precompute resolution is increased (`~height/2`, clamped to `64..512`) to reduce coarse direction blocks and visible zone seams.
+  - Water FX sampling now snaps to map texel centers before evaluating water mask/flow/noise/shoreline, which removes sub-pixel water variation and keeps influence map-pixel locked.
   - `Flow Debug` toggle overlays computed direction on water pixels for inspection.
 
 Where to look in code for continuation:
