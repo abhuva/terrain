@@ -38,6 +38,7 @@ No game engine is used.
   - `interaction.json`
   - `fog.json`
   - `clouds.json`
+  - `waterfx.json`
   - `npc.json`
 - `Load Map` topic supports loading by folder path or folder picker (map bundle semantics)
 - Desktop map-load behavior:
@@ -66,8 +67,9 @@ No game engine is used.
   - blended sun/moon ambient tint and intensity
   - includes a small blue night-ambient floor to avoid pitch-black nights
 - Shadows:
-  - texture-space raymarch over `uHeight`
-  - texel step uses height-map dimensions (`heightSize`)
+  - map-space shadow texture pass raymarches over `uHeight` (sun + moon channels)
+  - optional second blur pass smooths that shadow texture before main terrain shading
+  - shadow pass runs on a reduced map-space resolution (`heightSize * 0.5`) for performance
 - Optional point lights:
   - `Lighting Mode` toggle switches click behavior to light placement/selection
   - each point light stores map pixel coordinate + color + range (radius in px) + intensity + height offset + per-light flicker amount + per-light flicker speed
@@ -109,8 +111,19 @@ No game engine is used.
   - two scrolling noise layers provide cloud-shape motion/parallax
   - controls: coverage, softness, opacity, scale, layer speeds
   - optional sun projection offsets cloud shadows by sun direction with adjustable strength
+- Optional volumetric scattering mode (toggle in Main Lighting UI):
+  - lightweight texture-space raymarch along projected sun direction
+  - each sample combines fog-density shaping + cloud sun-occlusion to estimate in-scattering
+  - controls: strength, density, anisotropy, ray length, sample count
+- Optional water FX mode (toggle in Water UI):
+  - masked by `water.png`
+  - animated shimmer + flow-line cues from fixed or downhill direction
+  - downhill direction samples a precomputed multi-scale flow-map texture built from `height.png`
+  - flow-map precompute uses user-controlled 3-radius / 3-weight trend settings; runtime can blend trend with local 1-texel downhill flow
+  - optional flow debug overlay displays computed water direction on water pixels
+  - altitude-aware sun/moon glints, shoreline foam band, and sky-tint reflection
 - Map-level persistence:
-  - `Load Map -> Save All` writes `pointlights.json`, `lighting.json`, `parallax.json`, `interaction.json`, `fog.json`, `clouds.json`, and `npc.json`
+  - `Load Map -> Save All` writes `pointlights.json`, `lighting.json`, `parallax.json`, `interaction.json`, `fog.json`, `clouds.json`, `waterfx.json`, and `npc.json`
   - map loading auto-applies these files when present
 
 ## Camera/Interaction
@@ -146,9 +159,13 @@ Main light uniforms:
 - `uAmbientColor`, `uAmbient`
 - `uPointLightTex`
 - `uCloudNoiseTex`
+- `uShadowTex`
+- `uWater`
+- `uFlowMap`
 - `uUseCursorLight`, `uCursorLightUv`, `uCursorLightColor`, `uCursorLightStrength`, `uCursorLightHeightOffset`, `uUseCursorTerrainHeight`, `uCursorLightMapSize`
 - `uTimeSec`, `uPointFlickerEnabled`, `uPointFlickerStrength`, `uPointFlickerSpeed`, `uPointFlickerSpatial`
 - `uUseClouds`, `uCloudCoverage`, `uCloudSoftness`, `uCloudOpacity`, `uCloudScale`, `uCloudSpeed1`, `uCloudSpeed2`, `uCloudSunParallax`, `uCloudUseSunProjection`
+- `uUseWaterFx`, `uWaterFlowDownhill`, `uWaterFlowDebug`, `uWaterFlowDir`, `uWaterLocalFlowMix`, `uWaterFlowStrength`, `uWaterFlowSpeed`, `uWaterFlowScale`, `uWaterShimmerStrength`, `uWaterGlintStrength`, `uWaterGlintSharpness`, `uWaterShoreFoamStrength`, `uWaterShoreWidth`, `uWaterReflectivity`, `uSkyColor`
 
 Map/camera uniforms:
 - `uSplat`, `uNormals`, `uHeight`
@@ -157,6 +174,7 @@ Map/camera uniforms:
 - `uResolution`, `uViewHalfExtents`, `uPanWorld`
 - `uUseParallax`, `uParallaxStrength`, `uParallaxBands`, `uZoom`
 - `uUseFog`, `uFogColor`, `uFogMinAlpha`, `uFogMaxAlpha`, `uFogFalloff`, `uFogStartOffset`, `uCameraHeightNorm`
+- `uUseVolumetric`, `uVolumetricStrength`, `uVolumetricDensity`, `uVolumetricAnisotropy`, `uVolumetricLength`, `uVolumetricSamples`
 
 ## Change Rules
 
@@ -195,3 +213,57 @@ After lighting/camera/map-load changes, verify:
 - No georeferenced sun position.
 - No animated movement yet (currently instant click-to-move).
 - No multi-file module architecture yet; all runtime code is in `src/main.js`.
+
+## Session Handoff (2026-04-20)
+
+Current code now includes the following major rendering/pipeline changes:
+
+- Shadow pipeline refactor (performance):
+  - Main terrain shader no longer raymarches shadows per screen pixel.
+  - Separate map-space shadow pass writes sun/moon visibility into `uShadowTex` (R/G channels).
+  - Optional blur pass is applied to that shadow texture before terrain lighting.
+  - Shadow map is rendered at reduced resolution (`heightSize * 0.5`) for speed.
+
+- Volumetric scattering:
+  - Uses fog + cloud occlusion integration and now has soft-knee compression/headroom compositing to avoid overblown highlights.
+  - Explicit sun-altitude scaling is applied so midday rays are shorter/weaker than low-sun rays.
+
+- Water FX system:
+  - New `Water` topic panel and `waterfx.json` persistence.
+  - Effects combined in one shader path (water-mask only):
+    - flow shimmer
+    - flow-line modulation
+    - sun/moon glints
+    - shoreline foam
+    - sky-tint reflection
+  - Supports fixed direction or downhill flow mode.
+
+- Downhill flow implementation (latest state):
+  - Runtime no longer computes only local slope for downhill direction.
+  - A precomputed multi-scale flow-map texture (`uFlowMap`) is generated from `height.png` on map load and sampled in shader.
+  - Precompute is controlled by 3 user radii and 3 user weights.
+  - Runtime direction can blend trend flow-map direction with local 1-texel downhill via `Local Flow Mix`.
+  - `Flow Debug` toggle overlays computed direction on water pixels for inspection.
+
+Where to look in code for continuation:
+
+- Main shader water logic:
+  - `applyWaterFx(...)` in `src/main.js`
+- Flow-map build/update:
+  - `buildFlowMapImageDataFromHeight(...)`
+  - `rebuildFlowMapTexture()`
+  - called from map-image apply and water-flow control updates
+- Water settings lifecycle:
+  - `DEFAULT_WATER_SETTINGS`
+  - `serializeWaterSettings()`
+  - `applyWaterSettings(...)`
+  - map save/load includes `waterfx.json`
+
+Likely next tuning work (based on latest user feedback):
+
+- Fine-tune default values for:
+  - `waterLocalFlowMix`
+  - `waterFlowRadius1/2/3`
+  - `waterFlowWeight1/2/3`
+- Validate that `Flow Debug` gives intuitive direction colors and optional magnitude cue.
+- If needed, add presets (for example `Local`, `Balanced`, `Trend`) to quickly switch between looks.

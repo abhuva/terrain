@@ -85,10 +85,60 @@ const cloudSpeed2Value = getRequiredElementById("cloudSpeed2Value");
 const cloudSunParallaxInput = getRequiredElementById("cloudSunParallax");
 const cloudSunParallaxValue = getRequiredElementById("cloudSunParallaxValue");
 const cloudSunProjectToggle = getRequiredElementById("cloudSunProjectToggle");
+const waterFxToggle = getRequiredElementById("waterFxToggle");
+const waterFlowDownhillToggle = getRequiredElementById("waterFlowDownhillToggle");
+const waterFlowDebugToggle = getRequiredElementById("waterFlowDebugToggle");
+const waterFlowDirectionInput = getRequiredElementById("waterFlowDirection");
+const waterFlowDirectionValue = getRequiredElementById("waterFlowDirectionValue");
+const waterFlowStrengthInput = getRequiredElementById("waterFlowStrength");
+const waterFlowStrengthValue = getRequiredElementById("waterFlowStrengthValue");
+const waterFlowSpeedInput = getRequiredElementById("waterFlowSpeed");
+const waterFlowSpeedValue = getRequiredElementById("waterFlowSpeedValue");
+const waterFlowScaleInput = getRequiredElementById("waterFlowScale");
+const waterFlowScaleValue = getRequiredElementById("waterFlowScaleValue");
+const waterLocalFlowMixInput = getRequiredElementById("waterLocalFlowMix");
+const waterLocalFlowMixValue = getRequiredElementById("waterLocalFlowMixValue");
+const waterFlowRadius1Input = getRequiredElementById("waterFlowRadius1");
+const waterFlowRadius1Value = getRequiredElementById("waterFlowRadius1Value");
+const waterFlowRadius2Input = getRequiredElementById("waterFlowRadius2");
+const waterFlowRadius2Value = getRequiredElementById("waterFlowRadius2Value");
+const waterFlowRadius3Input = getRequiredElementById("waterFlowRadius3");
+const waterFlowRadius3Value = getRequiredElementById("waterFlowRadius3Value");
+const waterFlowWeight1Input = getRequiredElementById("waterFlowWeight1");
+const waterFlowWeight1Value = getRequiredElementById("waterFlowWeight1Value");
+const waterFlowWeight2Input = getRequiredElementById("waterFlowWeight2");
+const waterFlowWeight2Value = getRequiredElementById("waterFlowWeight2Value");
+const waterFlowWeight3Input = getRequiredElementById("waterFlowWeight3");
+const waterFlowWeight3Value = getRequiredElementById("waterFlowWeight3Value");
+const waterShimmerStrengthInput = getRequiredElementById("waterShimmerStrength");
+const waterShimmerStrengthValue = getRequiredElementById("waterShimmerStrengthValue");
+const waterGlintStrengthInput = getRequiredElementById("waterGlintStrength");
+const waterGlintStrengthValue = getRequiredElementById("waterGlintStrengthValue");
+const waterGlintSharpnessInput = getRequiredElementById("waterGlintSharpness");
+const waterGlintSharpnessValue = getRequiredElementById("waterGlintSharpnessValue");
+const waterShoreFoamStrengthInput = getRequiredElementById("waterShoreFoamStrength");
+const waterShoreFoamStrengthValue = getRequiredElementById("waterShoreFoamStrengthValue");
+const waterShoreWidthInput = getRequiredElementById("waterShoreWidth");
+const waterShoreWidthValue = getRequiredElementById("waterShoreWidthValue");
+const waterReflectivityInput = getRequiredElementById("waterReflectivity");
+const waterReflectivityValue = getRequiredElementById("waterReflectivityValue");
 const heightScaleInput = getRequiredElementById("heightScale");
 const shadowStrengthInput = getRequiredElementById("shadowStrength");
+const shadowBlurInput = getRequiredElementById("shadowBlur");
+const shadowBlurValue = getRequiredElementById("shadowBlurValue");
 const ambientInput = getRequiredElementById("ambient");
 const diffuseInput = getRequiredElementById("diffuse");
+const volumetricToggle = getRequiredElementById("volumetricToggle");
+const volumetricStrengthInput = getRequiredElementById("volumetricStrength");
+const volumetricStrengthValue = getRequiredElementById("volumetricStrengthValue");
+const volumetricDensityInput = getRequiredElementById("volumetricDensity");
+const volumetricDensityValue = getRequiredElementById("volumetricDensityValue");
+const volumetricAnisotropyInput = getRequiredElementById("volumetricAnisotropy");
+const volumetricAnisotropyValue = getRequiredElementById("volumetricAnisotropyValue");
+const volumetricLengthInput = getRequiredElementById("volumetricLength");
+const volumetricLengthValue = getRequiredElementById("volumetricLengthValue");
+const volumetricSamplesInput = getRequiredElementById("volumetricSamples");
+const volumetricSamplesValue = getRequiredElementById("volumetricSamplesValue");
 const pointFlickerToggle = getRequiredElementById("pointFlickerToggle");
 const pointFlickerStrengthInput = getRequiredElementById("pointFlickerStrength");
 const pointFlickerStrengthValue = getRequiredElementById("pointFlickerStrengthValue");
@@ -144,6 +194,9 @@ uniform sampler2D uNormals;
 uniform sampler2D uHeight;
 uniform sampler2D uPointLightTex;
 uniform sampler2D uCloudNoiseTex;
+uniform sampler2D uShadowTex;
+uniform sampler2D uWater;
+uniform sampler2D uFlowMap;
 uniform float uUseCursorLight;
 uniform vec2 uCursorLightUv;
 uniform vec3 uCursorLightColor;
@@ -175,6 +228,12 @@ uniform float uFogMaxAlpha;
 uniform float uFogFalloff;
 uniform float uFogStartOffset;
 uniform float uCameraHeightNorm;
+uniform float uUseVolumetric;
+uniform float uVolumetricStrength;
+uniform float uVolumetricDensity;
+uniform float uVolumetricAnisotropy;
+uniform float uVolumetricLength;
+uniform float uVolumetricSamples;
 uniform float uMapAspect;
 uniform vec2 uViewHalfExtents;
 uniform vec2 uPanWorld;
@@ -192,6 +251,21 @@ uniform float uCloudSpeed1;
 uniform float uCloudSpeed2;
 uniform float uCloudSunParallax;
 uniform float uCloudUseSunProjection;
+uniform float uUseWaterFx;
+uniform float uWaterFlowDownhill;
+uniform float uWaterFlowDebug;
+uniform vec2 uWaterFlowDir;
+uniform float uWaterLocalFlowMix;
+uniform float uWaterFlowStrength;
+uniform float uWaterFlowSpeed;
+uniform float uWaterFlowScale;
+uniform float uWaterShimmerStrength;
+uniform float uWaterGlintStrength;
+uniform float uWaterGlintSharpness;
+uniform float uWaterShoreFoamStrength;
+uniform float uWaterShoreWidth;
+uniform float uWaterReflectivity;
+uniform vec3 uSkyColor;
 
 float readHeight(vec2 uv) {
   return texture(uHeight, uv).r * uHeightScale;
@@ -238,39 +312,164 @@ vec2 fitUvOffsetToBounds(vec2 baseUv, vec2 displacedUv) {
   return baseUv + offset * scale;
 }
 
-float calcShadow(vec2 uv, vec3 sunDir) {
-  if (uUseShadows < 0.5) return 1.0;
-  if (sunDir.z <= 0.01) return 0.0;
-
-  float dirLen = length(sunDir.xy);
-  if (dirLen < 0.0001) return 1.0;
-  vec2 dir2 = sunDir.xy / dirLen;
-
-  float h0 = readHeight(uv);
-  float slope = sunDir.z / max(dirLen, 0.0001);
-  float bias = 0.7;
-  float stepPixels = 1.5;
-  vec2 stepUv = dir2 * uMapTexelSize * stepPixels;
-
-  vec2 p = uv;
-  float traveledPixels = 0.0;
-  for (int i = 0; i < 120; i++) {
-    p += stepUv;
-    traveledPixels += stepPixels;
-    if (p.x <= 0.0 || p.y <= 0.0 || p.x >= 1.0 || p.y >= 1.0) {
-      break;
-    }
-    float h = readHeight(p);
-    float rayH = h0 + slope * traveledPixels;
-    if (h > rayH + bias) {
-      return 1.0 - uShadowStrength;
-    }
-  }
-  return 1.0;
-}
-
 float uvHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float fogAmountAtUv(vec2 uv) {
+  float terrainHeight = texture(uHeight, uv).r;
+  float heightDelta = max(0.0, uCameraHeightNorm - terrainHeight);
+  float adjustedDelta = max(0.0, heightDelta - uFogStartOffset);
+  float fogBase = smoothstep(0.02, 0.92, adjustedDelta);
+  return pow(clamp(fogBase, 0.0, 1.0), max(0.05, uFogFalloff));
+}
+
+float fogAlphaFromAmount(float fogAmount) {
+  float fogMin = min(uFogMinAlpha, uFogMaxAlpha);
+  float fogMax = max(uFogMinAlpha, uFogMaxAlpha);
+  return mix(fogMin, fogMax, clamp(fogAmount, 0.0, 1.0));
+}
+
+float cloudMaskAtUv(vec2 uv, float timeSec, vec3 sunDir) {
+  if (uUseClouds < 0.5 || uCloudOpacity <= 0.0001) return 0.0;
+  float cloudScale = max(0.05, uCloudScale);
+  float soft = max(0.001, uCloudSoftness);
+  float threshold = clamp(uCloudCoverage, 0.0, 1.0);
+  vec2 sunShift = vec2(0.0);
+  if (uCloudUseSunProjection > 0.5) {
+    float sunZ = max(0.12, sunDir.z);
+    sunShift = -sunDir.xy / sunZ * (uCloudSunParallax * 0.03);
+  }
+  vec2 cloudUvA = fract((uv + sunShift + vec2(timeSec * uCloudSpeed1, timeSec * uCloudSpeed1 * 0.63)) * cloudScale);
+  vec2 cloudUvB = fract((uv + sunShift * 1.55 + vec2(-timeSec * uCloudSpeed2 * 0.74, timeSec * uCloudSpeed2)) * (cloudScale * 1.93));
+  float noiseA = texture(uCloudNoiseTex, cloudUvA).r;
+  float noiseB = texture(uCloudNoiseTex, cloudUvB).r;
+  float maskA = smoothstep(threshold - soft, threshold + soft, noiseA);
+  float maskB = smoothstep(threshold - soft, threshold + soft, noiseB);
+  return clamp(maskA * 0.66 + maskB * 0.34, 0.0, 1.0);
+}
+
+vec3 applyWaterFx(vec2 uv, vec3 baseLit, vec3 terrainN, float timeSec, float sunVisibility) {
+  if (uUseWaterFx < 0.5) return baseLit;
+  float waterRaw = texture(uWater, uv).r;
+  float waterMask = smoothstep(0.46, 0.54, waterRaw);
+  if (waterMask <= 0.0001) return baseLit;
+
+  vec2 flowDir = normalize(uWaterFlowDir);
+  if (uWaterFlowDownhill > 0.5) {
+    vec3 flowMapSample = texture(uFlowMap, uv).rgb;
+    vec2 mapDir = flowMapSample.xy * 2.0 - 1.0;
+    float mapLen = length(mapDir);
+    float hL = texture(uHeight, clamp(uv - vec2(uMapTexelSize.x, 0.0), vec2(0.0), vec2(1.0))).r;
+    float hR = texture(uHeight, clamp(uv + vec2(uMapTexelSize.x, 0.0), vec2(0.0), vec2(1.0))).r;
+    float hD = texture(uHeight, clamp(uv - vec2(0.0, uMapTexelSize.y), vec2(0.0), vec2(1.0))).r;
+    float hU = texture(uHeight, clamp(uv + vec2(0.0, uMapTexelSize.y), vec2(0.0), vec2(1.0))).r;
+    vec2 localDir = vec2(0.0);
+    float localLen = length(vec2(hR - hL, hU - hD));
+    if (localLen > 0.00002) {
+      localDir = normalize(-vec2(hR - hL, hU - hD));
+    }
+
+    vec2 trendDir = flowDir;
+    if (mapLen > 0.00002) {
+      float trend = clamp(flowMapSample.z * 1.35, 0.0, 1.0);
+      trendDir = normalize(mix(flowDir, mapDir / mapLen, trend));
+    }
+    if (localLen > 0.00002) {
+      flowDir = normalize(mix(trendDir, localDir, clamp(uWaterLocalFlowMix, 0.0, 1.0)));
+    } else {
+      flowDir = trendDir;
+    }
+  }
+
+  float flowScale = max(0.05, uWaterFlowScale);
+  float flowSpeed = max(0.0, uWaterFlowSpeed);
+  vec2 flowOffset = flowDir * (timeSec * flowSpeed * 0.045);
+  vec2 sideDir = vec2(-flowDir.y, flowDir.x);
+  float nA = texture(uCloudNoiseTex, fract(uv * flowScale + flowOffset)).r;
+  float nB = texture(uCloudNoiseTex, fract(uv * (flowScale * 1.73) + sideDir * 0.29 - flowOffset * 1.31)).r;
+  float nC = texture(uCloudNoiseTex, fract(uv * (flowScale * 3.4) + flowOffset * 2.2)).r;
+  float shimmer = ((nA * 0.5 + nB * 0.35 + nC * 0.15) - 0.5) * 2.0;
+
+  float alongCoord = dot(uv * (flowScale * 2.1), flowDir);
+  float lineWave = 0.5 + 0.5 * sin(alongCoord * 48.0 + timeSec * flowSpeed * 6.0 + (nB - 0.5) * 5.0);
+  float flowLines = smoothstep(0.58, 0.96, lineWave * 0.7 + nA * 0.3);
+
+  vec3 waterN = normalize(vec3(
+    terrainN.x + shimmer * uWaterFlowStrength * 1.9,
+    terrainN.y + (nB - 0.5) * uWaterFlowStrength * 1.6,
+    max(0.05, terrainN.z)
+  ));
+
+  vec3 viewDir = vec3(0.0, 0.0, 1.0);
+  vec3 halfVecSun = normalize(uSunDir + viewDir);
+  float glintPow = mix(14.0, 190.0, clamp(uWaterGlintSharpness, 0.0, 1.0));
+  float sunGlintCore = pow(max(dot(waterN, halfVecSun), 0.0), glintPow);
+  float lowSunBoost = pow(1.0 - clamp(uSunDir.z, 0.0, 1.0), 0.6);
+  float sunGlint = sunGlintCore * uWaterGlintStrength * lowSunBoost * max(0.0, uSunStrength) * sunVisibility;
+
+  vec3 halfVecMoon = normalize(uMoonDir + viewDir);
+  float moonGlintCore = pow(max(dot(waterN, halfVecMoon), 0.0), mix(20.0, 120.0, clamp(uWaterGlintSharpness, 0.0, 1.0)));
+  float moonGlint = moonGlintCore * (uWaterGlintStrength * 0.16) * max(0.0, uMoonStrength);
+
+  float hEdge = abs(texture(uWater, clamp(uv - vec2(uMapTexelSize.x * uWaterShoreWidth, 0.0), vec2(0.0), vec2(1.0))).r - waterRaw);
+  float vEdge = abs(texture(uWater, clamp(uv - vec2(0.0, uMapTexelSize.y * uWaterShoreWidth), vec2(0.0), vec2(1.0))).r - waterRaw);
+  float shoreline = smoothstep(0.02, 0.33, max(hEdge, vEdge)) * waterMask;
+  float foamPulse = 0.45 + 0.55 * (0.5 + 0.5 * sin(timeSec * (2.2 + flowSpeed * 1.6) + nC * 6.2831853));
+  float foam = shoreline * uWaterShoreFoamStrength * foamPulse;
+
+  float fakeFresnel = 0.10 + 0.55 * (1.0 - clamp(waterN.z, 0.0, 1.0));
+  vec3 reflection = uSkyColor * uWaterReflectivity * (0.24 + 0.76 * fakeFresnel);
+  vec3 flowTint = vec3(shimmer * uWaterShimmerStrength * 0.55 + flowLines * uWaterFlowStrength * 0.35);
+  vec3 glintColor = mix(uSunColor, vec3(1.0), 0.35) * sunGlint + uMoonColor * moonGlint;
+  vec3 shoreFoamColor = vec3(0.78, 0.86, 0.92) * foam;
+
+  vec3 waterLit = baseLit;
+  waterLit = waterLit + flowTint + reflection + glintColor + shoreFoamColor;
+  if (uWaterFlowDebug > 0.5) {
+    vec3 debugColor = vec3(0.5 + 0.5 * flowDir.x, 0.5 + 0.5 * flowDir.y, 0.22 + 0.78 * flowLines);
+    return mix(baseLit, debugColor, waterMask);
+  }
+  return mix(baseLit, waterLit, waterMask);
+}
+
+vec3 computeVolumetricScattering(vec2 uv, float timeSec, float sunVisibility) {
+  if (uUseVolumetric < 0.5 || uVolumetricStrength <= 0.0001 || sunVisibility <= 0.0001) return vec3(0.0);
+  float sunPlanarLen = length(uSunDir.xy);
+  if (sunPlanarLen < 0.0001) return vec3(0.0);
+  float sunLateral = clamp(sunPlanarLen, 0.0, 1.0);
+  float altitudeStretch = mix(0.18, 1.0, pow(sunLateral, 0.85));
+  float altitudeScatterGain = mix(0.22, 1.0, pow(sunLateral, 0.65));
+  float sampleCount = max(1.0, floor(clamp(uVolumetricSamples, 4.0, 24.0) + 0.5));
+  vec2 rayDir = -uSunDir.xy / sunPlanarLen;
+  float rayLengthPx = clamp(uVolumetricLength * altitudeStretch, 2.0, 160.0);
+  vec2 rayStepUv = rayDir * uMapTexelSize * (rayLengthPx / sampleCount);
+  float g = clamp(uVolumetricAnisotropy, 0.0, 0.95);
+  float cosTheta = clamp(uSunDir.z, 0.0, 1.0);
+  float phaseDenom = pow(max(0.001, 1.0 + g * g - 2.0 * g * cosTheta), 1.5);
+  float phase = (1.0 - g * g) / phaseDenom;
+  float extinctionScale = 0.08;
+  float accum = 0.0;
+  float transmittance = 1.0;
+  for (int i = 0; i < 24; i++) {
+    if (float(i) >= sampleCount) break;
+    vec2 sampleUv = uv + rayStepUv * (float(i) + 1.0);
+    if (sampleUv.x <= 0.0 || sampleUv.y <= 0.0 || sampleUv.x >= 1.0 || sampleUv.y >= 1.0) break;
+    float fogAmount = fogAmountAtUv(sampleUv);
+    float fogAlpha = fogAlphaFromAmount(fogAmount);
+    float localDensity = clamp(fogAlpha * uVolumetricDensity, 0.0, 1.5);
+    if (localDensity <= 0.0001) continue;
+    float localCloudMask = cloudMaskAtUv(sampleUv, timeSec, uSunDir);
+    float localSun = 1.0 - localCloudMask * clamp(uCloudOpacity, 0.0, 1.0) * sunVisibility;
+    float scatter = localSun * localDensity * phase;
+    accum += transmittance * scatter;
+    transmittance *= exp(-localDensity * extinctionScale);
+    if (transmittance <= 0.0005) break;
+  }
+  vec3 scatterColor = mix(uFogColor, uSunColor, 0.72);
+  float scatterEnergy = accum * uVolumetricStrength * altitudeScatterGain * 0.16;
+  float compressedEnergy = scatterEnergy / (1.0 + scatterEnergy * 1.85);
+  return scatterColor * compressedEnergy;
 }
 
 void main() {
@@ -292,8 +491,9 @@ void main() {
 
   float sunDiffuse = max(dot(n, uSunDir), 0.0);
   float moonDiffuse = max(dot(n, uMoonDir), 0.0);
-  float sunShadow = calcShadow(uv, uSunDir);
-  float moonShadow = calcShadow(uv, uMoonDir);
+  vec2 shadowSample = texture(uShadowTex, uv).rg;
+  float sunShadow = (uUseShadows > 0.5 && sunDiffuse > 0.0001 && uSunStrength > 0.0001) ? shadowSample.r : 1.0;
+  float moonShadow = (uUseShadows > 0.5 && moonDiffuse > 0.0001 && uMoonStrength > 0.0001) ? shadowSample.g : 1.0;
 
   vec3 ambientLit = base * (uAmbient * uAmbientColor);
   vec3 sunLit = base * (sunDiffuse * sunShadow * uSunStrength) * uSunColor;
@@ -332,44 +532,124 @@ void main() {
     }
   }
   vec3 lit = clamp(ambientLit + sunLit + moonLit + pointLit + cursorLit, 0.0, 1.0);
+  float timeSec = max(0.0, uTimeSec);
+  float sunVisibility = smoothstep(-0.04, 0.15, uSunDir.z);
 
-  if (uUseClouds > 0.5 && uCloudOpacity > 0.0001) {
-    float sunVisibility = smoothstep(-0.04, 0.15, uSunDir.z);
-    if (sunVisibility > 0.0001) {
-      float cloudScale = max(0.05, uCloudScale);
-      float soft = max(0.001, uCloudSoftness);
-      float threshold = clamp(uCloudCoverage, 0.0, 1.0);
-      float timeSec = max(0.0, uTimeSec);
-      vec2 sunShift = vec2(0.0);
-      if (uCloudUseSunProjection > 0.5) {
-        float sunZ = max(0.12, uSunDir.z);
-        sunShift = -uSunDir.xy / sunZ * (uCloudSunParallax * 0.03);
-      }
-      vec2 cloudUvA = fract((uv + sunShift + vec2(timeSec * uCloudSpeed1, timeSec * uCloudSpeed1 * 0.63)) * cloudScale);
-      vec2 cloudUvB = fract((uv + sunShift * 1.55 + vec2(-timeSec * uCloudSpeed2 * 0.74, timeSec * uCloudSpeed2)) * (cloudScale * 1.93));
-      float noiseA = texture(uCloudNoiseTex, cloudUvA).r;
-      float noiseB = texture(uCloudNoiseTex, cloudUvB).r;
-      float maskA = smoothstep(threshold - soft, threshold + soft, noiseA);
-      float maskB = smoothstep(threshold - soft, threshold + soft, noiseB);
-      float cloudMask = clamp(maskA * 0.66 + maskB * 0.34, 0.0, 1.0);
-      float cloudShade = 1.0 - (cloudMask * clamp(uCloudOpacity, 0.0, 1.0) * sunVisibility);
-      lit *= cloudShade;
-    }
+  if (sunVisibility > 0.0001) {
+    float cloudMask = cloudMaskAtUv(uv, timeSec, uSunDir);
+    float cloudShade = 1.0 - (cloudMask * clamp(uCloudOpacity, 0.0, 1.0) * sunVisibility);
+    lit *= cloudShade;
   }
 
+  lit = applyWaterFx(uv, lit, n, timeSec, sunVisibility);
+
+  float fogAmount = fogAmountAtUv(uv);
+  float fogAlpha = fogAlphaFromAmount(fogAmount);
+  vec3 volumetricScatter = computeVolumetricScattering(uv, timeSec, sunVisibility);
+
   if (uUseFog > 0.5) {
-    float terrainHeight = texture(uHeight, uv).r;
-    float heightDelta = max(0.0, uCameraHeightNorm - terrainHeight);
-    float adjustedDelta = max(0.0, heightDelta - uFogStartOffset);
-    float fogBase = smoothstep(0.02, 0.92, adjustedDelta);
-    float fogAmount = pow(clamp(fogBase, 0.0, 1.0), max(0.05, uFogFalloff));
-    float fogMin = min(uFogMinAlpha, uFogMaxAlpha);
-    float fogMax = max(uFogMinAlpha, uFogMaxAlpha);
-    float fogAlpha = mix(fogMin, fogMax, fogAmount);
     lit = mix(lit, uFogColor, fogAlpha);
   }
 
+  lit = clamp(lit + volumetricScatter * (1.0 - lit), 0.0, 1.0);
   outColor = vec4(lit, 1.0);
+}`;
+
+const SHADOW_FRAG_SRC = `#version 300 es
+precision highp float;
+out vec4 outColor;
+
+uniform sampler2D uHeight;
+uniform vec2 uMapTexelSize;
+uniform vec2 uShadowResolution;
+uniform vec3 uSunDir;
+uniform vec3 uMoonDir;
+uniform float uHeightScale;
+uniform float uShadowStrength;
+uniform float uUseShadows;
+
+float readHeight(vec2 uv) {
+  return texture(uHeight, uv).r * uHeightScale;
+}
+
+float calcShadow(vec2 uv, vec3 lightDir) {
+  if (uUseShadows < 0.5) return 1.0;
+  if (lightDir.z <= 0.01) return 0.0;
+  float dirLen = length(lightDir.xy);
+  if (dirLen < 0.0001) return 1.0;
+  vec2 dir2 = lightDir.xy / dirLen;
+  float h0 = readHeight(uv);
+  float slope = lightDir.z / max(dirLen, 0.0001);
+  float bias = 0.7;
+  float stepPixels = 1.5;
+  vec2 stepUv = dir2 * uMapTexelSize * stepPixels;
+  vec2 p = uv;
+  float traveledPixels = 0.0;
+  for (int i = 0; i < 120; i++) {
+    p += stepUv;
+    traveledPixels += stepPixels;
+    if (p.x <= 0.0 || p.y <= 0.0 || p.x >= 1.0 || p.y >= 1.0) {
+      break;
+    }
+    float h = readHeight(p);
+    float rayH = h0 + slope * traveledPixels;
+    if (h > rayH + bias) {
+      return 1.0 - uShadowStrength;
+    }
+  }
+  return 1.0;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uShadowResolution;
+  float sunShadow = calcShadow(uv, uSunDir);
+  float moonShadow = calcShadow(uv, uMoonDir);
+  outColor = vec4(sunShadow, moonShadow, 0.0, 1.0);
+}`;
+
+const SHADOW_BLUR_FRAG_SRC = `#version 300 es
+precision highp float;
+out vec4 outColor;
+
+uniform sampler2D uShadowRawTex;
+uniform vec2 uShadowResolution;
+uniform float uBlurRadiusPx;
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uShadowResolution;
+  float radius = max(0.0, uBlurRadiusPx);
+  if (radius <= 0.001) {
+    outColor = texture(uShadowRawTex, uv);
+    return;
+  }
+
+  vec2 texel = vec2(1.0) / uShadowResolution;
+  vec2 offset = texel * radius;
+  vec2 sum = vec2(0.0);
+  float weight = 0.0;
+
+  float centerW = 0.36;
+  sum += texture(uShadowRawTex, uv).rg * centerW;
+  weight += centerW;
+
+  float axisW = 0.14;
+  sum += texture(uShadowRawTex, clamp(uv + vec2(offset.x, 0.0), vec2(0.0), vec2(1.0))).rg * axisW;
+  sum += texture(uShadowRawTex, clamp(uv - vec2(offset.x, 0.0), vec2(0.0), vec2(1.0))).rg * axisW;
+  sum += texture(uShadowRawTex, clamp(uv + vec2(0.0, offset.y), vec2(0.0), vec2(1.0))).rg * axisW;
+  sum += texture(uShadowRawTex, clamp(uv - vec2(0.0, offset.y), vec2(0.0), vec2(1.0))).rg * axisW;
+  weight += axisW * 4.0;
+
+  if (radius >= 1.6) {
+    float diagW = 0.02;
+    sum += texture(uShadowRawTex, clamp(uv + vec2(offset.x, offset.y), vec2(0.0), vec2(1.0))).rg * diagW;
+    sum += texture(uShadowRawTex, clamp(uv + vec2(-offset.x, offset.y), vec2(0.0), vec2(1.0))).rg * diagW;
+    sum += texture(uShadowRawTex, clamp(uv + vec2(offset.x, -offset.y), vec2(0.0), vec2(1.0))).rg * diagW;
+    sum += texture(uShadowRawTex, clamp(uv + vec2(-offset.x, -offset.y), vec2(0.0), vec2(1.0))).rg * diagW;
+    weight += diagW * 4.0;
+  }
+
+  vec2 blurred = sum / max(0.0001, weight);
+  outColor = vec4(blurred, 0.0, 1.0);
 }`;
 
 function createShader(type, src) {
@@ -411,9 +691,168 @@ function createTexture() {
   return tex;
 }
 
+function createLinearTexture() {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return tex;
+}
+
 function uploadImageToTexture(tex, image) {
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+}
+
+function buildFlowMapImageDataFromHeight(imageData, sourceWidth, sourceHeight) {
+  const lowWidth = Math.max(32, Math.min(256, Math.round(sourceWidth / 4)));
+  const lowHeight = Math.max(32, Math.min(256, Math.round(sourceHeight / 4)));
+  const lowHeights = new Float32Array(lowWidth * lowHeight);
+  const src = imageData.data;
+
+  for (let y = 0; y < lowHeight; y++) {
+    const srcY = clamp(Math.round(((y + 0.5) / lowHeight) * sourceHeight - 0.5), 0, sourceHeight - 1);
+    for (let x = 0; x < lowWidth; x++) {
+      const srcX = clamp(Math.round(((x + 0.5) / lowWidth) * sourceWidth - 0.5), 0, sourceWidth - 1);
+      const idx = (srcY * sourceWidth + srcX) * 4;
+      lowHeights[y * lowWidth + x] = src[idx] / 255;
+    }
+  }
+
+  const sampleLow = (x, y) => {
+    const xi = clamp(Math.round(x), 0, lowWidth - 1);
+    const yi = clamp(Math.round(y), 0, lowHeight - 1);
+    return lowHeights[yi * lowWidth + xi];
+  };
+
+  const pairs = [
+    { r: Math.round(clamp(Number(waterFlowRadius1Input.value), 1, 40)), w: clamp(Number(waterFlowWeight1Input.value), 0, 1) },
+    { r: Math.round(clamp(Number(waterFlowRadius2Input.value), 1, 40)), w: clamp(Number(waterFlowWeight2Input.value), 0, 1) },
+    { r: Math.round(clamp(Number(waterFlowRadius3Input.value), 1, 40)), w: clamp(Number(waterFlowWeight3Input.value), 0, 1) },
+  ].sort((a, b) => a.r - b.r);
+  const weightSum = Math.max(0.0001, pairs[0].w + pairs[1].w + pairs[2].w);
+  const gradX = new Float32Array(lowWidth * lowHeight);
+  const gradY = new Float32Array(lowWidth * lowHeight);
+  let maxMag = 0;
+
+  for (let y = 0; y < lowHeight; y++) {
+    for (let x = 0; x < lowWidth; x++) {
+      let gx = 0;
+      let gy = 0;
+      for (let i = 0; i < pairs.length; i++) {
+        const r = pairs[i].r;
+        const w = pairs[i].w / weightSum;
+        gx += (sampleLow(x + r, y) - sampleLow(x - r, y)) * w;
+        gy += (sampleLow(x, y + r) - sampleLow(x, y - r)) * w;
+      }
+      const idx = y * lowWidth + x;
+      gradX[idx] = gx;
+      gradY[idx] = gy;
+      const mag = Math.hypot(gx, gy);
+      if (mag > maxMag) {
+        maxMag = mag;
+      }
+    }
+  }
+
+  const out = new Uint8Array(lowWidth * lowHeight * 4);
+  const invMax = maxMag > 1e-6 ? 1 / maxMag : 0;
+  for (let y = 0; y < lowHeight; y++) {
+    for (let x = 0; x < lowWidth; x++) {
+      const idx = y * lowWidth + x;
+      const gx = gradX[idx];
+      const gy = gradY[idx];
+      const downhillX = -gx;
+      const downhillY = -gy;
+      const len = Math.hypot(downhillX, downhillY);
+      let dirX = 0;
+      let dirY = 0;
+      if (len > 1e-6) {
+        dirX = downhillX / len;
+        dirY = downhillY / len;
+      }
+      const magNorm = Math.pow(clamp(len * invMax, 0, 1), 0.75);
+      const outIdx = idx * 4;
+      out[outIdx + 0] = Math.round((dirX * 0.5 + 0.5) * 255);
+      out[outIdx + 1] = Math.round((dirY * 0.5 + 0.5) * 255);
+      out[outIdx + 2] = Math.round(magNorm * 255);
+      out[outIdx + 3] = 255;
+    }
+  }
+
+  return { width: lowWidth, height: lowHeight, data: out };
+}
+
+function rebuildFlowMapTexture() {
+  if (!heightImageData) return;
+  const flowMap = buildFlowMapImageDataFromHeight(heightImageData, heightSize.width, heightSize.height);
+  gl.bindTexture(gl.TEXTURE_2D, flowMapTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, flowMap.width, flowMap.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, flowMap.data);
+}
+
+function resizeRenderTexture(tex, width, height) {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, Math.max(1, width), Math.max(1, height), 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+}
+
+function attachColorTexture(fbo, tex) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if (status !== gl.FRAMEBUFFER_COMPLETE) {
+    throw new Error(`Framebuffer incomplete: ${status}`);
+  }
+}
+
+function ensureShadowTargets() {
+  const targetW = Math.max(1, Math.floor(heightSize.width * SHADOW_MAP_SCALE));
+  const targetH = Math.max(1, Math.floor(heightSize.height * SHADOW_MAP_SCALE));
+  if (shadowSize.width === targetW && shadowSize.height === targetH) {
+    return;
+  }
+  shadowSize.width = targetW;
+  shadowSize.height = targetH;
+  resizeRenderTexture(shadowRawTex, targetW, targetH);
+  resizeRenderTexture(shadowBlurTex, targetW, targetH);
+  attachColorTexture(shadowRawFbo, shadowRawTex);
+  attachColorTexture(shadowBlurFbo, shadowBlurTex);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+function renderShadowPipeline(params) {
+  ensureShadowTargets();
+  gl.disable(gl.BLEND);
+  gl.viewport(0, 0, shadowSize.width, shadowSize.height);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, shadowRawFbo);
+  gl.useProgram(shadowProgram);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, heightTex);
+  gl.uniform1i(shadowUniforms.uHeight, 0);
+  gl.uniform2f(shadowUniforms.uMapTexelSize, 1 / heightSize.width, 1 / heightSize.height);
+  gl.uniform2f(shadowUniforms.uShadowResolution, shadowSize.width, shadowSize.height);
+  gl.uniform3f(shadowUniforms.uSunDir, params.sunDir[0], params.sunDir[1], params.sunDir[2]);
+  gl.uniform3f(shadowUniforms.uMoonDir, params.moonDir[0], params.moonDir[1], params.moonDir[2]);
+  gl.uniform1f(shadowUniforms.uHeightScale, Number(heightScaleInput.value));
+  gl.uniform1f(shadowUniforms.uShadowStrength, Number(shadowStrengthInput.value));
+  gl.uniform1f(shadowUniforms.uUseShadows, shadowsToggle.checked ? 1 : 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  const blurRadiusPx = clamp(Number(shadowBlurInput.value), 0, 3);
+  if (blurRadiusPx > 0.001) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowBlurFbo);
+    gl.useProgram(shadowBlurProgram);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, shadowRawTex);
+    gl.uniform1i(shadowBlurUniforms.uShadowRawTex, 0);
+    gl.uniform2f(shadowBlurUniforms.uShadowResolution, shadowSize.width, shadowSize.height);
+    gl.uniform1f(shadowBlurUniforms.uBlurRadiusPx, blurRadiusPx);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
 function fract(v) {
@@ -605,6 +1044,8 @@ async function applyMapImages(splatImage, normalsImage, heightImage, slopeImage,
   uploadImageToTexture(heightTex, heightImage);
   setHeightSizeFromImage(heightImage);
   heightImageData = extractImageData(heightImage);
+  rebuildFlowMapTexture();
+  uploadImageToTexture(waterTex, waterImage);
   slopeImageData = extractImageData(slopeImage);
   waterImageData = extractImageData(waterImage);
   syncPointLightWorkerMapData();
@@ -663,8 +1104,15 @@ const DEFAULT_LIGHTING_SETTINGS = {
   useShadows: true,
   heightScale: 80,
   shadowStrength: 0.6,
+  shadowBlur: 0,
   ambient: 0.35,
   diffuse: 1,
+  useVolumetric: false,
+  volumetricStrength: 0.24,
+  volumetricDensity: 0.85,
+  volumetricAnisotropy: 0.45,
+  volumetricLength: 52,
+  volumetricSamples: 12,
   cycleHour: 9.5,
   cycleSpeed: 0.08,
   pointFlickerEnabled: true,
@@ -701,6 +1149,29 @@ const DEFAULT_CLOUD_SETTINGS = {
   cloudUseSunProjection: true,
 };
 
+const DEFAULT_WATER_SETTINGS = {
+  useWaterFx: false,
+  waterFlowDownhill: true,
+  waterFlowDebug: false,
+  waterFlowDirectionDeg: 135,
+  waterLocalFlowMix: 0.35,
+  waterFlowRadius1: 1,
+  waterFlowRadius2: 3,
+  waterFlowRadius3: 6,
+  waterFlowWeight1: 0.22,
+  waterFlowWeight2: 0.33,
+  waterFlowWeight3: 0.45,
+  waterFlowStrength: 0.045,
+  waterFlowSpeed: 0.75,
+  waterFlowScale: 4.2,
+  waterShimmerStrength: 0.05,
+  waterGlintStrength: 0.55,
+  waterGlintSharpness: 0.55,
+  waterShoreFoamStrength: 0.14,
+  waterShoreWidth: 2.2,
+  waterReflectivity: 0.33,
+};
+
 const DEFAULT_INTERACTION_SETTINGS = {
   pathfindingRange: 30,
   pathWeightSlope: 1.8,
@@ -723,8 +1194,15 @@ function serializeLightingSettings() {
     useShadows: shadowsToggle.checked,
     heightScale: clamp(Number(heightScaleInput.value), 1, 300),
     shadowStrength: clamp(Number(shadowStrengthInput.value), 0, 1),
+    shadowBlur: clamp(Number(shadowBlurInput.value), 0, 3),
     ambient: clamp(Number(ambientInput.value), 0, 1),
     diffuse: clamp(Number(diffuseInput.value), 0, 2),
+    useVolumetric: volumetricToggle.checked,
+    volumetricStrength: clamp(Number(volumetricStrengthInput.value), 0, 1),
+    volumetricDensity: clamp(Number(volumetricDensityInput.value), 0, 2),
+    volumetricAnisotropy: clamp(Number(volumetricAnisotropyInput.value), 0, 0.95),
+    volumetricLength: Math.round(clamp(Number(volumetricLengthInput.value), 8, 160)),
+    volumetricSamples: Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)),
     cycleHour: clamp(Number(cycleState.hour), 0, 24),
     cycleSpeed: clamp(Number(cycleSpeedInput.value), 0, 1),
     pointFlickerEnabled: pointFlickerToggle.checked,
@@ -745,11 +1223,32 @@ function applyLightingSettings(rawData) {
   if (Number.isFinite(Number(data.shadowStrength))) {
     shadowStrengthInput.value = String(clamp(Number(data.shadowStrength), 0, 1));
   }
+  if (Number.isFinite(Number(data.shadowBlur))) {
+    shadowBlurInput.value = String(clamp(Number(data.shadowBlur), 0, 3));
+  }
   if (Number.isFinite(Number(data.ambient))) {
     ambientInput.value = String(clamp(Number(data.ambient), 0, 1));
   }
   if (Number.isFinite(Number(data.diffuse))) {
     diffuseInput.value = String(clamp(Number(data.diffuse), 0, 2));
+  }
+  if (typeof data.useVolumetric === "boolean") {
+    volumetricToggle.checked = data.useVolumetric;
+  }
+  if (Number.isFinite(Number(data.volumetricStrength))) {
+    volumetricStrengthInput.value = String(clamp(Number(data.volumetricStrength), 0, 1));
+  }
+  if (Number.isFinite(Number(data.volumetricDensity))) {
+    volumetricDensityInput.value = String(clamp(Number(data.volumetricDensity), 0, 2));
+  }
+  if (Number.isFinite(Number(data.volumetricAnisotropy))) {
+    volumetricAnisotropyInput.value = String(clamp(Number(data.volumetricAnisotropy), 0, 0.95));
+  }
+  if (Number.isFinite(Number(data.volumetricLength))) {
+    volumetricLengthInput.value = String(Math.round(clamp(Number(data.volumetricLength), 8, 160)));
+  }
+  if (Number.isFinite(Number(data.volumetricSamples))) {
+    volumetricSamplesInput.value = String(Math.round(clamp(Number(data.volumetricSamples), 4, 24)));
   }
   if (Number.isFinite(Number(data.cycleHour))) {
     cycleState.hour = clamp(Number(data.cycleHour), 0, 24);
@@ -770,6 +1269,9 @@ function applyLightingSettings(rawData) {
   if (Number.isFinite(Number(data.pointFlickerSpatial))) {
     pointFlickerSpatialInput.value = String(clamp(Number(data.pointFlickerSpatial), 0, 4));
   }
+  updateVolumetricLabels();
+  updateVolumetricUi();
+  updateShadowBlurLabel();
   updatePointFlickerLabels();
   updatePointFlickerUi();
   setCycleHourSliderFromState();
@@ -811,6 +1313,32 @@ function serializeCloudSettings() {
     cloudSpeed2: clamp(Number(cloudSpeed2Input.value), -0.3, 0.3),
     cloudSunParallax: clamp(Number(cloudSunParallaxInput.value), 0, 2),
     cloudUseSunProjection: cloudSunProjectToggle.checked,
+  };
+}
+
+function serializeWaterSettings() {
+  return {
+    version: 1,
+    useWaterFx: waterFxToggle.checked,
+    waterFlowDownhill: waterFlowDownhillToggle.checked,
+    waterFlowDebug: waterFlowDebugToggle.checked,
+    waterFlowDirectionDeg: Math.round(clamp(Number(waterFlowDirectionInput.value), 0, 360)),
+    waterLocalFlowMix: clamp(Number(waterLocalFlowMixInput.value), 0, 1),
+    waterFlowRadius1: Math.round(clamp(Number(waterFlowRadius1Input.value), 1, 12)),
+    waterFlowRadius2: Math.round(clamp(Number(waterFlowRadius2Input.value), 1, 24)),
+    waterFlowRadius3: Math.round(clamp(Number(waterFlowRadius3Input.value), 1, 40)),
+    waterFlowWeight1: clamp(Number(waterFlowWeight1Input.value), 0, 1),
+    waterFlowWeight2: clamp(Number(waterFlowWeight2Input.value), 0, 1),
+    waterFlowWeight3: clamp(Number(waterFlowWeight3Input.value), 0, 1),
+    waterFlowStrength: clamp(Number(waterFlowStrengthInput.value), 0, 0.15),
+    waterFlowSpeed: clamp(Number(waterFlowSpeedInput.value), 0, 2.5),
+    waterFlowScale: clamp(Number(waterFlowScaleInput.value), 0.5, 14),
+    waterShimmerStrength: clamp(Number(waterShimmerStrengthInput.value), 0, 0.2),
+    waterGlintStrength: clamp(Number(waterGlintStrengthInput.value), 0, 1.5),
+    waterGlintSharpness: clamp(Number(waterGlintSharpnessInput.value), 0, 1),
+    waterShoreFoamStrength: clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5),
+    waterShoreWidth: clamp(Number(waterShoreWidthInput.value), 0.4, 6),
+    waterReflectivity: clamp(Number(waterReflectivityInput.value), 0, 1),
   };
 }
 
@@ -919,6 +1447,73 @@ function applyCloudSettings(rawData) {
   updateCloudUi();
 }
 
+function applyWaterSettings(rawData) {
+  const data = rawData && typeof rawData === "object" ? rawData : {};
+  if (typeof data.useWaterFx === "boolean") {
+    waterFxToggle.checked = data.useWaterFx;
+  }
+  if (typeof data.waterFlowDownhill === "boolean") {
+    waterFlowDownhillToggle.checked = data.waterFlowDownhill;
+  }
+  if (typeof data.waterFlowDebug === "boolean") {
+    waterFlowDebugToggle.checked = data.waterFlowDebug;
+  }
+  if (Number.isFinite(Number(data.waterFlowDirectionDeg))) {
+    waterFlowDirectionInput.value = String(Math.round(clamp(Number(data.waterFlowDirectionDeg), 0, 360)));
+  }
+  if (Number.isFinite(Number(data.waterLocalFlowMix))) {
+    waterLocalFlowMixInput.value = String(clamp(Number(data.waterLocalFlowMix), 0, 1));
+  }
+  if (Number.isFinite(Number(data.waterFlowRadius1))) {
+    waterFlowRadius1Input.value = String(Math.round(clamp(Number(data.waterFlowRadius1), 1, 12)));
+  }
+  if (Number.isFinite(Number(data.waterFlowRadius2))) {
+    waterFlowRadius2Input.value = String(Math.round(clamp(Number(data.waterFlowRadius2), 1, 24)));
+  }
+  if (Number.isFinite(Number(data.waterFlowRadius3))) {
+    waterFlowRadius3Input.value = String(Math.round(clamp(Number(data.waterFlowRadius3), 1, 40)));
+  }
+  if (Number.isFinite(Number(data.waterFlowWeight1))) {
+    waterFlowWeight1Input.value = String(clamp(Number(data.waterFlowWeight1), 0, 1));
+  }
+  if (Number.isFinite(Number(data.waterFlowWeight2))) {
+    waterFlowWeight2Input.value = String(clamp(Number(data.waterFlowWeight2), 0, 1));
+  }
+  if (Number.isFinite(Number(data.waterFlowWeight3))) {
+    waterFlowWeight3Input.value = String(clamp(Number(data.waterFlowWeight3), 0, 1));
+  }
+  if (Number.isFinite(Number(data.waterFlowStrength))) {
+    waterFlowStrengthInput.value = String(clamp(Number(data.waterFlowStrength), 0, 0.15));
+  }
+  if (Number.isFinite(Number(data.waterFlowSpeed))) {
+    waterFlowSpeedInput.value = String(clamp(Number(data.waterFlowSpeed), 0, 2.5));
+  }
+  if (Number.isFinite(Number(data.waterFlowScale))) {
+    waterFlowScaleInput.value = String(clamp(Number(data.waterFlowScale), 0.5, 14));
+  }
+  if (Number.isFinite(Number(data.waterShimmerStrength))) {
+    waterShimmerStrengthInput.value = String(clamp(Number(data.waterShimmerStrength), 0, 0.2));
+  }
+  if (Number.isFinite(Number(data.waterGlintStrength))) {
+    waterGlintStrengthInput.value = String(clamp(Number(data.waterGlintStrength), 0, 1.5));
+  }
+  if (Number.isFinite(Number(data.waterGlintSharpness))) {
+    waterGlintSharpnessInput.value = String(clamp(Number(data.waterGlintSharpness), 0, 1));
+  }
+  if (Number.isFinite(Number(data.waterShoreFoamStrength))) {
+    waterShoreFoamStrengthInput.value = String(clamp(Number(data.waterShoreFoamStrength), 0, 0.5));
+  }
+  if (Number.isFinite(Number(data.waterShoreWidth))) {
+    waterShoreWidthInput.value = String(clamp(Number(data.waterShoreWidth), 0.4, 6));
+  }
+  if (Number.isFinite(Number(data.waterReflectivity))) {
+    waterReflectivityInput.value = String(clamp(Number(data.waterReflectivity), 0, 1));
+  }
+  updateWaterLabels();
+  updateWaterUi();
+  rebuildFlowMapTexture();
+}
+
 function applyInteractionSettings(rawData) {
   const data = rawData && typeof rawData === "object" ? rawData : {};
   if (Number.isFinite(Number(data.pathfindingRange))) {
@@ -986,6 +1581,7 @@ function createMapDataFileTexts() {
     "interaction.json": `${JSON.stringify(serializeInteractionSettings(), null, 2)}\n`,
     "fog.json": `${JSON.stringify(serializeFogSettings(), null, 2)}\n`,
     "clouds.json": `${JSON.stringify(serializeCloudSettings(), null, 2)}\n`,
+    "waterfx.json": `${JSON.stringify(serializeWaterSettings(), null, 2)}\n`,
     "npc.json": `${JSON.stringify(serializeNpcState(), null, 2)}\n`,
   };
 }
@@ -1082,6 +1678,7 @@ async function loadMapFromPath(mapFolderPath) {
   applyInteractionSettings(DEFAULT_INTERACTION_SETTINGS);
   applyFogSettings(DEFAULT_FOG_SETTINGS);
   applyCloudSettings(DEFAULT_CLOUD_SETTINGS);
+  applyWaterSettings(DEFAULT_WATER_SETTINGS);
   requestOverlayDraw();
 
   let loadedPointLights = false;
@@ -1090,6 +1687,7 @@ async function loadMapFromPath(mapFolderPath) {
   let loadedInteraction = false;
   let loadedFog = false;
   let loadedClouds = false;
+  let loadedWaterFx = false;
   let loadedNpc = false;
 
   try {
@@ -1142,6 +1740,14 @@ async function loadMapFromPath(mapFolderPath) {
   }
 
   try {
+    const waterFxJson = await tryLoadJsonFromUrl(jsonPath("waterfx.json"));
+    applyWaterSettings(waterFxJson);
+    loadedWaterFx = true;
+  } catch (err) {
+    console.warn(`No waterfx.json found in ${folder}`, err);
+  }
+
+  try {
     const npcJson = await tryLoadJsonFromUrl(jsonPath("npc.json"));
     applyLoadedNpc(npcJson);
     loadedNpc = true;
@@ -1151,7 +1757,7 @@ async function loadMapFromPath(mapFolderPath) {
   }
 
   rebuildMovementField();
-  setStatus(`Loaded map ${folder} | pointlights: ${loadedPointLights ? "yes" : "no"} | lighting: ${loadedLighting ? "yes" : "no"} | parallax: ${loadedParallax ? "yes" : "no"} | interaction: ${loadedInteraction ? "yes" : "no"} | fog: ${loadedFog ? "yes" : "no"} | clouds: ${loadedClouds ? "yes" : "no"} | npc: ${loadedNpc ? "yes" : "default"}`);
+  setStatus(`Loaded map ${folder} | pointlights: ${loadedPointLights ? "yes" : "no"} | lighting: ${loadedLighting ? "yes" : "no"} | parallax: ${loadedParallax ? "yes" : "no"} | interaction: ${loadedInteraction ? "yes" : "no"} | fog: ${loadedFog ? "yes" : "no"} | clouds: ${loadedClouds ? "yes" : "no"} | waterfx: ${loadedWaterFx ? "yes" : "no"} | npc: ${loadedNpc ? "yes" : "default"}`);
 }
 
 async function loadMapFromFolderSelection(fileList) {
@@ -1189,6 +1795,7 @@ async function loadMapFromFolderSelection(fileList) {
   applyInteractionSettings(DEFAULT_INTERACTION_SETTINGS);
   applyFogSettings(DEFAULT_FOG_SETTINGS);
   applyCloudSettings(DEFAULT_CLOUD_SETTINGS);
+  applyWaterSettings(DEFAULT_WATER_SETTINGS);
   requestOverlayDraw();
 
   let loadedPointLights = false;
@@ -1197,6 +1804,7 @@ async function loadMapFromFolderSelection(fileList) {
   let loadedInteraction = false;
   let loadedFog = false;
   let loadedClouds = false;
+  let loadedWaterFx = false;
   let loadedNpc = false;
 
   const pointLightsFile = getFileFromFolderSelection(files, "pointlights.json");
@@ -1267,6 +1875,17 @@ async function loadMapFromFolderSelection(fileList) {
     }
   }
 
+  const waterFxFile = getFileFromFolderSelection(files, "waterfx.json");
+  if (waterFxFile) {
+    try {
+      const rawData = JSON.parse(await waterFxFile.text());
+      applyWaterSettings(rawData);
+      loadedWaterFx = true;
+    } catch (err) {
+      console.warn("Failed to parse waterfx.json from selected folder", err);
+    }
+  }
+
   const npcFile = getFileFromFolderSelection(files, "npc.json");
   if (npcFile) {
     try {
@@ -1282,7 +1901,7 @@ async function loadMapFromFolderSelection(fileList) {
   }
 
   rebuildMovementField();
-  setStatus(`Loaded map folder | pointlights: ${loadedPointLights ? "yes" : "no"} | lighting: ${loadedLighting ? "yes" : "no"} | parallax: ${loadedParallax ? "yes" : "no"} | interaction: ${loadedInteraction ? "yes" : "no"} | fog: ${loadedFog ? "yes" : "no"} | clouds: ${loadedClouds ? "yes" : "no"} | npc: ${loadedNpc ? "yes" : "default"}`);
+  setStatus(`Loaded map folder | pointlights: ${loadedPointLights ? "yes" : "no"} | lighting: ${loadedLighting ? "yes" : "no"} | parallax: ${loadedParallax ? "yes" : "no"} | interaction: ${loadedInteraction ? "yes" : "no"} | fog: ${loadedFog ? "yes" : "no"} | clouds: ${loadedClouds ? "yes" : "no"} | waterfx: ${loadedWaterFx ? "yes" : "no"} | npc: ${loadedNpc ? "yes" : "default"}`);
 }
 
 function setStatus(text) {
@@ -1364,6 +1983,8 @@ function sampleSunAtHour(hour) {
 }
 
 const program = createProgram(VERT_SRC, FRAG_SRC);
+const shadowProgram = createProgram(VERT_SRC, SHADOW_FRAG_SRC);
+const shadowBlurProgram = createProgram(VERT_SRC, SHADOW_BLUR_FRAG_SRC);
 gl.useProgram(program);
 
 const uniforms = {
@@ -1372,6 +1993,9 @@ const uniforms = {
   uHeight: gl.getUniformLocation(program, "uHeight"),
   uPointLightTex: gl.getUniformLocation(program, "uPointLightTex"),
   uCloudNoiseTex: gl.getUniformLocation(program, "uCloudNoiseTex"),
+  uShadowTex: gl.getUniformLocation(program, "uShadowTex"),
+  uWater: gl.getUniformLocation(program, "uWater"),
+  uFlowMap: gl.getUniformLocation(program, "uFlowMap"),
   uUseCursorLight: gl.getUniformLocation(program, "uUseCursorLight"),
   uCursorLightUv: gl.getUniformLocation(program, "uCursorLightUv"),
   uCursorLightColor: gl.getUniformLocation(program, "uCursorLightColor"),
@@ -1403,6 +2027,12 @@ const uniforms = {
   uFogFalloff: gl.getUniformLocation(program, "uFogFalloff"),
   uFogStartOffset: gl.getUniformLocation(program, "uFogStartOffset"),
   uCameraHeightNorm: gl.getUniformLocation(program, "uCameraHeightNorm"),
+  uUseVolumetric: gl.getUniformLocation(program, "uUseVolumetric"),
+  uVolumetricStrength: gl.getUniformLocation(program, "uVolumetricStrength"),
+  uVolumetricDensity: gl.getUniformLocation(program, "uVolumetricDensity"),
+  uVolumetricAnisotropy: gl.getUniformLocation(program, "uVolumetricAnisotropy"),
+  uVolumetricLength: gl.getUniformLocation(program, "uVolumetricLength"),
+  uVolumetricSamples: gl.getUniformLocation(program, "uVolumetricSamples"),
   uMapAspect: gl.getUniformLocation(program, "uMapAspect"),
   uViewHalfExtents: gl.getUniformLocation(program, "uViewHalfExtents"),
   uPanWorld: gl.getUniformLocation(program, "uPanWorld"),
@@ -1420,6 +2050,38 @@ const uniforms = {
   uCloudSpeed2: gl.getUniformLocation(program, "uCloudSpeed2"),
   uCloudSunParallax: gl.getUniformLocation(program, "uCloudSunParallax"),
   uCloudUseSunProjection: gl.getUniformLocation(program, "uCloudUseSunProjection"),
+  uUseWaterFx: gl.getUniformLocation(program, "uUseWaterFx"),
+  uWaterFlowDownhill: gl.getUniformLocation(program, "uWaterFlowDownhill"),
+  uWaterFlowDebug: gl.getUniformLocation(program, "uWaterFlowDebug"),
+  uWaterFlowDir: gl.getUniformLocation(program, "uWaterFlowDir"),
+  uWaterLocalFlowMix: gl.getUniformLocation(program, "uWaterLocalFlowMix"),
+  uWaterFlowStrength: gl.getUniformLocation(program, "uWaterFlowStrength"),
+  uWaterFlowSpeed: gl.getUniformLocation(program, "uWaterFlowSpeed"),
+  uWaterFlowScale: gl.getUniformLocation(program, "uWaterFlowScale"),
+  uWaterShimmerStrength: gl.getUniformLocation(program, "uWaterShimmerStrength"),
+  uWaterGlintStrength: gl.getUniformLocation(program, "uWaterGlintStrength"),
+  uWaterGlintSharpness: gl.getUniformLocation(program, "uWaterGlintSharpness"),
+  uWaterShoreFoamStrength: gl.getUniformLocation(program, "uWaterShoreFoamStrength"),
+  uWaterShoreWidth: gl.getUniformLocation(program, "uWaterShoreWidth"),
+  uWaterReflectivity: gl.getUniformLocation(program, "uWaterReflectivity"),
+  uSkyColor: gl.getUniformLocation(program, "uSkyColor"),
+};
+
+const shadowUniforms = {
+  uHeight: gl.getUniformLocation(shadowProgram, "uHeight"),
+  uMapTexelSize: gl.getUniformLocation(shadowProgram, "uMapTexelSize"),
+  uShadowResolution: gl.getUniformLocation(shadowProgram, "uShadowResolution"),
+  uSunDir: gl.getUniformLocation(shadowProgram, "uSunDir"),
+  uMoonDir: gl.getUniformLocation(shadowProgram, "uMoonDir"),
+  uHeightScale: gl.getUniformLocation(shadowProgram, "uHeightScale"),
+  uShadowStrength: gl.getUniformLocation(shadowProgram, "uShadowStrength"),
+  uUseShadows: gl.getUniformLocation(shadowProgram, "uUseShadows"),
+};
+
+const shadowBlurUniforms = {
+  uShadowRawTex: gl.getUniformLocation(shadowBlurProgram, "uShadowRawTex"),
+  uShadowResolution: gl.getUniformLocation(shadowBlurProgram, "uShadowResolution"),
+  uBlurRadiusPx: gl.getUniformLocation(shadowBlurProgram, "uBlurRadiusPx"),
 };
 
 const quad = gl.createBuffer();
@@ -1442,8 +2104,16 @@ gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 const splatTex = createTexture();
 const normalsTex = createTexture();
 const heightTex = createTexture();
+const waterTex = createTexture();
+const flowMapTex = createLinearTexture();
 const pointLightTex = createTexture();
 const cloudNoiseTex = gl.createTexture();
+const shadowRawTex = createTexture();
+const shadowBlurTex = createTexture();
+const shadowRawFbo = gl.createFramebuffer();
+const shadowBlurFbo = gl.createFramebuffer();
+const SHADOW_MAP_SCALE = 0.5;
+const shadowSize = { width: 1, height: 1 };
 uploadCloudNoiseTexture();
 
 const splatSize = { width: 1, height: 1 };
@@ -1612,11 +2282,13 @@ const defaultSplatImage = createFallbackSplat();
 uploadImageToTexture(normalsTex, defaultNormalImage);
 uploadImageToTexture(heightTex, defaultHeightImage);
 uploadImageToTexture(splatTex, defaultSplatImage);
+uploadImageToTexture(waterTex, defaultWaterImage);
 setSplatSizeFromImage(defaultSplatImage);
 setHeightSizeFromImage(defaultHeightImage);
 setNormalsSizeFromImage(defaultNormalImage);
 normalsImageData = extractImageData(defaultNormalImage);
 heightImageData = extractImageData(defaultHeightImage);
+rebuildFlowMapTexture();
 slopeImageData = extractImageData(defaultSlopeImage);
 waterImageData = extractImageData(defaultWaterImage);
 syncPointLightWorkerMapData();
@@ -2623,6 +3295,11 @@ function updateParallaxBandsLabel() {
   parallaxBandsValue.textContent = String(value);
 }
 
+function updateShadowBlurLabel() {
+  const value = clamp(Number(shadowBlurInput.value), 0, 3);
+  shadowBlurValue.textContent = `${value.toFixed(2)} px`;
+}
+
 function updateFogAlphaLabels() {
   fogMinAlphaValue.textContent = clamp(Number(fogMinAlphaInput.value), 0, 1).toFixed(2);
   fogMaxAlphaValue.textContent = clamp(Number(fogMaxAlphaInput.value), 0, 1).toFixed(2);
@@ -2649,6 +3326,23 @@ function updatePointFlickerUi() {
   pointFlickerSpatialInput.disabled = !enabled;
 }
 
+function updateVolumetricLabels() {
+  volumetricStrengthValue.textContent = clamp(Number(volumetricStrengthInput.value), 0, 1).toFixed(2);
+  volumetricDensityValue.textContent = clamp(Number(volumetricDensityInput.value), 0, 2).toFixed(2);
+  volumetricAnisotropyValue.textContent = clamp(Number(volumetricAnisotropyInput.value), 0, 0.95).toFixed(2);
+  volumetricLengthValue.textContent = `${Math.round(clamp(Number(volumetricLengthInput.value), 8, 160))} px`;
+  volumetricSamplesValue.textContent = String(Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)));
+}
+
+function updateVolumetricUi() {
+  const enabled = volumetricToggle.checked;
+  volumetricStrengthInput.disabled = !enabled;
+  volumetricDensityInput.disabled = !enabled;
+  volumetricAnisotropyInput.disabled = !enabled;
+  volumetricLengthInput.disabled = !enabled;
+  volumetricSamplesInput.disabled = !enabled;
+}
+
 function updateCloudLabels() {
   cloudCoverageValue.textContent = clamp(Number(cloudCoverageInput.value), 0, 1).toFixed(2);
   cloudSoftnessValue.textContent = clamp(Number(cloudSoftnessInput.value), 0.01, 0.35).toFixed(2);
@@ -2657,6 +3351,26 @@ function updateCloudLabels() {
   cloudSpeed1Value.textContent = clamp(Number(cloudSpeed1Input.value), -0.3, 0.3).toFixed(3);
   cloudSpeed2Value.textContent = clamp(Number(cloudSpeed2Input.value), -0.3, 0.3).toFixed(3);
   cloudSunParallaxValue.textContent = clamp(Number(cloudSunParallaxInput.value), 0, 2).toFixed(2);
+}
+
+function updateWaterLabels() {
+  waterFlowDirectionValue.textContent = `${Math.round(clamp(Number(waterFlowDirectionInput.value), 0, 360))} deg`;
+  waterLocalFlowMixValue.textContent = clamp(Number(waterLocalFlowMixInput.value), 0, 1).toFixed(2);
+  waterFlowRadius1Value.textContent = String(Math.round(clamp(Number(waterFlowRadius1Input.value), 1, 12)));
+  waterFlowRadius2Value.textContent = String(Math.round(clamp(Number(waterFlowRadius2Input.value), 1, 24)));
+  waterFlowRadius3Value.textContent = String(Math.round(clamp(Number(waterFlowRadius3Input.value), 1, 40)));
+  waterFlowWeight1Value.textContent = clamp(Number(waterFlowWeight1Input.value), 0, 1).toFixed(2);
+  waterFlowWeight2Value.textContent = clamp(Number(waterFlowWeight2Input.value), 0, 1).toFixed(2);
+  waterFlowWeight3Value.textContent = clamp(Number(waterFlowWeight3Input.value), 0, 1).toFixed(2);
+  waterFlowStrengthValue.textContent = clamp(Number(waterFlowStrengthInput.value), 0, 0.15).toFixed(3);
+  waterFlowSpeedValue.textContent = clamp(Number(waterFlowSpeedInput.value), 0, 2.5).toFixed(2);
+  waterFlowScaleValue.textContent = clamp(Number(waterFlowScaleInput.value), 0.5, 14).toFixed(2);
+  waterShimmerStrengthValue.textContent = clamp(Number(waterShimmerStrengthInput.value), 0, 0.2).toFixed(3);
+  waterGlintStrengthValue.textContent = clamp(Number(waterGlintStrengthInput.value), 0, 1.5).toFixed(2);
+  waterGlintSharpnessValue.textContent = clamp(Number(waterGlintSharpnessInput.value), 0, 1).toFixed(2);
+  waterShoreFoamStrengthValue.textContent = clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5).toFixed(2);
+  waterShoreWidthValue.textContent = `${clamp(Number(waterShoreWidthInput.value), 0.4, 6).toFixed(1)} px`;
+  waterReflectivityValue.textContent = clamp(Number(waterReflectivityInput.value), 0, 1).toFixed(2);
 }
 
 function updateParallaxUi() {
@@ -2683,6 +3397,30 @@ function updateCloudUi() {
   cloudSpeed2Input.disabled = !enabled;
   cloudSunParallaxInput.disabled = !enabled;
   cloudSunProjectToggle.disabled = !enabled;
+}
+
+function updateWaterUi() {
+  const enabled = waterFxToggle.checked;
+  const downhill = waterFlowDownhillToggle.checked;
+  waterFlowDownhillToggle.disabled = !enabled;
+  waterFlowDebugToggle.disabled = !enabled;
+  waterFlowDirectionInput.disabled = !enabled || downhill;
+  waterLocalFlowMixInput.disabled = !enabled || !downhill;
+  waterFlowRadius1Input.disabled = !enabled || !downhill;
+  waterFlowRadius2Input.disabled = !enabled || !downhill;
+  waterFlowRadius3Input.disabled = !enabled || !downhill;
+  waterFlowWeight1Input.disabled = !enabled || !downhill;
+  waterFlowWeight2Input.disabled = !enabled || !downhill;
+  waterFlowWeight3Input.disabled = !enabled || !downhill;
+  waterFlowStrengthInput.disabled = !enabled;
+  waterFlowSpeedInput.disabled = !enabled;
+  waterFlowScaleInput.disabled = !enabled;
+  waterShimmerStrengthInput.disabled = !enabled;
+  waterGlintStrengthInput.disabled = !enabled;
+  waterGlintSharpnessInput.disabled = !enabled;
+  waterShoreFoamStrengthInput.disabled = !enabled;
+  waterShoreWidthInput.disabled = !enabled;
+  waterReflectivityInput.disabled = !enabled;
 }
 
 function updateCycleHourLabel() {
@@ -3150,6 +3888,13 @@ pointLightsLoadInput.addEventListener("change", async () => {
 parallaxStrengthInput.addEventListener("input", updateParallaxStrengthLabel);
 parallaxBandsInput.addEventListener("input", updateParallaxBandsLabel);
 parallaxToggle.addEventListener("change", updateParallaxUi);
+shadowBlurInput.addEventListener("input", updateShadowBlurLabel);
+volumetricStrengthInput.addEventListener("input", updateVolumetricLabels);
+volumetricDensityInput.addEventListener("input", updateVolumetricLabels);
+volumetricAnisotropyInput.addEventListener("input", updateVolumetricLabels);
+volumetricLengthInput.addEventListener("input", updateVolumetricLabels);
+volumetricSamplesInput.addEventListener("input", updateVolumetricLabels);
+volumetricToggle.addEventListener("change", updateVolumetricUi);
 pointFlickerStrengthInput.addEventListener("input", updatePointFlickerLabels);
 pointFlickerSpeedInput.addEventListener("input", updatePointFlickerLabels);
 pointFlickerSpatialInput.addEventListener("input", updatePointFlickerLabels);
@@ -3170,6 +3915,25 @@ cloudSpeed1Input.addEventListener("input", updateCloudLabels);
 cloudSpeed2Input.addEventListener("input", updateCloudLabels);
 cloudSunParallaxInput.addEventListener("input", updateCloudLabels);
 cloudToggle.addEventListener("change", updateCloudUi);
+waterFlowDirectionInput.addEventListener("input", updateWaterLabels);
+waterLocalFlowMixInput.addEventListener("input", updateWaterLabels);
+waterFlowRadius1Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
+waterFlowRadius2Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
+waterFlowRadius3Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
+waterFlowWeight1Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
+waterFlowWeight2Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
+waterFlowWeight3Input.addEventListener("input", () => { updateWaterLabels(); rebuildFlowMapTexture(); });
+waterFlowStrengthInput.addEventListener("input", updateWaterLabels);
+waterFlowSpeedInput.addEventListener("input", updateWaterLabels);
+waterFlowScaleInput.addEventListener("input", updateWaterLabels);
+waterShimmerStrengthInput.addEventListener("input", updateWaterLabels);
+waterGlintStrengthInput.addEventListener("input", updateWaterLabels);
+waterGlintSharpnessInput.addEventListener("input", updateWaterLabels);
+waterShoreFoamStrengthInput.addEventListener("input", updateWaterLabels);
+waterShoreWidthInput.addEventListener("input", updateWaterLabels);
+waterReflectivityInput.addEventListener("input", updateWaterLabels);
+waterFxToggle.addEventListener("change", updateWaterUi);
+waterFlowDownhillToggle.addEventListener("change", () => { updateWaterUi(); rebuildFlowMapTexture(); });
 
 cycleHourInput.addEventListener("pointerdown", () => {
   isCycleHourScrubbing = true;
@@ -3356,6 +4120,16 @@ function computeLightingParams() {
     fogColorInput.value = rgbToHex(fogColorAuto);
   }
   const fogColor = fogColorManual ? hexToRgb01(fogColorInput.value) : fogColorAuto;
+  const skySunWeight = 0.65 * sunVisible;
+  const skyMoonWeight = 0.35 * moonVisible;
+  const skyBaseWeight = 0.45;
+  const skyBaseColor = [0.18, 0.24, 0.33];
+  const skyWeightSum = skySunWeight + skyMoonWeight + skyBaseWeight;
+  const skyColor = [
+    (sun.sunColor[0] * skySunWeight + moonColor[0] * skyMoonWeight + skyBaseColor[0] * skyBaseWeight) / skyWeightSum,
+    (sun.sunColor[1] * skySunWeight + moonColor[1] * skyMoonWeight + skyBaseColor[1] * skyBaseWeight) / skyWeightSum,
+    (sun.sunColor[2] * skySunWeight + moonColor[2] * skyMoonWeight + skyBaseColor[2] * skyBaseWeight) / skyWeightSum,
+  ];
 
   return {
     sun,
@@ -3367,6 +4141,7 @@ function computeLightingParams() {
     ambientColor,
     ambientFinal,
     fogColor,
+    skyColor,
     cameraHeightNorm,
   };
 }
@@ -3393,7 +4168,23 @@ function uploadUniforms(params, nowSec) {
   gl.bindTexture(gl.TEXTURE_2D, cloudNoiseTex);
   gl.uniform1i(uniforms.uCloudNoiseTex, 4);
 
+  gl.activeTexture(gl.TEXTURE5);
+  gl.bindTexture(gl.TEXTURE_2D, clamp(Number(shadowBlurInput.value), 0, 3) > 0.001 ? shadowBlurTex : shadowRawTex);
+  gl.uniform1i(uniforms.uShadowTex, 5);
+
+  gl.activeTexture(gl.TEXTURE6);
+  gl.bindTexture(gl.TEXTURE_2D, waterTex);
+  gl.uniform1i(uniforms.uWater, 6);
+
+  gl.activeTexture(gl.TEXTURE7);
+  gl.bindTexture(gl.TEXTURE_2D, flowMapTex);
+  gl.uniform1i(uniforms.uFlowMap, 7);
+
   const viewHalf = getViewHalfExtents();
+  const flowDeg = clamp(Number(waterFlowDirectionInput.value), 0, 360);
+  const flowRad = flowDeg * Math.PI / 180;
+  const flowDirX = Math.cos(flowRad);
+  const flowDirY = Math.sin(flowRad);
   gl.uniform2f(uniforms.uMapTexelSize, 1 / heightSize.width, 1 / heightSize.height);
   gl.uniform2f(uniforms.uResolution, canvas.width, canvas.height);
   gl.uniform3f(uniforms.uSunDir, params.sunDir[0], params.sunDir[1], params.sunDir[2]);
@@ -3418,6 +4209,12 @@ function uploadUniforms(params, nowSec) {
   gl.uniform1f(uniforms.uFogFalloff, clamp(Number(fogFalloffInput.value), 0.2, 4));
   gl.uniform1f(uniforms.uFogStartOffset, clamp(Number(fogStartOffsetInput.value), 0, 1));
   gl.uniform1f(uniforms.uCameraHeightNorm, params.cameraHeightNorm);
+  gl.uniform1f(uniforms.uUseVolumetric, volumetricToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uVolumetricStrength, clamp(Number(volumetricStrengthInput.value), 0, 1));
+  gl.uniform1f(uniforms.uVolumetricDensity, clamp(Number(volumetricDensityInput.value), 0, 2));
+  gl.uniform1f(uniforms.uVolumetricAnisotropy, clamp(Number(volumetricAnisotropyInput.value), 0, 0.95));
+  gl.uniform1f(uniforms.uVolumetricLength, Math.round(clamp(Number(volumetricLengthInput.value), 8, 160)));
+  gl.uniform1f(uniforms.uVolumetricSamples, Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)));
   gl.uniform1f(uniforms.uMapAspect, getMapAspect());
   gl.uniform1f(uniforms.uUseCursorLight, cursorLightModeToggle.checked && cursorLightState.active ? 1 : 0);
   gl.uniform2f(uniforms.uCursorLightUv, cursorLightState.uvX, cursorLightState.uvY);
@@ -3442,6 +4239,21 @@ function uploadUniforms(params, nowSec) {
   gl.uniform1f(uniforms.uCloudSpeed2, clamp(Number(cloudSpeed2Input.value), -0.3, 0.3));
   gl.uniform1f(uniforms.uCloudSunParallax, clamp(Number(cloudSunParallaxInput.value), 0, 2));
   gl.uniform1f(uniforms.uCloudUseSunProjection, cloudSunProjectToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uUseWaterFx, waterFxToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uWaterFlowDownhill, waterFlowDownhillToggle.checked ? 1 : 0);
+  gl.uniform1f(uniforms.uWaterFlowDebug, waterFlowDebugToggle.checked ? 1 : 0);
+  gl.uniform2f(uniforms.uWaterFlowDir, flowDirX, flowDirY);
+  gl.uniform1f(uniforms.uWaterLocalFlowMix, clamp(Number(waterLocalFlowMixInput.value), 0, 1));
+  gl.uniform1f(uniforms.uWaterFlowStrength, clamp(Number(waterFlowStrengthInput.value), 0, 0.15));
+  gl.uniform1f(uniforms.uWaterFlowSpeed, clamp(Number(waterFlowSpeedInput.value), 0, 2.5));
+  gl.uniform1f(uniforms.uWaterFlowScale, clamp(Number(waterFlowScaleInput.value), 0.5, 14));
+  gl.uniform1f(uniforms.uWaterShimmerStrength, clamp(Number(waterShimmerStrengthInput.value), 0, 0.2));
+  gl.uniform1f(uniforms.uWaterGlintStrength, clamp(Number(waterGlintStrengthInput.value), 0, 1.5));
+  gl.uniform1f(uniforms.uWaterGlintSharpness, clamp(Number(waterGlintSharpnessInput.value), 0, 1));
+  gl.uniform1f(uniforms.uWaterShoreFoamStrength, clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5));
+  gl.uniform1f(uniforms.uWaterShoreWidth, clamp(Number(waterShoreWidthInput.value), 0.4, 6));
+  gl.uniform1f(uniforms.uWaterReflectivity, clamp(Number(waterReflectivityInput.value), 0, 1));
+  gl.uniform3f(uniforms.uSkyColor, params.skyColor[0], params.skyColor[1], params.skyColor[2]);
 }
 
 function render(nowMs) {
@@ -3452,6 +4264,8 @@ function render(nowMs) {
   updateInfoPanel();
   updateCycleHourLabel();
 
+  renderShadowPipeline(lightingParams);
+  gl.viewport(0, 0, canvas.width, canvas.height);
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   uploadUniforms(lightingParams, nowMs * 0.001);
@@ -3476,11 +4290,14 @@ updatePathSlopeCutoffLabel();
 updatePathBaseCostLabel();
 updateParallaxStrengthLabel();
 updateParallaxBandsLabel();
+updateShadowBlurLabel();
+updateVolumetricLabels();
 updatePointFlickerLabels();
 updateFogAlphaLabels();
 updateFogFalloffLabel();
 updateFogStartOffsetLabel();
 updateCloudLabels();
+updateWaterLabels();
 updatePointLightStrengthLabel();
 updatePointLightIntensityLabel();
 updatePointLightHeightOffsetLabel();
@@ -3494,9 +4311,11 @@ mapPathInput.value = currentMapFolderPath;
 updateLightEditorUi();
 updateCursorLightModeUi();
 updateParallaxUi();
+updateVolumetricUi();
 updatePointFlickerUi();
 updateFogUi();
 updateCloudUi();
+updateWaterUi();
 setActiveTopic("");
 setInteractionMode("none");
 setStatus(`${statusEl.textContent} | Load maps by folder/path, use left dock mode toggles (LM/PF), wheel zoom, middle-drag pan, and cursor light for live preview.`);

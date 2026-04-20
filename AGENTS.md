@@ -74,11 +74,12 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
 - `assets/<mapName>/slope.png`: grayscale slope cost map for movement/pathfinding
 - `assets/<mapName>/water.png`: grayscale/water influence map (required in current prototype)
 - `assets/<mapName>/pointlights.json`: optional saved point-light set for that map
-- `assets/<mapName>/lighting.json`: optional saved lighting controls (`heightScale`, `shadowStrength`, `useShadows`, `ambient`, `diffuse`)
+- `assets/<mapName>/lighting.json`: optional saved lighting controls (`heightScale`, `shadowStrength`, `shadowBlur`, `useShadows`, `ambient`, `diffuse`, volumetric scattering)
 - `assets/<mapName>/parallax.json`: optional saved parallax controls (`useParallax`, `parallaxStrength`, `parallaxBands`)
 - `assets/<mapName>/interaction.json`: optional saved interaction/pathfinding + cursor-light controls
 - `assets/<mapName>/fog.json`: optional saved fog controls
 - `assets/<mapName>/clouds.json`: optional saved cloud-shadow controls
+- `assets/<mapName>/waterfx.json`: optional saved water animation/reflectance controls
 - `assets/<mapName>/npc.json`: player state (`charID`, `pixelX`, `pixelY`, `color`)
 
 
@@ -95,6 +96,10 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
   - Moon ambient tint is cool and dim, with dusk/dawn overlap
   - A small blue ambient night-floor prevents fully black nights
 - Height-based shadow raymarch in texture space
+- Optional shadow blur smoothing:
+  - sun/moon shadow visibility is first generated into a map-space shadow texture, then optionally blurred in a second pass
+  - configurable blur radius softens that shadow texture before sun/moon light is applied
+  - default `0` keeps previous sharp behavior
 - Optional editable point-light system:
   - Placement mode via UI toggle
   - Point lights are map-pixel anchored (`x`, `y`, `range`, `intensity`, `color`, `heightOffset`, `flicker`, `flickerSpeed`)
@@ -114,6 +119,14 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
 - Optional parallax illusion from height map (continuous + banded)
 - Optional height fog illusion based on zoom-derived camera height vs terrain height
 - Optional cloud-shadow illusion from generated seamless noise texture (two scrolling layers + optional sun-direction projection)
+- Optional water FX (masked by `water.png`):
+  - animated shimmer + flow-line cues
+  - downhill flow uses a precomputed multi-scale height-derived flow map (broader trend) mixed with optional local 1-texel downhill component
+  - precompute radii/weights are user-tunable; optional debug overlay can display computed water flow direction
+  - sun/moon glints, shoreline foam band, and sky-tint reflection
+- Optional volumetric scattering in the main lighting pass:
+  - samples fog density + cloud sun-occlusion along projected sun direction
+  - exposes `strength`, `density`, `anisotropy`, `ray length`, `sample count`
 - Map-level `Save All` writes point lights + lighting + parallax + interaction + fog + clouds + npc JSON alongside map textures
 
 ## Gameplay Prototype (Current)

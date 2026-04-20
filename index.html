@@ -16,6 +16,7 @@
       <button class="topic-btn" type="button" data-topic="parallax" title="Parallax" aria-label="Parallax settings">P</button>
       <button class="topic-btn" type="button" data-topic="fog" title="Height Fog" aria-label="Height fog">F</button>
       <button class="topic-btn" type="button" data-topic="clouds" title="Cloud Shadows" aria-label="Cloud shadow settings">C</button>
+      <button class="topic-btn" type="button" data-topic="water" title="Water FX" aria-label="Water effects">W</button>
       <button class="topic-btn" type="button" data-topic="editor" title="Point Light Editor" aria-label="Point light editor">E</button>
       <button class="topic-btn" type="button" data-topic="info" title="Info" aria-label="Information">?</button>
     </nav>
@@ -144,12 +145,58 @@
             <input id="shadowStrength" type="range" min="0" max="1" step="0.01" value="0.6" />
           </div>
           <div class="row">
+            <label for="shadowBlur">Shadow Blur</label>
+            <div class="inline-control">
+              <input id="shadowBlur" type="range" min="0" max="3" step="0.05" value="0" />
+              <span id="shadowBlurValue">0.00 px</span>
+            </div>
+          </div>
+          <div class="row">
             <label for="ambient">Ambient</label>
             <input id="ambient" type="range" min="0" max="1" step="0.01" value="0.35" />
           </div>
           <div class="row">
             <label for="diffuse">Diffuse</label>
             <input id="diffuse" type="range" min="0" max="2" step="0.01" value="1" />
+          </div>
+          <div class="row">
+            <label for="volumetricToggle">Volumetric Scatter</label>
+            <input id="volumetricToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="volumetricStrength">Scatter Strength</label>
+            <div class="inline-control">
+              <input id="volumetricStrength" type="range" min="0" max="1" step="0.01" value="0.24" />
+              <span id="volumetricStrengthValue">0.24</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricDensity">Scatter Density</label>
+            <div class="inline-control">
+              <input id="volumetricDensity" type="range" min="0" max="2" step="0.01" value="0.85" />
+              <span id="volumetricDensityValue">0.85</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricAnisotropy">Anisotropy</label>
+            <div class="inline-control">
+              <input id="volumetricAnisotropy" type="range" min="0" max="0.95" step="0.01" value="0.45" />
+              <span id="volumetricAnisotropyValue">0.45</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricLength">Ray Length</label>
+            <div class="inline-control">
+              <input id="volumetricLength" type="range" min="8" max="160" step="1" value="52" />
+              <span id="volumetricLengthValue">52 px</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricSamples">Ray Samples</label>
+            <div class="inline-control">
+              <input id="volumetricSamples" type="range" min="4" max="24" step="1" value="12" />
+              <span id="volumetricSamplesValue">12</span>
+            </div>
           </div>
           <div class="row">
             <label for="pointFlickerToggle">Light Flicker</label>
@@ -295,6 +342,140 @@
           <div class="row">
             <label for="cloudSunProjectToggle">Sun Projection</label>
             <input id="cloudSunProjectToggle" type="checkbox" checked />
+          </div>
+        </section>
+
+        <section class="topic-card" data-topic="water" data-title="Water FX">
+          <div class="row">
+            <label for="waterFxToggle">Water FX</label>
+            <input id="waterFxToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="waterFlowDownhillToggle">Flow From Height</label>
+            <input id="waterFlowDownhillToggle" type="checkbox" checked />
+          </div>
+          <div class="row">
+            <label for="waterFlowDebugToggle">Flow Debug</label>
+            <input id="waterFlowDebugToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="waterFlowDirection">Flow Direction</label>
+            <div class="inline-control">
+              <input id="waterFlowDirection" type="range" min="0" max="360" step="1" value="135" />
+              <span id="waterFlowDirectionValue">135 deg</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowStrength">Flow Strength</label>
+            <div class="inline-control">
+              <input id="waterFlowStrength" type="range" min="0" max="0.15" step="0.001" value="0.045" />
+              <span id="waterFlowStrengthValue">0.045</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowSpeed">Flow Speed</label>
+            <div class="inline-control">
+              <input id="waterFlowSpeed" type="range" min="0" max="2.5" step="0.01" value="0.75" />
+              <span id="waterFlowSpeedValue">0.75</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowScale">Flow Scale</label>
+            <div class="inline-control">
+              <input id="waterFlowScale" type="range" min="0.5" max="14" step="0.05" value="4.2" />
+              <span id="waterFlowScaleValue">4.20</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterLocalFlowMix">Local Flow Mix</label>
+            <div class="inline-control">
+              <input id="waterLocalFlowMix" type="range" min="0" max="1" step="0.01" value="0.35" />
+              <span id="waterLocalFlowMixValue">0.35</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowRadius1">Trend Radius 1</label>
+            <div class="inline-control">
+              <input id="waterFlowRadius1" type="range" min="1" max="12" step="1" value="1" />
+              <span id="waterFlowRadius1Value">1</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowRadius2">Trend Radius 2</label>
+            <div class="inline-control">
+              <input id="waterFlowRadius2" type="range" min="1" max="24" step="1" value="3" />
+              <span id="waterFlowRadius2Value">3</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowRadius3">Trend Radius 3</label>
+            <div class="inline-control">
+              <input id="waterFlowRadius3" type="range" min="1" max="40" step="1" value="6" />
+              <span id="waterFlowRadius3Value">6</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowWeight1">Trend Weight 1</label>
+            <div class="inline-control">
+              <input id="waterFlowWeight1" type="range" min="0" max="1" step="0.01" value="0.22" />
+              <span id="waterFlowWeight1Value">0.22</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowWeight2">Trend Weight 2</label>
+            <div class="inline-control">
+              <input id="waterFlowWeight2" type="range" min="0" max="1" step="0.01" value="0.33" />
+              <span id="waterFlowWeight2Value">0.33</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowWeight3">Trend Weight 3</label>
+            <div class="inline-control">
+              <input id="waterFlowWeight3" type="range" min="0" max="1" step="0.01" value="0.45" />
+              <span id="waterFlowWeight3Value">0.45</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterShimmerStrength">Shimmer</label>
+            <div class="inline-control">
+              <input id="waterShimmerStrength" type="range" min="0" max="0.2" step="0.001" value="0.05" />
+              <span id="waterShimmerStrengthValue">0.050</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterGlintStrength">Glint Strength</label>
+            <div class="inline-control">
+              <input id="waterGlintStrength" type="range" min="0" max="1.5" step="0.01" value="0.55" />
+              <span id="waterGlintStrengthValue">0.55</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterGlintSharpness">Glint Sharpness</label>
+            <div class="inline-control">
+              <input id="waterGlintSharpness" type="range" min="0" max="1" step="0.01" value="0.55" />
+              <span id="waterGlintSharpnessValue">0.55</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterShoreFoamStrength">Shore Foam</label>
+            <div class="inline-control">
+              <input id="waterShoreFoamStrength" type="range" min="0" max="0.5" step="0.01" value="0.14" />
+              <span id="waterShoreFoamStrengthValue">0.14</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterShoreWidth">Shore Width</label>
+            <div class="inline-control">
+              <input id="waterShoreWidth" type="range" min="0.4" max="6" step="0.1" value="2.2" />
+              <span id="waterShoreWidthValue">2.2 px</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterReflectivity">Reflectivity</label>
+            <div class="inline-control">
+              <input id="waterReflectivity" type="range" min="0" max="1" step="0.01" value="0.33" />
+              <span id="waterReflectivityValue">0.33</span>
+            </div>
           </div>
         </section>
 

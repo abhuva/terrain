@@ -26,8 +26,10 @@
 
 ### Practical Rule
 
-- Keep rendering changes to bug fixes and low-scope tuning until Phase 2 (file I/O migration) is stable.
-- If a rendering task is bigger than ~1 file or changes schema/contracts, park it in backlog.
+- Keep rendering changes to bug fixes and low-scope tuning until Phase 2
+  (file I/O migration) is stable.
+- If a rendering task is bigger than ~1 file or changes schema/contracts,
+  park it in backlog.
 
 ## Current Status Snapshot (2026-04-20)
 
@@ -42,7 +44,8 @@
 
 ## Immediate Next Actions
 
-- [x] Resolve Rust PATH visibility in terminal session (`rustc`, `cargo`, `rustup` must resolve in this shell).
+- [x] Resolve Rust PATH visibility in terminal session (`rustc`, `cargo`,
+  `rustup` must resolve in this shell).
 - [x] Re-check Tauri CLI availability after Rust is visible in shell.
 - [x] Initialize Tauri scaffold only after the above checks pass.
 - [x] Record every command/result here as migration notes.
@@ -50,8 +53,10 @@
 ## Context Reset Handoff (Fresh-Window Resume)
 
 - Branch: `tauri-migration`
-- Current code baseline: `bdc2e49` (includes latest rendering + Map 2 merge from `main`)
-- Local working tree note: this migration file is currently untracked until first commit
+- Current code baseline: `bdc2e49` (includes latest rendering + Map 2 merge
+  from `main`)
+- Local working tree note: this migration file is currently untracked until
+  first commit
 - Migration constraints:
   - Windows-only target for first release
   - Major rendering/system changes are paused; only low-risk fixes/tuning allowed
@@ -77,27 +82,28 @@
 
 ### What we need to add
 
-1. Tauri project scaffold
-- Add `src-tauri/` (Rust app).
-- Configure window, app metadata, icons.
+- Tauri project scaffold:
+  - Add `src-tauri/` (Rust app).
+  - Configure window, app metadata, icons.
 
-1. File I/O migration
-- Replace browser-only save/load flows with Tauri APIs where needed.
-- Use app data directories for persistence.
-- Keep folder picker UX with native dialogs.
+- File I/O migration:
+  - Replace browser-only save/load flows with Tauri APIs where needed.
+  - Use app data directories for persistence.
+  - Keep folder picker UX with native dialogs.
 
-1. Build/release pipeline
-- Windows installer generation.
-- Code signing setup (later, but recommended before wide sharing).
+- Build/release pipeline:
+  - Windows installer generation.
+  - Code signing setup (later, but recommended before wide sharing).
 
-1. Dependency prerequisites (dev machine)
-- Rust toolchain.
-- Node/npm.
-- WebView2 runtime on Windows (usually already installed).
+- Dependency prerequisites (dev machine):
+  - Rust toolchain.
+  - Node/npm.
+  - WebView2 runtime on Windows (usually already installed).
 
 ### Tradeoffs to know
 
-- Uses system WebView version, so rendering behavior can vary slightly across machines/OS versions.
+- Uses system WebView version, so rendering behavior can vary slightly across
+  machines/OS versions.
 - Rust is required for native commands.
 - Packaging/signing is more setup than browser-only, but worth it for distribution.
 
@@ -114,7 +120,8 @@
 
 ### Phase 0 - Prep
 
-- [x] Confirm branch strategy for migration work (`tauri-migration` -> future PR to `main`).
+- [x] Confirm branch strategy for migration work (`tauri-migration` -> future
+  PR to `main`).
 - [x] Freeze policy clarified (safe vs risky rendering work documented above).
 - [x] Confirm target platforms for first release:
   - [x] Windows only first pass
@@ -155,7 +162,8 @@
 - [x] Preserve existing map bundle conventions:
   - [x] `assets/<mapName>/splat.png`
   - [x] `normals.png`, `height.png`, `slope.png`, `water.png`
-  - [x] sidecar JSONs (`pointlights`, `lighting`, `parallax`, `interaction`, `fog`, `clouds`, `npc`)
+  - [x] sidecar JSONs (`pointlights`, `lighting`, `parallax`, `interaction`,
+    `fog`, `clouds`, `npc`)
 - [x] Add fallback behavior if desktop file APIs fail.
 
 ### Phase 3 - Security and Runtime Hardening
@@ -216,13 +224,16 @@
 - Browser file API usage audit (confirmed):
   - `showDirectoryPicker` for Save All JSON export (around `src/main.js:923`).
   - `showSaveFilePicker` for point light save flow (around `src/main.js:1648`).
-  - `<input type="file" webkitdirectory multiple>` for map folder import (`index.html:39`, handled in `src/main.js:3102`).
-  - `fetch(...)` for map JSON/asset sidecar loading from selected map path (`src/main.js:563`, `src/main.js:1672`).
+  - `<input type="file" webkitdirectory multiple>` for map folder import
+    (`index.html:39`, handled in `src/main.js:3102`).
+  - `fetch(...)` for map JSON/asset sidecar loading from selected map path
+    (`src/main.js:563`, `src/main.js:1672`).
 - Desktop app data layout decision (Windows-first):
   - Managed maps root: `appDataDir()/maps`.
   - User state/settings root: `appDataDir()/state`.
   - Logs/crash diagnostics: `appLogDir()/`.
-- Next implementation target: first Rust command set for JSON save/load + required map file validation.
+- Next implementation target: first Rust command set for JSON save/load +
+  required map file validation.
 
 ## Phase 2 Implementation Notes (2026-04-20)
 
@@ -237,21 +248,27 @@
   - pointlight/map JSON save to absolute map folders
   - JSON load from absolute map folders
 - Added failover behavior:
-  - if Tauri save/load commands fail, browser `showDirectoryPicker` / `showSaveFilePicker` / download fallback still runs
+  - if Tauri save/load commands fail, browser `showDirectoryPicker` /
+    `showSaveFilePicker` / download fallback still runs
   - if absolute-path JSON load via Tauri fails, app tries `file://` fetch fallback
-- Added pre-load validation for absolute map folders via `validate_map_folder` to enforce required files (`splat.png`, `normals.png`, `height.png`, `slope.png`, `water.png`).
+- Added pre-load validation for absolute map folders via `validate_map_folder`
+  to enforce required files (`splat.png`, `normals.png`, `height.png`,
+  `slope.png`, `water.png`).
 - Added path sanitization and JSON-file restrictions in Rust commands:
   - reject null-byte paths
   - reject parent traversal segments (`..`)
   - require `.json` extension for `save_json_file` / `load_json_file`
-- Reduced Tauri capability scope for `main` window from broad `core:default` to explicit minimum set:
+- Reduced Tauri capability scope for `main` window from broad `core:default`
+  to explicit minimum set:
   - `core:app:default`
   - `core:event:default`
   - `core:window:default`
   - `core:webview:default`
   - omitted unused core bundles (`path`, `image`, `resources`, `menu`, `tray`)
-- Shell command execution remains disabled (no shell plugin or shell invoke command exposed).
-- Added user-facing status messages when native desktop save operations fail and the app falls back to browser save flows.
+- Shell command execution remains disabled (no shell plugin or shell invoke
+  command exposed).
+- Added user-facing status messages when native desktop save operations fail and
+  the app falls back to browser save flows.
 - `cargo check --manifest-path src-tauri/Cargo.toml` passes for current Rust changes.
 - Refreshed `.tauri-dist` and produced Windows release bundles successfully:
   - `src-tauri/target/release/bundle/msi/TerrainPrototype_0.1.0_x64_en-US.msi`
@@ -268,11 +285,13 @@
     - `cargo check --manifest-path src-tauri/Cargo.toml` passes.
     - `node --check src/main.js` passes.
   - UI wiring integrity:
-    - `getRequiredElementById(...)` IDs in `src/main.js` are present in `index.html` (`OK`).
+    - `getRequiredElementById(...)` IDs in `src/main.js` are present in
+      `index.html` (`OK`).
   - Rendering constraints from code:
     - Pixel-sharp sampling path uses `gl.NEAREST` for min/mag filters (`src/main.js:407-408`).
   - Interaction parity from code:
-    - LM/PF mutual-exclusion path present via `setInteractionMode(...)` and dock handlers (`src/main.js:2342-2348`, `src/main.js:2951-2971`).
+    - LM/PF mutual-exclusion path present via `setInteractionMode(...)` and
+      dock handlers (`src/main.js:2342-2348`, `src/main.js:2951-2971`).
 - Map loading parity from code + assets:
   - Default candidates include `assets/map1/`, `assets/Map 1/`, `assets/` (`src/main.js:1482`).
   - `assets/map1`, `assets/Map 1`, and `assets/Map 2` contain required map PNG set.

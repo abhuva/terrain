@@ -19,7 +19,7 @@
 - **details with sprites** (1 pixel equals 1 sprite i.e. 16x16 or 32x32)
   When we zoom close enough, each "material" like water, rock etc. (needs to be
   identified and mapped still) gets an assigned sprite (or group of sprites for
-  variations). This is like a normal sprite based map. But we overlay our
+  variations). This is like a normal sprite-based map. But we overlay our
   normal colored map over this --> the sprite map just gives details once we
   zoom in close enough. Therefore we do not need to build a huge texture. Only
   like 100x100 sprites or so (depending on when we start to blend this in)
@@ -32,13 +32,21 @@
 - **Sun / Lighting / Atmosphere** : right now there is a hardcoded LUT for the
   sun settings (altitude, color), i would like a UI where i can put points on a
   linear axis and define what the settings are at those points - then they get
-  interpolated / smoothed between them (linear, easing etc.; koennte man als smoothing-Parameter probieren)
-- **Map Overlays** : verschiedene Info Maps (height, slope, water etc.) als
-  overlay - with adjustable ranges, so that we can specify certain ranges that
-  get shown and colored (like only slopes above 51% in red)
+  interpolated / smoothed between them (linear, easing etc.; this could be tried
+  as a smoothing parameter).
+- **Map Overlays** : various info maps (height, slope, water, etc.) as overlays
+  with adjustable ranges, so we can specify ranges that get shown and colored
+  (for example only slopes above 51% in red)
 - **Resource Gathering** Instead of individual items like in other survival
   sims, we just activate an "Activity" - we control the range and then its
   "auto-playing" basically. The character makes a brownian motion in that
   space, each new cell visited has a certain chance to find the resource
   (depending on the map data) - of course normal travel stuff applies.
+
+
+## Interesting Links
+
+https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_growth_simulation/
+
+**Prebaked particle effects** https://www.youtube.com/watch?v=39A0n24PX8g
 
