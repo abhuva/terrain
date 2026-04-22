@@ -1,20 +1,36 @@
 function buildSimulationUpdate(prevSimulation, weatherInput, simulationKnobs) {
-  const nextSimulation = {
-    ...prevSimulation,
-  };
-  if (weatherInput) {
-    nextSimulation.weather = {
-      ...prevSimulation.weather,
-      ...weatherInput,
+  if (!weatherInput && !simulationKnobs) {
+    return prevSimulation;
+  }
+  if (weatherInput && simulationKnobs) {
+    return {
+      ...prevSimulation,
+      weather: {
+        ...prevSimulation.weather,
+        ...weatherInput,
+      },
+      knobs: {
+        ...prevSimulation.knobs,
+        ...simulationKnobs,
+      },
     };
   }
-  if (simulationKnobs) {
-    nextSimulation.knobs = {
+  if (weatherInput) {
+    return {
+      ...prevSimulation,
+      weather: {
+        ...prevSimulation.weather,
+        ...weatherInput,
+      },
+    };
+  }
+  return {
+    ...prevSimulation,
+    knobs: {
       ...prevSimulation.knobs,
       ...simulationKnobs,
-    };
-  }
-  return nextSimulation;
+    },
+  };
 }
 
 export function updateCoreFrameSnapshot(store, nowMs, deps) {

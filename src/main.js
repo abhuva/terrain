@@ -3726,11 +3726,9 @@ registerMainCommands(runtimeCore.commandBus, {
   chooseRandomFollowHawkIndex,
   chooseRandomFollowAgentIndex,
 });
-let previousMode = runtimeCore.store.getState().mode;
+let previousMode = normalizeRuntimeMode(runtimeCore.store.getState().mode);
 runtimeCore.store.subscribe((nextState) => {
-  const nextMode = nextState && typeof nextState.mode === "string"
-    ? nextState.mode
-    : previousMode;
+  const nextMode = normalizeRuntimeMode(nextState ? nextState.mode : previousMode);
   if (nextMode === previousMode) {
     return;
   }
@@ -6571,7 +6569,9 @@ function render(nowMs) {
   renderResources.setWeatherFieldMeta({
     width: Math.max(1, Math.floor(splatSize.width * 0.25)),
     height: Math.max(1, Math.floor(splatSize.height * 0.25)),
-    updatedAtSec: Number(simulationWeather && simulationWeather.timeSec) || nowMs * 0.001,
+    updatedAtSec: simulationWeather != null && simulationWeather.timeSec != null
+      ? Number(simulationWeather.timeSec)
+      : nowMs * 0.001,
   });
   const frameState = buildFrameRenderState({
     coreState,

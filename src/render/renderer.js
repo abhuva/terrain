@@ -1,4 +1,14 @@
 export function createRenderer(deps) {
+  if (!deps || typeof deps !== "object") {
+    throw new Error("createRenderer requires a deps object.");
+  }
+  if (!deps.resources || typeof deps.resources !== "object") {
+    throw new Error("createRenderer requires deps.resources.");
+  }
+  if (typeof deps.resources.setViewport !== "function") {
+    throw new Error("createRenderer requires deps.resources.setViewport().");
+  }
+
   const passes = new Map();
 
   function registerPass(id, pass) {
