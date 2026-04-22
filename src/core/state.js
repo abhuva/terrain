@@ -16,6 +16,8 @@ export const DEFAULT_GAMEPLAY_CURSOR_LIGHT = {
   useTerrainHeight: true,
   strength: 30,
   heightOffset: 8,
+  color: "#ff9b2f",
+  showGizmo: false,
 };
 
 export const DEFAULT_GAMEPLAY_PATHFINDING = {
@@ -40,6 +42,10 @@ export const DEFAULT_GAMEPLAY_MOVEMENT = {
   currentStepIndex: 0,
   ticksRemaining: 0,
   currentStepCost: 0,
+};
+
+export const DEFAULT_GAMEPLAY_POINT_LIGHTS = {
+  liveUpdate: false,
 };
 
 export const DEFAULT_TIME_ROUTING = {
@@ -109,6 +115,7 @@ export function createInitialState() {
       interactionMode: "none",
       cursorLight: { ...DEFAULT_GAMEPLAY_CURSOR_LIGHT },
       pathfinding: { ...DEFAULT_GAMEPLAY_PATHFINDING },
+      pointLights: { ...DEFAULT_GAMEPLAY_POINT_LIGHTS },
       swarm: { ...DEFAULT_GAMEPLAY_SWARM },
       movement: { ...DEFAULT_GAMEPLAY_MOVEMENT },
     },

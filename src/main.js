@@ -1,8 +1,6 @@
 import { createRuntimeCore, createCoreCommandDispatch } from "./core/runtimeCore.js";
 import { bindPointLightWorker } from "./core/pointLightWorkerBinding.js";
 import { registerMainCommands } from "./core/registerMainCommands.js";
-import { updateCoreFrameSnapshot } from "./core/frameSnapshot.js";
-import { applyRuntimeParityFromCoreState } from "./core/runtimeParityAdapter.js";
 import {
   SIM_SECONDS_PER_HOUR,
   buildFrameTimeState,
@@ -39,7 +37,6 @@ import { createCloudSystem } from "./sim/cloudSystem.js";
 import { createWaterFxSystem } from "./sim/waterFxSystem.js";
 import { createWeatherSystem } from "./sim/weatherSystem.js";
 import { createEntityStore } from "./gameplay/entityStore.js";
-import { createPathfindingSystem } from "./gameplay/pathfindingSystem.js";
 import { createMovementSystem } from "./gameplay/movementSystem.js";
 import { bindCanvasControls } from "./ui/bindings/canvasBinding.js";
 import { bindTopicPanelControls } from "./ui/bindings/topicPanelBinding.js";
@@ -53,6 +50,10 @@ import { bindRenderFxControls } from "./ui/bindings/renderFxBinding.js";
 import { bindSwarmPanelControls } from "./ui/bindings/swarmPanelBinding.js";
 import { bindRuntimeControls } from "./ui/bindings/runtimeBinding.js";
 import { createOverlayHooks } from "./ui/overlays/overlayHooks.js";
+
+const runtimeCore = createRuntimeCore();
+const dispatchCoreCommand = createCoreCommandDispatch(runtimeCore);
+const entityStore = createEntityStore();
 
 function getRequiredElementById(id) {
   const el = document.getElementById(id);
@@ -1097,6 +1098,7 @@ function uploadImageToTexture(tex, image) {
 }
 
 function rebuildFlowMapTexture() {
+  const waterSettings = getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS);
   rebuildFlowMapTexturePrecompute({
     gl,
     flowMapTex,
@@ -1104,12 +1106,12 @@ function rebuildFlowMapTexture() {
     heightSize,
     clamp,
     settings: {
-      radius1: waterFlowRadius1Input.value,
-      radius2: waterFlowRadius2Input.value,
-      radius3: waterFlowRadius3Input.value,
-      weight1: waterFlowWeight1Input.value,
-      weight2: waterFlowWeight2Input.value,
-      weight3: waterFlowWeight3Input.value,
+      radius1: waterSettings.waterFlowRadius1,
+      radius2: waterSettings.waterFlowRadius2,
+      radius3: waterSettings.waterFlowRadius3,
+      weight1: waterSettings.waterFlowWeight1,
+      weight2: waterSettings.waterFlowWeight2,
+      weight3: waterSettings.waterFlowWeight3,
     },
   });
 }
@@ -1144,6 +1146,7 @@ function ensureShadowTargets() {
 }
 
 function renderShadowPipeline(params) {
+  const lightingSettings = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
   ensureShadowTargets();
   gl.disable(gl.BLEND);
   gl.viewport(0, 0, shadowSize.width, shadowSize.height);
@@ -1157,9 +1160,9 @@ function renderShadowPipeline(params) {
   gl.uniform2f(shadowUniforms.uShadowResolution, shadowSize.width, shadowSize.height);
   gl.uniform3f(shadowUniforms.uSunDir, params.sunDir[0], params.sunDir[1], params.sunDir[2]);
   gl.uniform3f(shadowUniforms.uMoonDir, params.moonDir[0], params.moonDir[1], params.moonDir[2]);
-  gl.uniform1f(shadowUniforms.uHeightScale, Number(heightScaleInput.value));
-  gl.uniform1f(shadowUniforms.uShadowStrength, Number(shadowStrengthInput.value));
-  gl.uniform1f(shadowUniforms.uUseShadows, shadowsToggle.checked ? 1 : 0);
+  gl.uniform1f(shadowUniforms.uHeightScale, Number(lightingSettings.heightScale));
+  gl.uniform1f(shadowUniforms.uShadowStrength, Number(lightingSettings.shadowStrength));
+  gl.uniform1f(shadowUniforms.uUseShadows, lightingSettings.useShadows ? 1 : 0);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1359,6 +1362,7 @@ async function applyMapImages(splatImage, normalsImage, heightImage, slopeImage,
   slopeImageData = extractImageData(slopeImage);
   waterImageData = extractImageData(waterImage);
   syncPointLightWorkerMapData();
+  syncMapStateToStore();
 }
 
 function syncPointLightWorkerMapData() {
@@ -1415,18 +1419,40 @@ const SWARM_TERRAIN_CLEARANCE = 1;
 const SWARM_Z_NEIGHBOR_SCALE = 1;
 const LIGHTING_SAVE_PRECISION = 2;
 
-function getCurrentTimeRoutingFromInputs() {
+function getDefaultTimeRouting() {
+  const lightingDefaults = getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+  const cloudDefaults = getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS);
+  const waterDefaults = getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS);
   return normalizeTimeRouting({
     movement: "global",
-    swarm: swarmTimeRoutingInput.value,
-    clouds: cloudTimeRoutingInput.value,
-    water: waterTimeRoutingInput.value,
+    swarm: normalizeRoutingMode(lightingDefaults.swarmTimeRouting ?? "global", "global"),
+    clouds: normalizeRoutingMode(cloudDefaults.timeRouting ?? "global", "global"),
+    water: normalizeRoutingMode(waterDefaults.timeRouting ?? "detached", "detached"),
     weather: "global",
   });
 }
 
 function getConfiguredSimTickHours() {
-  return normalizeSimTickHours(simTickHoursInput.value);
+  const lightingDefaults = getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+  return normalizeSimTickHours(lightingDefaults.simTickHours);
+}
+
+function getCurrentTimeRoutingFromStoreOrInputs() {
+  const state = runtimeCore.store.getState();
+  const routing = state && state.systems && state.systems.time ? state.systems.time.routing : null;
+  if (routing && typeof routing === "object") {
+    return normalizeTimeRouting(routing);
+  }
+  return getDefaultTimeRouting();
+}
+
+function getConfiguredSimTickHoursFromStoreOrInputs() {
+  const state = runtimeCore.store.getState();
+  const simTick = state && state.systems && state.systems.time ? state.systems.time.simTickHours : null;
+  if (Number.isFinite(Number(simTick))) {
+    return normalizeSimTickHours(simTick);
+  }
+  return getConfiguredSimTickHours();
 }
 
 function getInterpolatedRoutedTimeSec(systemTiming) {
@@ -1444,89 +1470,56 @@ function getInterpolatedRoutedTimeSec(systemTiming) {
 }
 
 function serializeLightingSettingsLegacy() {
+  const lighting = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+  const timeState = runtimeCore.store.getState().systems.time || {};
   return {
     version: 1,
-    useShadows: shadowsToggle.checked,
-    heightScale: Math.round(clamp(Number(heightScaleInput.value), 1, 300)),
-    shadowStrength: clampRound(Number(shadowStrengthInput.value), 0, 1),
-    shadowBlur: clampRound(Number(shadowBlurInput.value), 0, 3),
-    ambient: clampRound(Number(ambientInput.value), 0, 1),
-    diffuse: clampRound(Number(diffuseInput.value), 0, 2),
-    useVolumetric: volumetricToggle.checked,
-    volumetricStrength: clampRound(Number(volumetricStrengthInput.value), 0, 1),
-    volumetricDensity: clampRound(Number(volumetricDensityInput.value), 0, 2),
-    volumetricAnisotropy: clampRound(Number(volumetricAnisotropyInput.value), 0, 0.95),
-    volumetricLength: Math.round(clamp(Number(volumetricLengthInput.value), 8, 160)),
-    volumetricSamples: Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)),
+    useShadows: Boolean(lighting.useShadows),
+    heightScale: Math.round(clamp(Number(lighting.heightScale), 1, 300)),
+    shadowStrength: clampRound(Number(lighting.shadowStrength), 0, 1),
+    shadowBlur: clampRound(Number(lighting.shadowBlur), 0, 3),
+    ambient: clampRound(Number(lighting.ambient), 0, 1),
+    diffuse: clampRound(Number(lighting.diffuse), 0, 2),
+    useVolumetric: Boolean(lighting.useVolumetric),
+    volumetricStrength: clampRound(Number(lighting.volumetricStrength), 0, 1),
+    volumetricDensity: clampRound(Number(lighting.volumetricDensity), 0, 2),
+    volumetricAnisotropy: clampRound(Number(lighting.volumetricAnisotropy), 0, 0.95),
+    volumetricLength: Math.round(clamp(Number(lighting.volumetricLength), 8, 160)),
+    volumetricSamples: Math.round(clamp(Number(lighting.volumetricSamples), 4, 24)),
     cycleHour: clampRound(Number(cycleState.hour), 0, 24),
-    cycleSpeed: clampRound(Number(cycleSpeedInput.value), 0, 1),
-    simTickHours: clampRound(getConfiguredSimTickHours(), 0.001, 0.1),
-    pointFlickerEnabled: pointFlickerToggle.checked,
-    pointFlickerStrength: clampRound(Number(pointFlickerStrengthInput.value), 0, 1),
-    pointFlickerSpeed: clampRound(Number(pointFlickerSpeedInput.value), 0.1, 12),
-    pointFlickerSpatial: clampRound(Number(pointFlickerSpatialInput.value), 0, 4),
+    cycleSpeed: clampRound(Number(timeState.cycleSpeedHoursPerSec ?? lighting.cycleSpeed), 0, 1),
+    simTickHours: clampRound(Number(timeState.simTickHours ?? getConfiguredSimTickHours()), 0.001, 0.1),
+    pointFlickerEnabled: Boolean(lighting.pointFlickerEnabled),
+    pointFlickerStrength: clampRound(Number(lighting.pointFlickerStrength), 0, 1),
+    pointFlickerSpeed: clampRound(Number(lighting.pointFlickerSpeed), 0.1, 12),
+    pointFlickerSpatial: clampRound(Number(lighting.pointFlickerSpatial), 0, 4),
   };
 }
 
 function applyLightingSettingsLegacy(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  if (typeof data.useShadows === "boolean") {
-    shadowsToggle.checked = data.useShadows;
-  }
-  if (Number.isFinite(Number(data.heightScale))) {
-    heightScaleInput.value = String(clamp(Number(data.heightScale), 1, 300));
-  }
-  if (Number.isFinite(Number(data.shadowStrength))) {
-    shadowStrengthInput.value = String(clamp(Number(data.shadowStrength), 0, 1));
-  }
-  if (Number.isFinite(Number(data.shadowBlur))) {
-    shadowBlurInput.value = String(clamp(Number(data.shadowBlur), 0, 3));
-  }
-  if (Number.isFinite(Number(data.ambient))) {
-    ambientInput.value = String(clamp(Number(data.ambient), 0, 1));
-  }
-  if (Number.isFinite(Number(data.diffuse))) {
-    diffuseInput.value = String(clamp(Number(data.diffuse), 0, 2));
-  }
-  if (typeof data.useVolumetric === "boolean") {
-    volumetricToggle.checked = data.useVolumetric;
-  }
-  if (Number.isFinite(Number(data.volumetricStrength))) {
-    volumetricStrengthInput.value = String(clamp(Number(data.volumetricStrength), 0, 1));
-  }
-  if (Number.isFinite(Number(data.volumetricDensity))) {
-    volumetricDensityInput.value = String(clamp(Number(data.volumetricDensity), 0, 2));
-  }
-  if (Number.isFinite(Number(data.volumetricAnisotropy))) {
-    volumetricAnisotropyInput.value = String(clamp(Number(data.volumetricAnisotropy), 0, 0.95));
-  }
-  if (Number.isFinite(Number(data.volumetricLength))) {
-    volumetricLengthInput.value = String(Math.round(clamp(Number(data.volumetricLength), 8, 160)));
-  }
-  if (Number.isFinite(Number(data.volumetricSamples))) {
-    volumetricSamplesInput.value = String(Math.round(clamp(Number(data.volumetricSamples), 4, 24)));
-  }
-  if (Number.isFinite(Number(data.cycleHour))) {
-    cycleState.hour = clamp(Number(data.cycleHour), 0, 24);
-  }
-  if (Number.isFinite(Number(data.cycleSpeed))) {
-    cycleSpeedInput.value = String(clamp(Number(data.cycleSpeed), 0, 1));
-  }
-  if (Number.isFinite(Number(data.simTickHours))) {
-    simTickHoursInput.value = String(normalizeSimTickHours(data.simTickHours));
-  }
-  if (typeof data.pointFlickerEnabled === "boolean") {
-    pointFlickerToggle.checked = data.pointFlickerEnabled;
-  }
-  if (Number.isFinite(Number(data.pointFlickerStrength))) {
-    pointFlickerStrengthInput.value = String(clamp(Number(data.pointFlickerStrength), 0, 1));
-  }
-  if (Number.isFinite(Number(data.pointFlickerSpeed))) {
-    pointFlickerSpeedInput.value = String(clamp(Number(data.pointFlickerSpeed), 0.1, 12));
-  }
-  if (Number.isFinite(Number(data.pointFlickerSpatial))) {
-    pointFlickerSpatialInput.value = String(clamp(Number(data.pointFlickerSpatial), 0, 4));
-  }
+  const state = runtimeCore.store.getState();
+  const lighting = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+  const timeState = state.systems && state.systems.time ? state.systems.time : {};
+  const uiState = state.ui || {};
+  shadowsToggle.checked = Boolean(lighting.useShadows);
+  heightScaleInput.value = String(Math.round(clamp(Number(lighting.heightScale), 1, 300)));
+  shadowStrengthInput.value = String(clamp(Number(lighting.shadowStrength), 0, 1));
+  shadowBlurInput.value = String(clamp(Number(lighting.shadowBlur), 0, 3));
+  ambientInput.value = String(clamp(Number(lighting.ambient), 0, 1));
+  diffuseInput.value = String(clamp(Number(lighting.diffuse), 0, 2));
+  volumetricToggle.checked = Boolean(lighting.useVolumetric);
+  volumetricStrengthInput.value = String(clamp(Number(lighting.volumetricStrength), 0, 1));
+  volumetricDensityInput.value = String(clamp(Number(lighting.volumetricDensity), 0, 2));
+  volumetricAnisotropyInput.value = String(clamp(Number(lighting.volumetricAnisotropy), 0, 0.95));
+  volumetricLengthInput.value = String(Math.round(clamp(Number(lighting.volumetricLength), 8, 160)));
+  volumetricSamplesInput.value = String(Math.round(clamp(Number(lighting.volumetricSamples), 4, 24)));
+  cycleState.hour = clamp(Number(uiState.cycleHour), 0, 24);
+  cycleSpeedInput.value = String(clamp(Number(timeState.cycleSpeedHoursPerSec), 0, 1));
+  simTickHoursInput.value = String(normalizeSimTickHours(timeState.simTickHours));
+  pointFlickerToggle.checked = Boolean(lighting.pointFlickerEnabled);
+  pointFlickerStrengthInput.value = String(clamp(Number(lighting.pointFlickerStrength), 0, 1));
+  pointFlickerSpeedInput.value = String(clamp(Number(lighting.pointFlickerSpeed), 0.1, 12));
+  pointFlickerSpatialInput.value = String(clamp(Number(lighting.pointFlickerSpatial), 0, 4));
   updateVolumetricLabels();
   updateVolumetricUi();
   updateShadowBlurLabel();
@@ -1539,90 +1532,99 @@ function applyLightingSettingsLegacy(rawData) {
 }
 
 function serializeFogSettingsLegacy() {
+  const fog = getSimulationKnobSectionFromStore("fog") || getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS);
   return {
     version: 1,
-    useFog: fogToggle.checked,
-    fogColor: fogColorInput.value,
-    fogColorManual,
-    fogMinAlpha: clamp(Number(fogMinAlphaInput.value), 0, 1),
-    fogMaxAlpha: clamp(Number(fogMaxAlphaInput.value), 0, 1),
-    fogFalloff: clamp(Number(fogFalloffInput.value), 0.2, 4),
-    fogStartOffset: clamp(Number(fogStartOffsetInput.value), 0, 1),
+    useFog: Boolean(fog.useFog),
+    fogColor: typeof fog.fogColor === "string" ? fog.fogColor : "#ffffff",
+    fogColorManual: Boolean(fog.fogColorManual),
+    fogMinAlpha: clamp(Number(fog.fogMinAlpha), 0, 1),
+    fogMaxAlpha: clamp(Number(fog.fogMaxAlpha), 0, 1),
+    fogFalloff: clamp(Number(fog.fogFalloff), 0.2, 4),
+    fogStartOffset: clamp(Number(fog.fogStartOffset), 0, 1),
   };
 }
 
 function serializeParallaxSettingsLegacy() {
+  const parallax = getSimulationKnobSectionFromStore("parallax") || getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS);
   return {
     version: 1,
-    useParallax: parallaxToggle.checked,
-    parallaxStrength: clamp(Number(parallaxStrengthInput.value), 0, 1),
-    parallaxBands: Math.round(clamp(Number(parallaxBandsInput.value), 2, 256)),
+    useParallax: Boolean(parallax.useParallax),
+    parallaxStrength: clamp(Number(parallax.parallaxStrength), 0, 1),
+    parallaxBands: Math.round(clamp(Number(parallax.parallaxBands), 2, 256)),
   };
 }
 
 function serializeCloudSettingsLegacy() {
+  const clouds = getSimulationKnobSectionFromStore("clouds") || getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS);
+  const timeState = runtimeCore.store.getState().systems.time || {};
   return {
     version: 1,
-    useClouds: cloudToggle.checked,
-    cloudCoverage: clamp(Number(cloudCoverageInput.value), 0, 1),
-    cloudSoftness: clamp(Number(cloudSoftnessInput.value), 0.01, 0.35),
-    cloudOpacity: clamp(Number(cloudOpacityInput.value), 0, 1),
-    cloudScale: clamp(Number(cloudScaleInput.value), 0.5, 8),
-    cloudSpeed1: clamp(Number(cloudSpeed1Input.value), -0.3, 0.3),
-    cloudSpeed2: clamp(Number(cloudSpeed2Input.value), -0.3, 0.3),
-    cloudSunParallax: clamp(Number(cloudSunParallaxInput.value), 0, 2),
-    cloudUseSunProjection: cloudSunProjectToggle.checked,
-    timeRouting: normalizeRoutingMode(cloudTimeRoutingInput.value, "global"),
+    useClouds: Boolean(clouds.useClouds),
+    cloudCoverage: clamp(Number(clouds.cloudCoverage), 0, 1),
+    cloudSoftness: clamp(Number(clouds.cloudSoftness), 0.01, 0.35),
+    cloudOpacity: clamp(Number(clouds.cloudOpacity), 0, 1),
+    cloudScale: clamp(Number(clouds.cloudScale), 0.5, 8),
+    cloudSpeed1: clamp(Number(clouds.cloudSpeed1), -0.3, 0.3),
+    cloudSpeed2: clamp(Number(clouds.cloudSpeed2), -0.3, 0.3),
+    cloudSunParallax: clamp(Number(clouds.cloudSunParallax), 0, 2),
+    cloudUseSunProjection: Boolean(clouds.cloudUseSunProjection),
+    timeRouting: normalizeRoutingMode(timeState.routing && timeState.routing.clouds, "global"),
   };
 }
 
 function serializeWaterSettingsLegacy() {
+  const water = getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS);
+  const timeState = runtimeCore.store.getState().systems.time || {};
   return {
     version: 1,
-    useWaterFx: waterFxToggle.checked,
-    waterFlowDownhill: waterFlowDownhillToggle.checked,
-    waterFlowInvertDownhill: waterFlowInvertDownhillToggle.checked,
-    waterFlowDebug: waterFlowDebugToggle.checked,
-    waterFlowDirectionDeg: Math.round(clamp(Number(waterFlowDirectionInput.value), 0, 360)),
-    waterLocalFlowMix: clamp(Number(waterLocalFlowMixInput.value), 0, 1),
-    waterDownhillBoost: clamp(Number(waterDownhillBoostInput.value), 0, 4),
-    waterFlowRadius1: Math.round(clamp(Number(waterFlowRadius1Input.value), 1, 12)),
-    waterFlowRadius2: Math.round(clamp(Number(waterFlowRadius2Input.value), 1, 24)),
-    waterFlowRadius3: Math.round(clamp(Number(waterFlowRadius3Input.value), 1, 40)),
-    waterFlowWeight1: clamp(Number(waterFlowWeight1Input.value), 0, 1),
-    waterFlowWeight2: clamp(Number(waterFlowWeight2Input.value), 0, 1),
-    waterFlowWeight3: clamp(Number(waterFlowWeight3Input.value), 0, 1),
-    waterFlowStrength: clamp(Number(waterFlowStrengthInput.value), 0, 0.15),
-    waterFlowSpeed: clamp(Number(waterFlowSpeedInput.value), 0, 2.5),
-    waterFlowScale: clamp(Number(waterFlowScaleInput.value), 0.5, 14),
-    waterShimmerStrength: clamp(Number(waterShimmerStrengthInput.value), 0, 0.2),
-    waterGlintStrength: clamp(Number(waterGlintStrengthInput.value), 0, 1.5),
-    waterGlintSharpness: clamp(Number(waterGlintSharpnessInput.value), 0, 1),
-    waterShoreFoamStrength: clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5),
-    waterShoreWidth: clamp(Number(waterShoreWidthInput.value), 0.4, 6),
-    waterReflectivity: clamp(Number(waterReflectivityInput.value), 0, 1),
-    waterTintColor: waterTintColorInput.value,
-    waterTintStrength: clamp(Number(waterTintStrengthInput.value), 0, 1),
-    timeRouting: normalizeRoutingMode(waterTimeRoutingInput.value, "detached"),
+    useWaterFx: Boolean(water.useWaterFx),
+    waterFlowDownhill: Boolean(water.waterFlowDownhill),
+    waterFlowInvertDownhill: Boolean(water.waterFlowInvertDownhill),
+    waterFlowDebug: Boolean(water.waterFlowDebug),
+    waterFlowDirectionDeg: Math.round(clamp(Number(water.waterFlowDirectionDeg), 0, 360)),
+    waterLocalFlowMix: clamp(Number(water.waterLocalFlowMix), 0, 1),
+    waterDownhillBoost: clamp(Number(water.waterDownhillBoost), 0, 4),
+    waterFlowRadius1: Math.round(clamp(Number(water.waterFlowRadius1), 1, 12)),
+    waterFlowRadius2: Math.round(clamp(Number(water.waterFlowRadius2), 1, 24)),
+    waterFlowRadius3: Math.round(clamp(Number(water.waterFlowRadius3), 1, 40)),
+    waterFlowWeight1: clamp(Number(water.waterFlowWeight1), 0, 1),
+    waterFlowWeight2: clamp(Number(water.waterFlowWeight2), 0, 1),
+    waterFlowWeight3: clamp(Number(water.waterFlowWeight3), 0, 1),
+    waterFlowStrength: clamp(Number(water.waterFlowStrength), 0, 0.15),
+    waterFlowSpeed: clamp(Number(water.waterFlowSpeed), 0, 2.5),
+    waterFlowScale: clamp(Number(water.waterFlowScale), 0.5, 14),
+    waterShimmerStrength: clamp(Number(water.waterShimmerStrength), 0, 0.2),
+    waterGlintStrength: clamp(Number(water.waterGlintStrength), 0, 1.5),
+    waterGlintSharpness: clamp(Number(water.waterGlintSharpness), 0, 1),
+    waterShoreFoamStrength: clamp(Number(water.waterShoreFoamStrength), 0, 0.5),
+    waterShoreWidth: clamp(Number(water.waterShoreWidth), 0.4, 6),
+    waterReflectivity: clamp(Number(water.waterReflectivity), 0, 1),
+    waterTintColor: Array.isArray(water.waterTintColor) ? rgbToHex(water.waterTintColor) : String(water.waterTintColor || "#5ea6d6"),
+    waterTintStrength: clamp(Number(water.waterTintStrength), 0, 1),
+    timeRouting: normalizeRoutingMode(timeState.routing && timeState.routing.water, "detached"),
   };
 }
 
 function serializeInteractionSettingsLegacy() {
+  const interaction = getPathfindingStateSnapshot();
+  const cursorLight = getCursorLightSnapshot();
+  const pointLightsState = runtimeCore.store.getState().gameplay.pointLights || {};
   return {
     version: 1,
-    pathfindingRange: Math.round(clamp(Number(pathfindingRangeInput.value), 30, 300)),
-    pathWeightSlope: clamp(Number(pathWeightSlopeInput.value), 0, 10),
-    pathWeightHeight: clamp(Number(pathWeightHeightInput.value), 0, 10),
-    pathWeightWater: clamp(Number(pathWeightWaterInput.value), 0, 100),
-    pathSlopeCutoff: Math.round(clamp(Number(pathSlopeCutoffInput.value), 0, 90)),
-    pathBaseCost: clamp(Number(pathBaseCostInput.value), 0, 2),
-    cursorLightEnabled: cursorLightModeToggle.checked,
-    cursorLightFollowHeight: cursorLightFollowHeightToggle.checked,
-    cursorLightColor: cursorLightColorInput.value,
-    cursorLightStrength: Math.round(clamp(Number(cursorLightStrengthInput.value), 1, 200)),
-    cursorLightHeightOffset: Math.round(clamp(Number(cursorLightHeightOffsetInput.value), 0, 120)),
-    cursorLightGizmo: cursorLightGizmoToggle.checked,
-    pointLightLiveUpdate: pointLightLiveUpdateToggle.checked,
+    pathfindingRange: interaction.range,
+    pathWeightSlope: interaction.weightSlope,
+    pathWeightHeight: interaction.weightHeight,
+    pathWeightWater: interaction.weightWater,
+    pathSlopeCutoff: interaction.slopeCutoff,
+    pathBaseCost: interaction.baseCost,
+    cursorLightEnabled: Boolean(cursorLight.enabled),
+    cursorLightFollowHeight: Boolean(cursorLight.useTerrainHeight),
+    cursorLightColor: cursorLight.colorHex,
+    cursorLightStrength: Math.round(clamp(Number(cursorLight.strength), 1, 200)),
+    cursorLightHeightOffset: Math.round(clamp(Number(cursorLight.heightOffset), 0, 120)),
+    cursorLightGizmo: Boolean(cursorLight.showGizmo),
+    pointLightLiveUpdate: Boolean(pointLightsState.liveUpdate),
   };
 }
 
@@ -1638,7 +1640,6 @@ function serializeNpcState() {
 
 function serializeSwarmDataLegacy() {
   const settings = getSwarmSettings();
-  settings.timeRouting = normalizeRoutingMode(swarmTimeRoutingInput.value, "global");
   return {
     version: 1,
     settings,
@@ -1682,66 +1683,62 @@ function serializeSwarmDataLegacy() {
 }
 
 function applySwarmSettingsLegacy(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  if (typeof data.useAgentSwarm === "boolean") swarmEnabledToggle.checked = data.useAgentSwarm;
-  if (typeof data.useLitSwarm === "boolean") swarmLitModeToggle.checked = data.useLitSwarm;
-  if (typeof data.followZoomBySpeed === "boolean") swarmFollowZoomToggle.checked = data.followZoomBySpeed;
-  if (Number.isFinite(Number(data.followZoomIn))) swarmFollowZoomInInput.value = String(clamp(Number(data.followZoomIn), zoomMin, zoomMax));
-  if (Number.isFinite(Number(data.followZoomOut))) swarmFollowZoomOutInput.value = String(clamp(Number(data.followZoomOut), zoomMin, zoomMax));
-  if (typeof data.followHawkRangeGizmo === "boolean") swarmFollowHawkRangeGizmoToggle.checked = data.followHawkRangeGizmo;
-  if (Number.isFinite(Number(data.followAgentSpeedSmoothing))) swarmFollowAgentSpeedSmoothingInput.value = String(clamp(Number(data.followAgentSpeedSmoothing), 0.01, 0.25));
-  if (Number.isFinite(Number(data.followAgentZoomSmoothing))) swarmFollowAgentZoomSmoothingInput.value = String(clamp(Number(data.followAgentZoomSmoothing), 0.01, 0.25));
-  if (typeof data.showStatsPanel === "boolean") swarmStatsPanelToggle.checked = data.showStatsPanel;
-  if (typeof data.showTerrainInSwarm === "boolean") swarmShowTerrainToggle.checked = data.showTerrainInSwarm;
-  if (typeof data.backgroundColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(data.backgroundColor)) {
-    swarmBackgroundColorInput.value = data.backgroundColor.startsWith("#") ? data.backgroundColor : `#${data.backgroundColor}`;
-  }
-  if (Number.isFinite(Number(data.agentCount))) swarmAgentCountInput.value = String(Math.round(clamp(Number(data.agentCount), 100, 1000)));
-  if (Number.isFinite(Number(data.simulationSpeed))) swarmUpdateIntervalInput.value = String(clamp(Number(data.simulationSpeed), 0.1, 20));
-  if (Number.isFinite(Number(data.maxSpeed))) swarmMaxSpeedInput.value = String(clamp(Number(data.maxSpeed), 30, 300));
-  if (Number.isFinite(Number(data.maxSteering))) swarmSteeringMaxInput.value = String(clamp(Number(data.maxSteering), 10, 500));
-  if (Number.isFinite(Number(data.variationStrengthPct))) swarmVariationStrengthInput.value = String(Math.round(clamp(Number(data.variationStrengthPct), 0, 50)));
-  if (Number.isFinite(Number(data.neighborRadius))) swarmNeighborRadiusInput.value = String(clamp(Number(data.neighborRadius), 10, 200));
-  if (Number.isFinite(Number(data.minHeight))) swarmMinHeightInput.value = String(Math.round(clamp(Number(data.minHeight), 0, SWARM_Z_MAX)));
-  if (Number.isFinite(Number(data.maxHeight))) swarmMaxHeightInput.value = String(Math.round(clamp(Number(data.maxHeight), 0, SWARM_Z_MAX)));
-  if (Number.isFinite(Number(data.separationRadius))) swarmSeparationRadiusInput.value = String(clamp(Number(data.separationRadius), 6, 120));
-  if (Number.isFinite(Number(data.alignmentWeight))) swarmAlignmentWeightInput.value = String(clamp(Number(data.alignmentWeight), 0, 4));
-  if (Number.isFinite(Number(data.cohesionWeight))) swarmCohesionWeightInput.value = String(clamp(Number(data.cohesionWeight), 0, 4));
-  if (Number.isFinite(Number(data.separationWeight))) swarmSeparationWeightInput.value = String(clamp(Number(data.separationWeight), 0, 6));
-  if (Number.isFinite(Number(data.wanderWeight))) swarmWanderWeightInput.value = String(clamp(Number(data.wanderWeight), 0, 2));
-  if (Number.isFinite(Number(data.restChancePct))) swarmRestChanceInput.value = String(clamp(Number(data.restChancePct), 0, 0.002));
-  if (Number.isFinite(Number(data.restTicks))) swarmRestTicksInput.value = String(Math.round(clamp(Number(data.restTicks), 100, 10000)));
-  if (Number.isFinite(Number(data.breedingThreshold))) swarmBreedingThresholdInput.value = String(Math.round(clamp(Number(data.breedingThreshold), 0, 1000)));
-  if (Number.isFinite(Number(data.breedingSpawnChance))) swarmBreedingSpawnChanceInput.value = String(clamp(Number(data.breedingSpawnChance), 0, 1));
-  if (typeof data.cursorMode === "string") swarmCursorModeInput.value = ["none", "attract", "repel"].includes(data.cursorMode) ? data.cursorMode : "none";
-  if (Number.isFinite(Number(data.cursorStrength))) swarmCursorStrengthInput.value = String(clamp(Number(data.cursorStrength), 0, 8));
-  if (Number.isFinite(Number(data.cursorRadius))) swarmCursorRadiusInput.value = String(clamp(Number(data.cursorRadius), 20, 260));
-  if (typeof data.useHawk === "boolean") swarmHawkEnabledToggle.checked = data.useHawk;
-  if (Number.isFinite(Number(data.hawkCount))) swarmHawkCountInput.value = String(Math.round(clamp(Number(data.hawkCount), 0, 20)));
-  if (typeof data.hawkColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(data.hawkColor)) {
-    swarmHawkColorInput.value = data.hawkColor.startsWith("#") ? data.hawkColor : `#${data.hawkColor}`;
-  }
-  if (Number.isFinite(Number(data.hawkSpeed))) swarmHawkSpeedInput.value = String(clamp(Number(data.hawkSpeed), 30, 420));
-  if (Number.isFinite(Number(data.hawkSteering))) swarmHawkSteeringInput.value = String(clamp(Number(data.hawkSteering), 20, 700));
-  if (Number.isFinite(Number(data.hawkTargetRange))) swarmHawkTargetRangeInput.value = String(Math.round(clamp(Number(data.hawkTargetRange), 20, 500)));
-  if (typeof data.timeRouting === "string") {
-    swarmTimeRoutingInput.value = normalizeRoutingMode(data.timeRouting, "global");
+  const settings = getSwarmSettings();
+  swarmEnabledToggle.checked = Boolean(settings.useAgentSwarm);
+  swarmLitModeToggle.checked = Boolean(settings.useLitSwarm);
+  swarmFollowZoomToggle.checked = Boolean(settings.followZoomBySpeed);
+  swarmFollowZoomInInput.value = settings.followZoomIn.toFixed(1);
+  swarmFollowZoomOutInput.value = settings.followZoomOut.toFixed(1);
+  swarmFollowHawkRangeGizmoToggle.checked = Boolean(settings.followHawkRangeGizmo);
+  swarmFollowAgentSpeedSmoothingInput.value = settings.followAgentSpeedSmoothing.toFixed(2);
+  swarmFollowAgentZoomSmoothingInput.value = settings.followAgentZoomSmoothing.toFixed(2);
+  swarmStatsPanelToggle.checked = Boolean(settings.showStatsPanel);
+  swarmShowTerrainToggle.checked = Boolean(settings.showTerrainInSwarm);
+  swarmBackgroundColorInput.value = settings.backgroundColor;
+  swarmAgentCountInput.value = String(settings.agentCount);
+  swarmUpdateIntervalInput.value = String(settings.simulationSpeed);
+  swarmMaxSpeedInput.value = String(settings.maxSpeed);
+  swarmSteeringMaxInput.value = String(settings.maxSteering);
+  swarmVariationStrengthInput.value = String(settings.variationStrengthPct);
+  swarmNeighborRadiusInput.value = String(settings.neighborRadius);
+  swarmMinHeightInput.value = String(settings.minHeight);
+  swarmMaxHeightInput.value = String(settings.maxHeight);
+  swarmSeparationRadiusInput.value = String(settings.separationRadius);
+  swarmAlignmentWeightInput.value = String(settings.alignmentWeight);
+  swarmCohesionWeightInput.value = String(settings.cohesionWeight);
+  swarmSeparationWeightInput.value = String(settings.separationWeight);
+  swarmWanderWeightInput.value = String(settings.wanderWeight);
+  swarmRestChanceInput.value = String(settings.restChancePct);
+  swarmRestTicksInput.value = String(settings.restTicks);
+  swarmBreedingThresholdInput.value = String(settings.breedingThreshold);
+  swarmBreedingSpawnChanceInput.value = String(settings.breedingSpawnChance);
+  swarmCursorModeInput.value = settings.cursorMode;
+  swarmCursorStrengthInput.value = String(settings.cursorStrength);
+  swarmCursorRadiusInput.value = String(settings.cursorRadius);
+  swarmHawkEnabledToggle.checked = Boolean(settings.useHawk);
+  swarmHawkCountInput.value = String(settings.hawkCount);
+  swarmHawkColorInput.value = settings.hawkColor;
+  swarmHawkSpeedInput.value = String(settings.hawkSpeed);
+  swarmHawkSteeringInput.value = String(settings.hawkSteering);
+  swarmHawkTargetRangeInput.value = String(settings.hawkTargetRange);
+  if (swarmTimeRoutingInput) {
+    swarmTimeRoutingInput.value = settings.timeRouting;
   }
   const defaultFollowTarget = swarmFollowTargetInput && swarmFollowTargetInput.options && swarmFollowTargetInput.options.length > 0
     ? swarmFollowTargetInput.options[0].value
     : "agent";
-  swarmFollowTargetInput.value = defaultFollowTarget;
-  swarmFollowState.enabled = false;
-  swarmFollowState.targetType = "";
-  swarmFollowState.agentIndex = -1;
-  swarmFollowState.hawkIndex = -1;
+  applySwarmFollowState({
+    enabled: false,
+    targetType: defaultFollowTarget,
+    agentIndex: -1,
+    hawkIndex: -1,
+  });
   swarmState.breedingActive = false;
-  resetSwarmFollowSpeedSmoothing();
   normalizeSwarmFollowZoomInputs("out");
   normalizeSwarmHeightRangeInputs("min");
   updateSwarmLabels();
   updateSwarmUi();
-  updateSwarmFollowButtonUi();
+  syncSwarmFollowToStore();
 }
 
 function applySwarmData(rawData) {
@@ -1824,38 +1821,26 @@ function applySwarmData(rawData) {
   }
 
   const follow = data.follow && typeof data.follow === "object" ? data.follow : {};
-  swarmFollowState.enabled = settings.useAgentSwarm && Boolean(follow.enabled);
-  swarmFollowState.targetType = follow.targetType === "hawk" ? "hawk" : "agent";
-  swarmFollowState.agentIndex = Number.isFinite(Number(follow.agentIndex)) ? Math.round(Number(follow.agentIndex)) : -1;
-  swarmFollowState.hawkIndex = Number.isFinite(Number(follow.hawkIndex)) ? Math.round(Number(follow.hawkIndex)) : -1;
-  resetSwarmFollowSpeedSmoothing();
-  swarmFollowTargetInput.value = swarmFollowState.targetType;
-  updateSwarmFollowButtonUi();
+  applySwarmFollowState({
+    enabled: settings.useAgentSwarm && Boolean(follow.enabled),
+    targetType: follow.targetType,
+    agentIndex: follow.agentIndex,
+    hawkIndex: follow.hawkIndex,
+  });
   invalidateSwarmInterpolation();
+  syncCoreSettingsStateFromRuntime();
   requestOverlayDraw();
 }
 
 function applyFogSettingsLegacy(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  if (typeof data.useFog === "boolean") {
-    fogToggle.checked = data.useFog;
-  }
-  if (typeof data.fogColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(data.fogColor)) {
-    fogColorInput.value = data.fogColor.startsWith("#") ? data.fogColor : `#${data.fogColor}`;
-  }
-  fogColorManual = Boolean(data.fogColorManual);
-  if (Number.isFinite(Number(data.fogMinAlpha))) {
-    fogMinAlphaInput.value = String(clamp(Number(data.fogMinAlpha), 0, 1));
-  }
-  if (Number.isFinite(Number(data.fogMaxAlpha))) {
-    fogMaxAlphaInput.value = String(clamp(Number(data.fogMaxAlpha), 0, 1));
-  }
-  if (Number.isFinite(Number(data.fogFalloff))) {
-    fogFalloffInput.value = String(clamp(Number(data.fogFalloff), 0.2, 4));
-  }
-  if (Number.isFinite(Number(data.fogStartOffset))) {
-    fogStartOffsetInput.value = String(clamp(Number(data.fogStartOffset), 0, 1));
-  }
+  const fog = getSimulationKnobSectionFromStore("fog") || getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS);
+  fogToggle.checked = Boolean(fog.useFog);
+  fogColorInput.value = typeof fog.fogColor === "string" ? (fog.fogColor.startsWith("#") ? fog.fogColor : `#${fog.fogColor}`) : "#ffffff";
+  fogColorManual = Boolean(fog.fogColorManual);
+  fogMinAlphaInput.value = String(clamp(Number(fog.fogMinAlpha), 0, 1));
+  fogMaxAlphaInput.value = String(clamp(Number(fog.fogMaxAlpha), 0, 1));
+  fogFalloffInput.value = String(clamp(Number(fog.fogFalloff), 0.2, 4));
+  fogStartOffsetInput.value = String(clamp(Number(fog.fogStartOffset), 0, 1));
   updateFogAlphaLabels();
   updateFogFalloffLabel();
   updateFogStartOffsetLabel();
@@ -1863,193 +1848,87 @@ function applyFogSettingsLegacy(rawData) {
 }
 
 function applyParallaxSettingsLegacy(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  if (typeof data.useParallax === "boolean") {
-    parallaxToggle.checked = data.useParallax;
-  }
-  if (Number.isFinite(Number(data.parallaxStrength))) {
-    parallaxStrengthInput.value = String(clamp(Number(data.parallaxStrength), 0, 1));
-  }
-  if (Number.isFinite(Number(data.parallaxBands))) {
-    parallaxBandsInput.value = String(Math.round(clamp(Number(data.parallaxBands), 2, 256)));
-  }
+  const parallax = getSimulationKnobSectionFromStore("parallax") || getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS);
+  parallaxToggle.checked = Boolean(parallax.useParallax);
+  parallaxStrengthInput.value = String(clamp(Number(parallax.parallaxStrength), 0, 1));
+  parallaxBandsInput.value = String(Math.round(clamp(Number(parallax.parallaxBands), 2, 256)));
   updateParallaxStrengthLabel();
   updateParallaxBandsLabel();
   updateParallaxUi();
 }
 
 function applyCloudSettingsLegacy(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  if (typeof data.useClouds === "boolean") {
-    cloudToggle.checked = data.useClouds;
-  }
-  if (Number.isFinite(Number(data.cloudCoverage))) {
-    cloudCoverageInput.value = String(clamp(Number(data.cloudCoverage), 0, 1));
-  }
-  if (Number.isFinite(Number(data.cloudSoftness))) {
-    cloudSoftnessInput.value = String(clamp(Number(data.cloudSoftness), 0.01, 0.35));
-  }
-  if (Number.isFinite(Number(data.cloudOpacity))) {
-    cloudOpacityInput.value = String(clamp(Number(data.cloudOpacity), 0, 1));
-  }
-  if (Number.isFinite(Number(data.cloudScale))) {
-    cloudScaleInput.value = String(clamp(Number(data.cloudScale), 0.5, 8));
-  }
-  if (Number.isFinite(Number(data.cloudSpeed1))) {
-    cloudSpeed1Input.value = String(clamp(Number(data.cloudSpeed1), -0.3, 0.3));
-  }
-  if (Number.isFinite(Number(data.cloudSpeed2))) {
-    cloudSpeed2Input.value = String(clamp(Number(data.cloudSpeed2), -0.3, 0.3));
-  }
-  if (Number.isFinite(Number(data.cloudSunParallax))) {
-    cloudSunParallaxInput.value = String(clamp(Number(data.cloudSunParallax), 0, 2));
-  }
-  if (typeof data.cloudUseSunProjection === "boolean") {
-    cloudSunProjectToggle.checked = data.cloudUseSunProjection;
-  }
-  if (typeof data.timeRouting === "string") {
-    cloudTimeRoutingInput.value = normalizeRoutingMode(data.timeRouting, "global");
-  }
+  const clouds = getSimulationKnobSectionFromStore("clouds") || getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS);
+  const timeState = runtimeCore.store.getState().systems.time || {};
+  cloudToggle.checked = Boolean(clouds.useClouds);
+  cloudCoverageInput.value = String(clamp(Number(clouds.cloudCoverage), 0, 1));
+  cloudSoftnessInput.value = String(clamp(Number(clouds.cloudSoftness), 0.01, 0.35));
+  cloudOpacityInput.value = String(clamp(Number(clouds.cloudOpacity), 0, 1));
+  cloudScaleInput.value = String(clamp(Number(clouds.cloudScale), 0.5, 8));
+  cloudSpeed1Input.value = String(clamp(Number(clouds.cloudSpeed1), -0.3, 0.3));
+  cloudSpeed2Input.value = String(clamp(Number(clouds.cloudSpeed2), -0.3, 0.3));
+  cloudSunParallaxInput.value = String(clamp(Number(clouds.cloudSunParallax), 0, 2));
+  cloudSunProjectToggle.checked = Boolean(clouds.cloudUseSunProjection);
+  cloudTimeRoutingInput.value = normalizeRoutingMode(timeState.routing && timeState.routing.clouds, "global");
   updateCloudLabels();
   updateCloudUi();
 }
 
 function applyWaterSettingsLegacy(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  if (typeof data.useWaterFx === "boolean") {
-    waterFxToggle.checked = data.useWaterFx;
-  }
-  if (typeof data.waterFlowDownhill === "boolean") {
-    waterFlowDownhillToggle.checked = data.waterFlowDownhill;
-  }
-  if (typeof data.waterFlowInvertDownhill === "boolean") {
-    waterFlowInvertDownhillToggle.checked = data.waterFlowInvertDownhill;
-  }
-  if (typeof data.waterFlowDebug === "boolean") {
-    waterFlowDebugToggle.checked = data.waterFlowDebug;
-  }
-  if (Number.isFinite(Number(data.waterFlowDirectionDeg))) {
-    waterFlowDirectionInput.value = String(Math.round(clamp(Number(data.waterFlowDirectionDeg), 0, 360)));
-  }
-  if (Number.isFinite(Number(data.waterLocalFlowMix))) {
-    waterLocalFlowMixInput.value = String(clamp(Number(data.waterLocalFlowMix), 0, 1));
-  }
-  if (Number.isFinite(Number(data.waterDownhillBoost))) {
-    waterDownhillBoostInput.value = String(clamp(Number(data.waterDownhillBoost), 0, 4));
-  }
-  if (Number.isFinite(Number(data.waterFlowRadius1))) {
-    waterFlowRadius1Input.value = String(Math.round(clamp(Number(data.waterFlowRadius1), 1, 12)));
-  }
-  if (Number.isFinite(Number(data.waterFlowRadius2))) {
-    waterFlowRadius2Input.value = String(Math.round(clamp(Number(data.waterFlowRadius2), 1, 24)));
-  }
-  if (Number.isFinite(Number(data.waterFlowRadius3))) {
-    waterFlowRadius3Input.value = String(Math.round(clamp(Number(data.waterFlowRadius3), 1, 40)));
-  }
-  if (Number.isFinite(Number(data.waterFlowWeight1))) {
-    waterFlowWeight1Input.value = String(clamp(Number(data.waterFlowWeight1), 0, 1));
-  }
-  if (Number.isFinite(Number(data.waterFlowWeight2))) {
-    waterFlowWeight2Input.value = String(clamp(Number(data.waterFlowWeight2), 0, 1));
-  }
-  if (Number.isFinite(Number(data.waterFlowWeight3))) {
-    waterFlowWeight3Input.value = String(clamp(Number(data.waterFlowWeight3), 0, 1));
-  }
-  if (Number.isFinite(Number(data.waterFlowStrength))) {
-    waterFlowStrengthInput.value = String(clamp(Number(data.waterFlowStrength), 0, 0.15));
-  }
-  if (Number.isFinite(Number(data.waterFlowSpeed))) {
-    waterFlowSpeedInput.value = String(clamp(Number(data.waterFlowSpeed), 0, 2.5));
-  }
-  if (Number.isFinite(Number(data.waterFlowScale))) {
-    waterFlowScaleInput.value = String(clamp(Number(data.waterFlowScale), 0.5, 14));
-  }
-  if (Number.isFinite(Number(data.waterShimmerStrength))) {
-    waterShimmerStrengthInput.value = String(clamp(Number(data.waterShimmerStrength), 0, 0.2));
-  }
-  if (Number.isFinite(Number(data.waterGlintStrength))) {
-    waterGlintStrengthInput.value = String(clamp(Number(data.waterGlintStrength), 0, 1.5));
-  }
-  if (Number.isFinite(Number(data.waterGlintSharpness))) {
-    waterGlintSharpnessInput.value = String(clamp(Number(data.waterGlintSharpness), 0, 1));
-  }
-  if (Number.isFinite(Number(data.waterShoreFoamStrength))) {
-    waterShoreFoamStrengthInput.value = String(clamp(Number(data.waterShoreFoamStrength), 0, 0.5));
-  }
-  if (Number.isFinite(Number(data.waterShoreWidth))) {
-    waterShoreWidthInput.value = String(clamp(Number(data.waterShoreWidth), 0.4, 6));
-  }
-  if (Number.isFinite(Number(data.waterReflectivity))) {
-    waterReflectivityInput.value = String(clamp(Number(data.waterReflectivity), 0, 1));
-  }
-  if (typeof data.waterTintColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(data.waterTintColor)) {
-    waterTintColorInput.value = data.waterTintColor.startsWith("#") ? data.waterTintColor : `#${data.waterTintColor}`;
-  }
-  if (Number.isFinite(Number(data.waterTintStrength))) {
-    waterTintStrengthInput.value = String(clamp(Number(data.waterTintStrength), 0, 1));
-  }
-  if (typeof data.timeRouting === "string") {
-    waterTimeRoutingInput.value = normalizeRoutingMode(data.timeRouting, "detached");
-  }
+  const water = getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS);
+  const timeState = runtimeCore.store.getState().systems.time || {};
+  waterFxToggle.checked = Boolean(water.useWaterFx);
+  waterFlowDownhillToggle.checked = Boolean(water.waterFlowDownhill);
+  waterFlowInvertDownhillToggle.checked = Boolean(water.waterFlowInvertDownhill);
+  waterFlowDebugToggle.checked = Boolean(water.waterFlowDebug);
+  waterFlowDirectionInput.value = String(Math.round(clamp(Number(water.waterFlowDirectionDeg), 0, 360)));
+  waterLocalFlowMixInput.value = String(clamp(Number(water.waterLocalFlowMix), 0, 1));
+  waterDownhillBoostInput.value = String(clamp(Number(water.waterDownhillBoost), 0, 4));
+  waterFlowRadius1Input.value = String(Math.round(clamp(Number(water.waterFlowRadius1), 1, 12)));
+  waterFlowRadius2Input.value = String(Math.round(clamp(Number(water.waterFlowRadius2), 1, 24)));
+  waterFlowRadius3Input.value = String(Math.round(clamp(Number(water.waterFlowRadius3), 1, 40)));
+  waterFlowWeight1Input.value = String(clamp(Number(water.waterFlowWeight1), 0, 1));
+  waterFlowWeight2Input.value = String(clamp(Number(water.waterFlowWeight2), 0, 1));
+  waterFlowWeight3Input.value = String(clamp(Number(water.waterFlowWeight3), 0, 1));
+  waterFlowStrengthInput.value = String(clamp(Number(water.waterFlowStrength), 0, 0.15));
+  waterFlowSpeedInput.value = String(clamp(Number(water.waterFlowSpeed), 0, 2.5));
+  waterFlowScaleInput.value = String(clamp(Number(water.waterFlowScale), 0.5, 14));
+  waterShimmerStrengthInput.value = String(clamp(Number(water.waterShimmerStrength), 0, 0.2));
+  waterGlintStrengthInput.value = String(clamp(Number(water.waterGlintStrength), 0, 1.5));
+  waterGlintSharpnessInput.value = String(clamp(Number(water.waterGlintSharpness), 0, 1));
+  waterShoreFoamStrengthInput.value = String(clamp(Number(water.waterShoreFoamStrength), 0, 0.5));
+  waterShoreWidthInput.value = String(clamp(Number(water.waterShoreWidth), 0.4, 6));
+  waterReflectivityInput.value = String(clamp(Number(water.waterReflectivity), 0, 1));
+  waterTintColorInput.value = Array.isArray(water.waterTintColor) ? rgbToHex(water.waterTintColor) : String(water.waterTintColor || "#5ea6d6");
+  waterTintStrengthInput.value = String(clamp(Number(water.waterTintStrength), 0, 1));
+  waterTimeRoutingInput.value = normalizeRoutingMode(timeState.routing && timeState.routing.water, "detached");
   updateWaterLabels();
   updateWaterUi();
   rebuildFlowMapTexture();
 }
 
 function applyInteractionSettingsLegacy(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  if (Number.isFinite(Number(data.pathfindingRange))) {
-    pathfindingRangeInput.value = String(Math.round(clamp(Number(data.pathfindingRange), 30, 300)));
-  }
-  if (Number.isFinite(Number(data.pathWeightSlope))) {
-    pathWeightSlopeInput.value = String(clamp(Number(data.pathWeightSlope), 0, 10));
-  }
-  if (Number.isFinite(Number(data.pathWeightHeight))) {
-    pathWeightHeightInput.value = String(clamp(Number(data.pathWeightHeight), 0, 10));
-  }
-  if (Number.isFinite(Number(data.pathWeightWater))) {
-    pathWeightWaterInput.value = String(clamp(Number(data.pathWeightWater), 0, 100));
-  }
-  if (Number.isFinite(Number(data.pathSlopeCutoff))) {
-    pathSlopeCutoffInput.value = String(Math.round(clamp(Number(data.pathSlopeCutoff), 0, 90)));
-  }
-  if (Number.isFinite(Number(data.pathBaseCost))) {
-    pathBaseCostInput.value = String(clamp(Number(data.pathBaseCost), 0, 2));
-  }
-  if (typeof data.cursorLightEnabled === "boolean") {
-    cursorLightModeToggle.checked = data.cursorLightEnabled;
-  }
-  if (typeof data.cursorLightFollowHeight === "boolean") {
-    cursorLightFollowHeightToggle.checked = data.cursorLightFollowHeight;
-  }
-  if (typeof data.cursorLightColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(data.cursorLightColor)) {
-    cursorLightColorInput.value = data.cursorLightColor.startsWith("#") ? data.cursorLightColor : `#${data.cursorLightColor}`;
-  }
-  if (Number.isFinite(Number(data.cursorLightStrength))) {
-    cursorLightStrengthInput.value = String(Math.round(clamp(Number(data.cursorLightStrength), 1, 200)));
-  }
-  if (Number.isFinite(Number(data.cursorLightHeightOffset))) {
-    cursorLightHeightOffsetInput.value = String(Math.round(clamp(Number(data.cursorLightHeightOffset), 0, 120)));
-  }
-  if (typeof data.cursorLightGizmo === "boolean") {
-    cursorLightGizmoToggle.checked = data.cursorLightGizmo;
-  }
-  if (typeof data.pointLightLiveUpdate === "boolean") {
-    pointLightLiveUpdateToggle.checked = data.pointLightLiveUpdate;
-  }
+  const pathfinding = getPathfindingStateSnapshot();
+  pathfindingRangeInput.value = String(pathfinding.range);
+  pathWeightSlopeInput.value = String(pathfinding.weightSlope);
+  pathWeightHeightInput.value = String(pathfinding.weightHeight);
+  pathWeightWaterInput.value = String(pathfinding.weightWater);
+  pathSlopeCutoffInput.value = String(pathfinding.slopeCutoff);
+  pathBaseCostInput.value = String(pathfinding.baseCost);
 
   updatePathfindingRangeLabel();
   updatePathWeightLabels();
   updatePathSlopeCutoffLabel();
   updatePathBaseCostLabel();
-  cursorLightState.color = hexToRgb01(cursorLightColorInput.value);
-  cursorLightState.strength = Math.round(clamp(Number(cursorLightStrengthInput.value), 1, 200));
-  cursorLightState.heightOffset = Math.round(clamp(Number(cursorLightHeightOffsetInput.value), 0, 120));
-  cursorLightState.useTerrainHeight = cursorLightFollowHeightToggle.checked;
-  cursorLightState.showGizmo = cursorLightGizmoToggle.checked;
-  if (!cursorLightModeToggle.checked) {
-    cursorLightState.active = false;
-  }
+  const cursorLight = getCursorLightSnapshot();
+  applyCursorLightConfigSnapshot(cursorLight);
+  cursorLightModeToggle.checked = cursorLightState.enabled;
+  cursorLightFollowHeightToggle.checked = cursorLightState.useTerrainHeight;
+  cursorLightColorInput.value = cursorLightState.colorHex;
+  cursorLightStrengthInput.value = String(cursorLightState.strength);
+  cursorLightHeightOffsetInput.value = String(cursorLightState.heightOffset);
+  cursorLightGizmoToggle.checked = cursorLightState.showGizmo;
+  pointLightLiveUpdateToggle.checked = isPointLightLiveUpdateEnabled();
   updateCursorLightStrengthLabel();
   updateCursorLightHeightOffsetLabel();
   updateCursorLightModeUi();
@@ -2074,13 +1953,181 @@ function applySettingsByKey(key, rawData, fallbackApply) {
   runtimeCore.settingsRegistry.apply(key, rawData, null);
 }
 
+function normalizeAppliedSettings(key, rawData, fallbackDefaults) {
+  const defaults = getSettingsDefaults(key, fallbackDefaults);
+  const input = rawData && typeof rawData === "object" ? rawData : {};
+  return {
+    ...defaults,
+    ...input,
+  };
+}
+
+function updateStoreFromAppliedSettings(key, normalized) {
+  runtimeCore.store.update((prev) => {
+    if (key === "lighting") {
+      const cycleSpeed = clamp(Number(normalized.cycleSpeed), 0, 1);
+      const simTickHours = normalizeSimTickHours(normalized.simTickHours);
+      return {
+        ...prev,
+        clock: {
+          ...prev.clock,
+          timeScale: cycleSpeed,
+        },
+        simulation: {
+          ...prev.simulation,
+          knobs: {
+            ...prev.simulation.knobs,
+            lighting: { ...normalized },
+          },
+        },
+        systems: {
+          ...prev.systems,
+          time: {
+            ...prev.systems.time,
+            cycleSpeedHoursPerSec: cycleSpeed,
+            simTickHours,
+          },
+        },
+        ui: {
+          ...prev.ui,
+          cycleHour: Number.isFinite(Number(normalized.cycleHour)) ? clamp(Number(normalized.cycleHour), 0, 24) : prev.ui.cycleHour,
+        },
+      };
+    }
+    if (key === "fog") {
+      return {
+        ...prev,
+        simulation: {
+          ...prev.simulation,
+          knobs: {
+            ...prev.simulation.knobs,
+            fog: { ...normalized },
+          },
+        },
+      };
+    }
+    if (key === "parallax") {
+      return {
+        ...prev,
+        simulation: {
+          ...prev.simulation,
+          knobs: {
+            ...prev.simulation.knobs,
+            parallax: { ...normalized },
+          },
+        },
+      };
+    }
+    if (key === "clouds") {
+      return {
+        ...prev,
+        simulation: {
+          ...prev.simulation,
+          knobs: {
+            ...prev.simulation.knobs,
+            clouds: { ...normalized },
+          },
+        },
+        systems: {
+          ...prev.systems,
+          time: {
+            ...prev.systems.time,
+            routing: {
+              ...prev.systems.time.routing,
+              clouds: normalizeRoutingMode(normalized.timeRouting, "global"),
+            },
+          },
+        },
+      };
+    }
+    if (key === "waterfx") {
+      return {
+        ...prev,
+        simulation: {
+          ...prev.simulation,
+          knobs: {
+            ...prev.simulation.knobs,
+            waterFx: { ...normalized },
+          },
+        },
+        systems: {
+          ...prev.systems,
+          time: {
+            ...prev.systems.time,
+            routing: {
+              ...prev.systems.time.routing,
+              water: normalizeRoutingMode(normalized.timeRouting, "detached"),
+            },
+          },
+        },
+      };
+    }
+    if (key === "interaction") {
+      return {
+        ...prev,
+        gameplay: {
+          ...prev.gameplay,
+          pathfinding: {
+            ...prev.gameplay.pathfinding,
+            range: Math.round(clamp(Number(normalized.pathfindingRange), 30, 300)),
+            weightSlope: clamp(Number(normalized.pathWeightSlope), 0, 10),
+            weightHeight: clamp(Number(normalized.pathWeightHeight), 0, 10),
+            weightWater: clamp(Number(normalized.pathWeightWater), 0, 100),
+            slopeCutoff: Math.round(clamp(Number(normalized.pathSlopeCutoff), 0, 90)),
+            baseCost: clamp(Number(normalized.pathBaseCost), 0, 2),
+          },
+          cursorLight: {
+            ...prev.gameplay.cursorLight,
+            enabled: Boolean(normalized.cursorLightEnabled),
+            useTerrainHeight: Boolean(normalized.cursorLightFollowHeight),
+            strength: Math.round(clamp(Number(normalized.cursorLightStrength), 1, 200)),
+            heightOffset: Math.round(clamp(Number(normalized.cursorLightHeightOffset), 0, 120)),
+            color: typeof normalized.cursorLightColor === "string" ? normalized.cursorLightColor : prev.gameplay.cursorLight.color,
+            showGizmo: Boolean(normalized.cursorLightGizmo),
+          },
+          pointLights: {
+            ...(prev.gameplay && prev.gameplay.pointLights ? prev.gameplay.pointLights : {}),
+            liveUpdate: Boolean(normalized.pointLightLiveUpdate),
+          },
+        },
+      };
+    }
+    if (key === "swarm") {
+      return {
+        ...prev,
+        gameplay: {
+          ...prev.gameplay,
+          swarm: {
+            ...prev.gameplay.swarm,
+            ...normalized,
+            timeRouting: normalizeRoutingMode(normalized.timeRouting, "global"),
+          },
+        },
+        systems: {
+          ...prev.systems,
+          time: {
+            ...prev.systems.time,
+            routing: {
+              ...prev.systems.time.routing,
+              swarm: normalizeRoutingMode(normalized.timeRouting, "global"),
+            },
+          },
+        },
+      };
+    }
+    return prev;
+  });
+}
+
 function serializeLightingSettings() {
   return serializeSettingsByKey("lighting", serializeLightingSettingsLegacy);
 }
 
 function applyLightingSettings(rawData) {
   markSimulationKnobsDirty("lighting");
+  updateStoreFromAppliedSettings("lighting", normalizeAppliedSettings("lighting", rawData, DEFAULT_LIGHTING_SETTINGS));
   applySettingsByKey("lighting", rawData, applyLightingSettingsLegacy);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function serializeFogSettings() {
@@ -2089,7 +2136,9 @@ function serializeFogSettings() {
 
 function applyFogSettings(rawData) {
   markSimulationKnobsDirty("fog");
+  updateStoreFromAppliedSettings("fog", normalizeAppliedSettings("fog", rawData, DEFAULT_FOG_SETTINGS));
   applySettingsByKey("fog", rawData, applyFogSettingsLegacy);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function serializeParallaxSettings() {
@@ -2098,7 +2147,9 @@ function serializeParallaxSettings() {
 
 function applyParallaxSettings(rawData) {
   markSimulationKnobsDirty("parallax");
+  updateStoreFromAppliedSettings("parallax", normalizeAppliedSettings("parallax", rawData, DEFAULT_PARALLAX_SETTINGS));
   applySettingsByKey("parallax", rawData, applyParallaxSettingsLegacy);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function serializeCloudSettings() {
@@ -2107,7 +2158,9 @@ function serializeCloudSettings() {
 
 function applyCloudSettings(rawData) {
   markSimulationKnobsDirty("clouds");
+  updateStoreFromAppliedSettings("clouds", normalizeAppliedSettings("clouds", rawData, DEFAULT_CLOUD_SETTINGS));
   applySettingsByKey("clouds", rawData, applyCloudSettingsLegacy);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function serializeWaterSettings() {
@@ -2116,7 +2169,9 @@ function serializeWaterSettings() {
 
 function applyWaterSettings(rawData) {
   markSimulationKnobsDirty("waterfx");
+  updateStoreFromAppliedSettings("waterfx", normalizeAppliedSettings("waterfx", rawData, DEFAULT_WATER_SETTINGS));
   applySettingsByKey("waterfx", rawData, applyWaterSettingsLegacy);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function serializeInteractionSettings() {
@@ -2124,7 +2179,9 @@ function serializeInteractionSettings() {
 }
 
 function applyInteractionSettings(rawData) {
+  updateStoreFromAppliedSettings("interaction", normalizeAppliedSettings("interaction", rawData, DEFAULT_INTERACTION_SETTINGS));
   applySettingsByKey("interaction", rawData, applyInteractionSettingsLegacy);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function serializeSwarmData() {
@@ -2132,7 +2189,9 @@ function serializeSwarmData() {
 }
 
 function applySwarmSettings(rawData) {
+  updateStoreFromAppliedSettings("swarm", normalizeAppliedSettings("swarm", rawData, DEFAULT_SWARM_SETTINGS));
   applySwarmSettingsLegacy(rawData);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function getSettingsDefaults(key, fallback) {
@@ -2140,6 +2199,31 @@ function getSettingsDefaults(key, fallback) {
     return fallback;
   }
   return runtimeCore.settingsRegistry.getDefaults(key) || fallback;
+}
+
+function setCurrentMapFolderPath(nextPath) {
+  currentMapFolderPath = normalizeMapFolderPath(nextPath);
+  mapPathInput.value = currentMapFolderPath;
+  syncMapStateToStore();
+}
+
+function applyDefaultMapSettings() {
+  applyLightingSettings(getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS));
+  applyParallaxSettings(getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS));
+  applyInteractionSettings(getSettingsDefaults("interaction", DEFAULT_INTERACTION_SETTINGS));
+  applyFogSettings(getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS));
+  applyCloudSettings(getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS));
+  applyWaterSettings(getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS));
+  applySwarmSettings(getSettingsDefaults("swarm", DEFAULT_SWARM_SETTINGS));
+}
+
+function resetMapRuntimeStateAfterImages() {
+  clearPointLights();
+  bakePointLightsTexture();
+  updateLightEditorUi();
+  applyDefaultMapSettings();
+  reseedSwarmAgents(getSwarmSettings().agentCount);
+  requestOverlayDraw();
 }
 
 function createMapDataFileTexts() {
@@ -2237,21 +2321,8 @@ async function loadMapFromPath(mapFolderPath) {
   ]);
 
   await applyMapImages(splat, normals, height, slope, water);
-  currentMapFolderPath = folder;
-  mapPathInput.value = folder;
-
-  clearPointLights();
-  bakePointLightsTexture();
-  updateLightEditorUi();
-  applyLightingSettings(getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS));
-  applyParallaxSettings(getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS));
-  applyInteractionSettings(getSettingsDefaults("interaction", DEFAULT_INTERACTION_SETTINGS));
-  applyFogSettings(getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS));
-  applyCloudSettings(getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS));
-  applyWaterSettings(getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS));
-  applySwarmSettings(getSettingsDefaults("swarm", DEFAULT_SWARM_SETTINGS));
-  reseedSwarmAgents(getSwarmSettings().agentCount);
-  requestOverlayDraw();
+  setCurrentMapFolderPath(folder);
+  resetMapRuntimeStateAfterImages();
 
   let loadedPointLights = false;
   let loadedLighting = false;
@@ -2364,22 +2435,10 @@ async function loadMapFromFolderSelection(fileList) {
   const relPath = String(splatFile.webkitRelativePath || "");
   const firstFolder = relPath.includes("/") ? relPath.split("/")[0] : "";
   if (firstFolder) {
-    currentMapFolderPath = `assets/${firstFolder}/`;
-    mapPathInput.value = currentMapFolderPath;
+    setCurrentMapFolderPath(`assets/${firstFolder}/`);
   }
 
-  clearPointLights();
-  bakePointLightsTexture();
-  updateLightEditorUi();
-  applyLightingSettings(getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS));
-  applyParallaxSettings(getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS));
-  applyInteractionSettings(getSettingsDefaults("interaction", DEFAULT_INTERACTION_SETTINGS));
-  applyFogSettings(getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS));
-  applyCloudSettings(getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS));
-  applyWaterSettings(getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS));
-  applySwarmSettings(getSettingsDefaults("swarm", DEFAULT_SWARM_SETTINGS));
-  reseedSwarmAgents(getSwarmSettings().agentCount);
-  requestOverlayDraw();
+  resetMapRuntimeStateAfterImages();
 
   let loadedPointLights = false;
   let loadedLighting = false;
@@ -2843,7 +2902,6 @@ const movePreviewState = {
   hoverPixel: null,
   pathPixels: [],
 };
-let interactionMode = "none";
 const swarmState = {
   x: new Float32Array(0),
   y: new Float32Array(0),
@@ -2918,13 +2976,16 @@ const pointLightBakeOrchestrator = createPointLightBakeOrchestrator({
   liveScale: POINT_LIGHT_BAKE_LIVE_SCALE,
   blendExposure: POINT_LIGHT_BLEND_EXPOSURE,
   getWorker: () => pointLightBakeWorker,
-  isLiveUpdateEnabled: () => pointLightLiveUpdateToggle.checked,
+  isLiveUpdateEnabled: () => isPointLightLiveUpdateEnabled(),
   ensureBakeSize: ensurePointLightBakeSize,
   hasBakeInputs: () => Boolean(normalsImageData && heightImageData),
   bakeSync: (useReducedResolution) => bakePointLightsTextureSync(useReducedResolution),
   getFullBakeSize: () => ({ width: pointLightBakeCanvas.width, height: pointLightBakeCanvas.height }),
   getLights: () => pointLights,
-  getHeightScaleValue: () => Math.max(1, Number(heightScaleInput.value) || 1),
+  getHeightScaleValue: () => {
+    const lightingSettings = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+    return Math.max(1, Number(lightingSettings.heightScale) || 1);
+  },
 });
 
 if (pointLightBakeWorker) {
@@ -3039,10 +3100,36 @@ function getSelectedPointLight() {
   return pointLights.find((light) => light.id === selectedLightId) || null;
 }
 
-function clearPointLights() {
-  pointLights.length = 0;
+function createPointLightDraft(light) {
+  const flickerRaw = Number(light && light.flicker);
+  const flickerSpeedRaw = Number(light && light.flickerSpeed);
+  return {
+    color: Array.isArray(light && light.color) ? [...light.color] : hexToRgb01("#ff9b2f"),
+    strength: Number(light && light.strength) || 30,
+    intensity: Number(light && light.intensity) || 1,
+    heightOffset: Number(light && light.heightOffset) || 8,
+    flicker: clamp(Number.isFinite(flickerRaw) ? flickerRaw : DEFAULT_POINT_LIGHT_FLICKER, 0, 1),
+    flickerSpeed: clamp(Number.isFinite(flickerSpeedRaw) ? flickerSpeedRaw : DEFAULT_POINT_LIGHT_FLICKER_SPEED, 0, 1),
+  };
+}
+
+function clearLightEditSelection() {
   selectedLightId = null;
   lightEditDraft = null;
+}
+
+function setLightEditSelection(light) {
+  if (!light) {
+    clearLightEditSelection();
+    return;
+  }
+  selectedLightId = light.id;
+  lightEditDraft = createPointLightDraft(light);
+}
+
+function clearPointLights() {
+  pointLights.length = 0;
+  clearLightEditSelection();
   resetPointLightsSaveConfirmation();
 }
 
@@ -3373,7 +3460,8 @@ function bakePointLightsTextureSync(useReducedResolution = false) {
   const h = Math.max(1, Math.round(fullHeight * scale));
   const mapScaleX = fullWidth / w;
   const mapScaleY = fullHeight / h;
-  const heightScaleValue = Math.max(1, Number(heightScaleInput.value) || 1);
+  const lightingSettings = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+  const heightScaleValue = Math.max(1, Number(lightingSettings.heightScale) || 1);
   const pixelCount = w * h;
   const rgba = new Uint8ClampedArray(pixelCount * 4);
   const accumColor = new Float32Array(pixelCount * 3);
@@ -3476,17 +3564,17 @@ function updatePointLightFlickerSpeedLabel() {
 }
 
 function updateCursorLightStrengthLabel() {
-  const value = Math.round(clamp(Number(cursorLightStrengthInput.value), 1, 200));
+  const value = getCursorLightSnapshot().strength;
   cursorLightStrengthValue.textContent = `${value} px`;
 }
 
 function updateCursorLightHeightOffsetLabel() {
-  const value = Math.round(clamp(Number(cursorLightHeightOffsetInput.value), 0, 120));
+  const value = getCursorLightSnapshot().heightOffset;
   cursorLightHeightOffsetValue.textContent = `${value}`;
 }
 
 function updateCursorLightModeUi() {
-  const followTerrain = cursorLightFollowHeightToggle.checked;
+  const followTerrain = getCursorLightSnapshot().useTerrainHeight;
   cursorLightHeightOffsetInput.disabled = !followTerrain;
 }
 
@@ -3544,24 +3632,33 @@ function updateModeCapabilitiesUi() {
   const canPathfinding = canUseModeInteraction(mode, "pathfinding");
   dockLightingModeToggle.disabled = !canLighting;
   dockPathfindingModeToggle.disabled = !canPathfinding;
-  if (!canUseModeInteraction(mode, interactionMode)) {
+  if (!canUseModeInteraction(mode, getInteractionModeSnapshot())) {
     setInteractionMode("none");
   }
 }
 
+function getInteractionModeSnapshot() {
+  const gameplay = runtimeCore.store.getState().gameplay || null;
+  const storedMode = gameplay && typeof gameplay.interactionMode === "string"
+    ? gameplay.interactionMode
+    : "none";
+  return storedMode === "lighting" || storedMode === "pathfinding" ? storedMode : "none";
+}
+
 function updateCursorLightFromPointer(clientX, clientY) {
-  if (!cursorLightModeToggle.checked) {
-    cursorLightState.active = false;
+  if (!getCursorLightSnapshot().enabled) {
+    clearCursorLightPointerState();
     return;
   }
   const ndc = clientToNdc(clientX, clientY);
   const world = worldFromNdc(ndc);
   const uv = worldToUv(world);
   const inside = uv.x >= 0 && uv.x <= 1 && uv.y >= 0 && uv.y <= 1;
-  cursorLightState.active = inside;
-  if (!inside) return;
-  cursorLightState.uvX = uv.x;
-  cursorLightState.uvY = uv.y;
+  if (!inside) {
+    clearCursorLightPointerState();
+    return;
+  }
+  setCursorLightPointerUv(uv.x, uv.y);
 }
 
 function updateLightEditorUi() {
@@ -3590,17 +3687,7 @@ function updateLightEditorUi() {
 }
 
 function beginLightEdit(light) {
-  const flickerRaw = Number(light.flicker);
-  const flickerSpeedRaw = Number(light.flickerSpeed);
-  selectedLightId = light.id;
-  lightEditDraft = {
-    color: [...light.color],
-    strength: light.strength,
-    intensity: light.intensity,
-    heightOffset: light.heightOffset,
-    flicker: clamp(Number.isFinite(flickerRaw) ? flickerRaw : DEFAULT_POINT_LIGHT_FLICKER, 0, 1),
-    flickerSpeed: clamp(Number.isFinite(flickerSpeedRaw) ? flickerSpeedRaw : DEFAULT_POINT_LIGHT_FLICKER_SPEED, 0, 1),
-  };
+  setLightEditSelection(light);
   updateLightEditorUi();
 }
 
@@ -3617,7 +3704,7 @@ function applyDraftToSelectedPointLight() {
 }
 
 function rebakeIfPointLightLiveUpdateEnabled() {
-  if (!pointLightLiveUpdateToggle.checked) return;
+  if (!isPointLightLiveUpdateEnabled()) return;
   if (!applyDraftToSelectedPointLight()) return;
   schedulePointLightBake();
 }
@@ -3672,25 +3759,108 @@ const panWorld = { x: 0, y: 0 };
 let isMiddleDragging = false;
 let lastDragClient = { x: 0, y: 0 };
 let fogColorManual = false;
+const interactionDefaults = DEFAULT_INTERACTION_SETTINGS;
 const cursorLightState = {
   uvX: 0.5,
   uvY: 0.5,
+  enabled: Boolean(interactionDefaults.cursorLightEnabled),
   active: false,
-  color: hexToRgb01(cursorLightColorInput.value),
-  strength: Math.round(clamp(Number(cursorLightStrengthInput.value), 1, 200)),
-  heightOffset: Math.round(clamp(Number(cursorLightHeightOffsetInput.value), 0, 120)),
-  useTerrainHeight: cursorLightFollowHeightToggle.checked,
-  showGizmo: cursorLightGizmoToggle.checked,
+  colorHex: typeof interactionDefaults.cursorLightColor === "string" ? interactionDefaults.cursorLightColor : "#ff9b2f",
+  color: hexToRgb01(typeof interactionDefaults.cursorLightColor === "string" ? interactionDefaults.cursorLightColor : "#ff9b2f"),
+  strength: Math.round(clamp(Number(interactionDefaults.cursorLightStrength), 1, 200)),
+  heightOffset: Math.round(clamp(Number(interactionDefaults.cursorLightHeightOffset), 0, 120)),
+  useTerrainHeight: Boolean(interactionDefaults.cursorLightFollowHeight),
+  showGizmo: Boolean(interactionDefaults.cursorLightGizmo),
 };
+
+function clearCursorLightPointerState() {
+  cursorLightState.active = false;
+}
+
+function setCursorLightPointerUv(uvX, uvY) {
+  cursorLightState.active = true;
+  cursorLightState.uvX = clamp(Number(uvX), 0, 1);
+  cursorLightState.uvY = clamp(Number(uvY), 0, 1);
+}
+
+function applyCursorLightConfigSnapshot(snapshot) {
+  const nextColorHex = typeof snapshot.colorHex === "string" ? snapshot.colorHex : "#ff9b2f";
+  cursorLightState.enabled = Boolean(snapshot.enabled);
+  cursorLightState.colorHex = nextColorHex;
+  cursorLightState.color = hexToRgb01(nextColorHex);
+  cursorLightState.strength = Math.round(clamp(Number(snapshot.strength), 1, 200));
+  cursorLightState.heightOffset = Math.round(clamp(Number(snapshot.heightOffset), 0, 120));
+  cursorLightState.useTerrainHeight = Boolean(snapshot.useTerrainHeight);
+  cursorLightState.showGizmo = Boolean(snapshot.showGizmo);
+  if (!cursorLightState.enabled) {
+    clearCursorLightPointerState();
+  }
+}
 
 const cycleState = {
   hour: 9.5,
 };
 let isCycleHourScrubbing = false;
 
-const runtimeCore = createRuntimeCore();
-const dispatchCoreCommand = createCoreCommandDispatch(runtimeCore);
-const entityStore = createEntityStore();
+function getSimulationKnobSectionFromStore(key) {
+  const knobs = runtimeCore.store.getState().simulation.knobs || {};
+  return knobs && key in knobs ? knobs[key] : null;
+}
+
+function normalizeSwarmFollowTargetType(value) {
+  return value === "hawk" ? "hawk" : "agent";
+}
+
+function syncSwarmFollowToStore() {
+  runtimeCore.store.update((prev) => ({
+    ...prev,
+    gameplay: {
+      ...prev.gameplay,
+      swarm: {
+        ...prev.gameplay.swarm,
+        followEnabled: Boolean(swarmFollowState.enabled),
+        followTargetType: normalizeSwarmFollowTargetType(swarmFollowState.targetType),
+      },
+    },
+  }));
+}
+
+function applySwarmFollowState(nextState, options = {}) {
+  const resetSpeed = options.resetSpeed !== false;
+  swarmFollowState.enabled = Boolean(nextState && nextState.enabled);
+  swarmFollowState.targetType = normalizeSwarmFollowTargetType(nextState && nextState.targetType);
+  swarmFollowState.agentIndex = Number.isFinite(Number(nextState && nextState.agentIndex))
+    ? Math.round(Number(nextState.agentIndex))
+    : -1;
+  swarmFollowState.hawkIndex = Number.isFinite(Number(nextState && nextState.hawkIndex))
+    ? Math.round(Number(nextState.hawkIndex))
+    : -1;
+  if (!swarmFollowState.enabled) {
+    swarmFollowState.agentIndex = -1;
+    swarmFollowState.hawkIndex = -1;
+  }
+  swarmFollowTargetInput.value = swarmFollowState.targetType;
+  if (resetSpeed) {
+    resetSwarmFollowSpeedSmoothing();
+  }
+  updateSwarmFollowButtonUi();
+  if (options.syncStore) {
+    syncSwarmFollowToStore();
+  }
+}
+
+function stopSwarmFollow(options = {}) {
+  applySwarmFollowState(
+    {
+      enabled: false,
+      targetType: options.targetType ?? swarmFollowState.targetType,
+      agentIndex: -1,
+      hawkIndex: -1,
+    },
+    options,
+  );
+}
+
 const movementSystem = createMovementSystem({
   entityStore,
   playerState,
@@ -3754,7 +3924,10 @@ renderer.registerPass(
     shadowBlurProgram,
     shadowRawTex,
     shadowBlurUniforms,
-    getBlurRadiusPx: () => clamp(Number(shadowBlurInput.value), 0, 3),
+    getBlurRadiusPx: () => {
+      const lightingSettings = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+      return clamp(Number(lightingSettings.shadowBlur), 0, 3);
+    },
   }),
 );
 renderer.registerPass(
@@ -3790,7 +3963,7 @@ registerMainCommands(runtimeCore.commandBus, {
   setZoom: (value) => {
     zoom = value;
   },
-  getInteractionMode: () => interactionMode,
+  getInteractionMode: () => getInteractionModeSnapshot(),
   setMiddleDragging: (value) => {
     isMiddleDragging = value;
   },
@@ -3800,6 +3973,9 @@ registerMainCommands(runtimeCore.commandBus, {
   clamp,
   clientToNdc,
   worldFromNdc,
+  getCursorLightSnapshot,
+  applyCursorLightConfigSnapshot,
+  clearCursorLightPointerState,
   setInteractionMode,
   requestOverlayDraw,
   updateCycleHourLabel,
@@ -3825,6 +4001,12 @@ registerMainCommands(runtimeCore.commandBus, {
   getMovementStateSnapshot: () => movementSystem.getSnapshot(),
   rebuildMovementField,
   getPathfindingStateSnapshot,
+  pathfindingRangeInput,
+  pathWeightSlopeInput,
+  pathWeightHeightInput,
+  pathWeightWaterInput,
+  pathSlopeCutoffInput,
+  pathBaseCostInput,
   updatePathfindingRangeLabel,
   updatePathWeightLabels,
   updatePathSlopeCutoffLabel,
@@ -3858,6 +4040,35 @@ registerMainCommands(runtimeCore.commandBus, {
   updateSwarmUi,
   updateSwarmLabels,
   updateSwarmStatsPanel,
+  applySwarmFollowState,
+  stopSwarmFollow,
+  syncSwarmFollowToStore,
+  swarmFollowZoomInInput,
+  swarmFollowZoomOutInput,
+  swarmFollowAgentSpeedSmoothingInput,
+  swarmFollowAgentZoomSmoothingInput,
+  swarmUpdateIntervalInput,
+  swarmMaxSpeedInput,
+  swarmSteeringMaxInput,
+  swarmVariationStrengthInput,
+  swarmNeighborRadiusInput,
+  swarmMinHeightInput,
+  swarmMaxHeightInput,
+  swarmSeparationRadiusInput,
+  swarmAlignmentWeightInput,
+  swarmCohesionWeightInput,
+  swarmSeparationWeightInput,
+  swarmWanderWeightInput,
+  swarmRestChanceInput,
+  swarmRestTicksInput,
+  swarmBreedingThresholdInput,
+  swarmBreedingSpawnChanceInput,
+  swarmCursorStrengthInput,
+  swarmCursorRadiusInput,
+  swarmHawkCountInput,
+  swarmHawkSpeedInput,
+  swarmHawkSteeringInput,
+  swarmHawkTargetRangeInput,
   normalizeSwarmFollowZoomInputs,
   normalizeSwarmHeightRangeInputs,
   reseedSwarmAgents,
@@ -3898,12 +4109,21 @@ runtimeCore.scheduler.addSystem(
     updateStoreTime: (value) => {
       runtimeCore.store.update((prev) => ({
         ...prev,
+        clock: {
+          ...prev.clock,
+          nowSec: Math.max(0, Number(value.nowSec) || 0),
+          timeScale: clamp(Number(value.cycleSpeedHoursPerSec), 0, 1),
+        },
         systems: {
           ...prev.systems,
           time: {
             ...prev.systems.time,
             ...value,
           },
+        },
+        ui: {
+          ...prev.ui,
+          cycleHour: cycleState.hour,
         },
       }));
     },
@@ -4037,27 +4257,11 @@ runtimeCore.scheduler.addSystem(
   }),
 );
 
-runtimeCore.scheduler.addSystem(
-  createPathfindingSystem({
-    getPathfindingState: getPathfindingStateSnapshot,
-    setPathfindingState: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          pathfinding: {
-            ...prev.gameplay.pathfinding,
-            ...value,
-          },
-        },
-      }));
-    },
-  }),
-);
-
 runtimeCore.scheduler.addSystem(movementSystem);
 
 runtimeCore.scheduler.initAll({ nowMs: 0, dtSec: 0 }, runtimeCore.store.getState());
+syncMapStateToStore();
+syncCoreSettingsStateFromRuntime();
 
 function resetCamera() {
   dispatchCoreCommand({ type: "core/camera/reset" });
@@ -4072,70 +4276,90 @@ function getMapAspect() {
 }
 
 function getSwarmCursorMode() {
-  const mode = String(swarmCursorModeInput.value || "none");
-  if (mode === "attract" || mode === "repel") return mode;
-  return "none";
+  const coreSwarm = runtimeCore.store.getState().gameplay.swarm || null;
+  if (coreSwarm && typeof coreSwarm.cursorMode === "string") {
+    const storedMode = String(coreSwarm.cursorMode);
+    if (storedMode === "attract" || storedMode === "repel") return storedMode;
+    if (storedMode === "none") return "none";
+  }
+  const defaults = getSettingsDefaults("swarm", DEFAULT_SWARM_SETTINGS);
+  const defaultMode = String(defaults.cursorMode || "none");
+  return defaultMode === "attract" || defaultMode === "repel" ? defaultMode : "none";
 }
 
 function getSwarmSettings() {
-  const minHeight = Math.round(clamp(Number(swarmMinHeightInput.value), 0, SWARM_Z_MAX));
-  const rawMaxHeight = Math.round(clamp(Number(swarmMaxHeightInput.value), 0, SWARM_Z_MAX));
+  const coreSwarm = runtimeCore.store.getState().gameplay.swarm || {};
+  const defaults = getSettingsDefaults("swarm", DEFAULT_SWARM_SETTINGS);
+  const source = {
+    ...defaults,
+    ...coreSwarm,
+  };
+  const minHeight = Math.round(clamp(Number(source.minHeight), 0, SWARM_Z_MAX));
+  const rawMaxHeight = Math.round(clamp(Number(source.maxHeight), 0, SWARM_Z_MAX));
   const maxHeight = Math.max(minHeight, rawMaxHeight);
-  const followZoomOut = clamp(Number(swarmFollowZoomOutInput.value), zoomMin, zoomMax);
-  const rawFollowZoomIn = clamp(Number(swarmFollowZoomInInput.value), zoomMin, zoomMax);
+  const followZoomOut = clamp(Number(source.followZoomOut), zoomMin, zoomMax);
+  const rawFollowZoomIn = clamp(Number(source.followZoomIn), zoomMin, zoomMax);
   const followZoomIn = Math.max(followZoomOut, rawFollowZoomIn);
-  const followAgentSpeedSmoothing = clamp(Number(swarmFollowAgentSpeedSmoothingInput.value), 0.01, 0.25);
-  const followAgentZoomSmoothing = clamp(Number(swarmFollowAgentZoomSmoothingInput.value), 0.01, 0.25);
+  const followAgentSpeedSmoothing = clamp(Number(source.followAgentSpeedSmoothing), 0.01, 0.25);
+  const followAgentZoomSmoothing = clamp(Number(source.followAgentZoomSmoothing), 0.01, 0.25);
+  const backgroundColor = typeof source.backgroundColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(source.backgroundColor)
+    ? (source.backgroundColor.startsWith("#") ? source.backgroundColor : `#${source.backgroundColor}`)
+    : DEFAULT_SWARM_SETTINGS.backgroundColor;
+  const hawkColor = typeof source.hawkColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(source.hawkColor)
+    ? (source.hawkColor.startsWith("#") ? source.hawkColor : `#${source.hawkColor}`)
+    : DEFAULT_SWARM_SETTINGS.hawkColor;
   return {
-    useAgentSwarm: swarmEnabledToggle.checked,
-    useLitSwarm: swarmLitModeToggle.checked,
-    followZoomBySpeed: swarmFollowZoomToggle.checked,
+    ...source,
+    useAgentSwarm: Boolean(source.useAgentSwarm),
+    useLitSwarm: Boolean(source.useLitSwarm),
+    followZoomBySpeed: Boolean(source.followZoomBySpeed),
     followZoomIn,
     followZoomOut,
-    followHawkRangeGizmo: swarmFollowHawkRangeGizmoToggle.checked,
+    followHawkRangeGizmo: Boolean(source.followHawkRangeGizmo),
     followAgentSpeedSmoothing,
     followAgentZoomSmoothing,
-    showStatsPanel: swarmStatsPanelToggle.checked,
-    showTerrainInSwarm: swarmShowTerrainToggle.checked,
-    backgroundColor: swarmBackgroundColorInput.value,
-    agentCount: Math.round(clamp(Number(swarmAgentCountInput.value), 100, 1000)),
-    simulationSpeed: clamp(Number(swarmUpdateIntervalInput.value), 0.1, 20),
-    maxSpeed: clamp(Number(swarmMaxSpeedInput.value), 30, 300),
-    maxSteering: clamp(Number(swarmSteeringMaxInput.value), 10, 500),
-    variationStrengthPct: Math.round(clamp(Number(swarmVariationStrengthInput.value), 0, 50)),
-    neighborRadius: clamp(Number(swarmNeighborRadiusInput.value), 10, 200),
+    showStatsPanel: Boolean(source.showStatsPanel),
+    showTerrainInSwarm: Boolean(source.showTerrainInSwarm),
+    backgroundColor,
+    agentCount: Math.round(clamp(Number(source.agentCount), 100, 1000)),
+    simulationSpeed: clamp(Number(source.simulationSpeed), 0.1, 20),
+    maxSpeed: clamp(Number(source.maxSpeed), 30, 300),
+    maxSteering: clamp(Number(source.maxSteering), 10, 500),
+    variationStrengthPct: Math.round(clamp(Number(source.variationStrengthPct), 0, 50)),
+    neighborRadius: clamp(Number(source.neighborRadius), 10, 200),
     minHeight,
     maxHeight,
-    separationRadius: clamp(Number(swarmSeparationRadiusInput.value), 6, 120),
-    alignmentWeight: clamp(Number(swarmAlignmentWeightInput.value), 0, 4),
-    cohesionWeight: clamp(Number(swarmCohesionWeightInput.value), 0, 4),
-    separationWeight: clamp(Number(swarmSeparationWeightInput.value), 0, 6),
-    wanderWeight: clamp(Number(swarmWanderWeightInput.value), 0, 2),
-    restChancePct: clamp(Number(swarmRestChanceInput.value), 0, 0.002),
-    restTicks: Math.round(clamp(Number(swarmRestTicksInput.value), 100, 10000)),
-    breedingThreshold: Math.round(clamp(Number(swarmBreedingThresholdInput.value), 0, 1000)),
-    breedingSpawnChance: clamp(Number(swarmBreedingSpawnChanceInput.value), 0, 1),
-    cursorMode: getSwarmCursorMode(),
-    cursorStrength: clamp(Number(swarmCursorStrengthInput.value), 0, 8),
-    cursorRadius: clamp(Number(swarmCursorRadiusInput.value), 20, 260),
-    useHawk: swarmHawkEnabledToggle.checked,
-    hawkCount: Math.round(clamp(Number(swarmHawkCountInput.value), 0, 20)),
-    hawkColor: swarmHawkColorInput.value,
-    hawkSpeed: clamp(Number(swarmHawkSpeedInput.value), 30, 420),
-    hawkSteering: clamp(Number(swarmHawkSteeringInput.value), 20, 700),
-    hawkTargetRange: Math.round(clamp(Number(swarmHawkTargetRangeInput.value), 20, 500)),
-    timeRouting: normalizeRoutingMode(swarmTimeRoutingInput.value, "global"),
+    separationRadius: clamp(Number(source.separationRadius), 6, 120),
+    alignmentWeight: clamp(Number(source.alignmentWeight), 0, 4),
+    cohesionWeight: clamp(Number(source.cohesionWeight), 0, 4),
+    separationWeight: clamp(Number(source.separationWeight), 0, 6),
+    wanderWeight: clamp(Number(source.wanderWeight), 0, 2),
+    restChancePct: clamp(Number(source.restChancePct), 0, 0.002),
+    restTicks: Math.round(clamp(Number(source.restTicks), 100, 10000)),
+    breedingThreshold: Math.round(clamp(Number(source.breedingThreshold), 0, 1000)),
+    breedingSpawnChance: clamp(Number(source.breedingSpawnChance), 0, 1),
+    cursorMode: ["none", "attract", "repel"].includes(String(source.cursorMode)) ? String(source.cursorMode) : "none",
+    cursorStrength: clamp(Number(source.cursorStrength), 0, 8),
+    cursorRadius: clamp(Number(source.cursorRadius), 20, 260),
+    useHawk: Boolean(source.useHawk),
+    hawkCount: Math.round(clamp(Number(source.hawkCount), 0, 20)),
+    hawkColor,
+    hawkSpeed: clamp(Number(source.hawkSpeed), 30, 420),
+    hawkSteering: clamp(Number(source.hawkSteering), 20, 700),
+    hawkTargetRange: Math.round(clamp(Number(source.hawkTargetRange), 20, 500)),
+    timeRouting: normalizeRoutingMode(source.timeRouting, "global"),
   };
 }
 
 function getPathfindingStateSnapshot() {
+  const corePathfinding = runtimeCore.store.getState().gameplay.pathfinding || {};
   return {
-    range: Math.round(clamp(Number(pathfindingRangeInput.value), 30, 300)),
-    weightSlope: clamp(Number(pathWeightSlopeInput.value), 0, 10),
-    weightHeight: clamp(Number(pathWeightHeightInput.value), 0, 10),
-    weightWater: clamp(Number(pathWeightWaterInput.value), 0, 100),
-    slopeCutoff: Math.round(clamp(Number(pathSlopeCutoffInput.value), 0, 90)),
-    baseCost: clamp(Number(pathBaseCostInput.value), 0, 2),
+    range: Math.round(clamp(Number(corePathfinding.range), 30, 300)),
+    weightSlope: clamp(Number(corePathfinding.weightSlope), 0, 10),
+    weightHeight: clamp(Number(corePathfinding.weightHeight), 0, 10),
+    weightWater: clamp(Number(corePathfinding.weightWater), 0, 100),
+    slopeCutoff: Math.round(clamp(Number(corePathfinding.slopeCutoff), 0, 90)),
+    baseCost: clamp(Number(corePathfinding.baseCost), 0, 2),
   };
 }
 
@@ -4157,6 +4381,107 @@ function getWeatherInputSnapshot() {
     windSpeed: clamp(Number(prev.windSpeed), 0, 1),
     localModulation: clamp(Number(prev.localModulation), 0, 1),
   };
+}
+
+function syncMapStateToStore() {
+  runtimeCore.store.update((prev) => ({
+    ...prev,
+    map: {
+      ...prev.map,
+      folderPath: currentMapFolderPath ?? "",
+      width: splatSize.width,
+      height: splatSize.height,
+      loaded: Boolean(currentMapFolderPath ?? ""),
+    },
+  }));
+}
+
+function syncCoreSettingsStateFromRuntime() {
+  const lighting = serializeLightingSettings();
+  const parallax = serializeParallaxSettings();
+  const fog = serializeFogSettings();
+  const clouds = serializeCloudSettings();
+  const waterFx = serializeWaterSettings();
+  const interaction = serializeInteractionSettings();
+  const swarm = getSwarmSettings();
+  runtimeCore.store.update((prev) => ({
+    ...prev,
+    clock: {
+      ...prev.clock,
+      timeScale: clamp(Number(lighting.cycleSpeed), 0, 1),
+    },
+    simulation: {
+      ...prev.simulation,
+      knobs: {
+        lighting,
+        parallax,
+        fog,
+        clouds,
+        waterFx,
+      },
+    },
+    gameplay: {
+      ...prev.gameplay,
+      player: {
+        ...prev.gameplay.player,
+        pixelX: playerState.pixelX,
+        pixelY: playerState.pixelY,
+      },
+      interactionMode: getInteractionModeSnapshot(),
+      pathfinding: {
+        ...prev.gameplay.pathfinding,
+        range: interaction.pathfindingRange,
+        weightSlope: interaction.pathWeightSlope,
+        weightHeight: interaction.pathWeightHeight,
+        weightWater: interaction.pathWeightWater,
+        slopeCutoff: interaction.pathSlopeCutoff,
+        baseCost: interaction.pathBaseCost,
+      },
+      cursorLight: {
+        ...prev.gameplay.cursorLight,
+        enabled: Boolean(cursorLightState.enabled),
+        useTerrainHeight: Boolean(cursorLightState.useTerrainHeight),
+        strength: Math.round(clamp(Number(cursorLightState.strength), 1, 200)),
+        heightOffset: Math.round(clamp(Number(cursorLightState.heightOffset), 0, 120)),
+        color: typeof cursorLightState.colorHex === "string" ? cursorLightState.colorHex : prev.gameplay.cursorLight.color,
+        showGizmo: Boolean(cursorLightState.showGizmo),
+      },
+      pointLights: {
+        ...(prev.gameplay && prev.gameplay.pointLights ? prev.gameplay.pointLights : {}),
+        liveUpdate: isPointLightLiveUpdateEnabled(),
+      },
+      swarm: {
+        ...prev.gameplay.swarm,
+        ...swarm,
+        enabled: isSwarmEnabled(),
+        count: Math.max(0, Math.round(Number(swarmState.count) || 0)),
+        followEnabled: Boolean(swarmFollowState.enabled),
+        followTargetType: swarmFollowState.targetType === "hawk" ? "hawk" : "agent",
+      },
+      movement: {
+        ...prev.gameplay.movement,
+        ...movementSystem.getSnapshot(),
+      },
+    },
+    systems: {
+      ...prev.systems,
+      time: {
+        ...prev.systems.time,
+        cycleSpeedHoursPerSec: clamp(Number(lighting.cycleSpeed), 0, 1),
+        simTickHours: normalizeSimTickHours(lighting.simTickHours),
+        routing: normalizeTimeRouting({
+          ...(prev.systems.time && prev.systems.time.routing ? prev.systems.time.routing : {}),
+          swarm: normalizeRoutingMode(swarm.timeRouting, "global"),
+          clouds: normalizeRoutingMode(clouds.timeRouting, "global"),
+          water: normalizeRoutingMode(waterFx.timeRouting, "detached"),
+        }),
+      },
+    },
+    ui: {
+      ...prev.ui,
+      cycleHour: cycleState.hour,
+    },
+  }));
 }
 
 const simulationKnobDirty = {
@@ -4232,63 +4557,44 @@ function getSimulationKnobsSnapshot() {
 }
 
 function getCursorLightSnapshot() {
+  const coreCursorLight = runtimeCore.store.getState().gameplay.cursorLight || null;
+  if (coreCursorLight && Number.isFinite(Number(coreCursorLight.strength))) {
+    return {
+      enabled: Boolean(coreCursorLight.enabled),
+      useTerrainHeight: Boolean(coreCursorLight.useTerrainHeight),
+      strength: Math.round(clamp(Number(coreCursorLight.strength), 1, 200)),
+      heightOffset: Math.round(clamp(Number(coreCursorLight.heightOffset), 0, 120)),
+      colorHex: typeof coreCursorLight.color === "string" ? coreCursorLight.color : cursorLightState.colorHex,
+      showGizmo: Boolean(coreCursorLight.showGizmo),
+    };
+  }
   return {
-    enabled: cursorLightModeToggle.checked,
+    enabled: Boolean(cursorLightState.enabled),
     useTerrainHeight: Boolean(cursorLightState.useTerrainHeight),
     strength: Math.round(clamp(Number(cursorLightState.strength), 1, 200)),
     heightOffset: Math.round(clamp(Number(cursorLightState.heightOffset), 0, 120)),
+    colorHex: typeof cursorLightState.colorHex === "string" ? cursorLightState.colorHex : "#ff9b2f",
+    showGizmo: Boolean(cursorLightState.showGizmo),
   };
 }
 
+function isPointLightLiveUpdateEnabled() {
+  const pointLightsState = runtimeCore.store.getState().gameplay.pointLights || null;
+  if (pointLightsState && typeof pointLightsState.liveUpdate === "boolean") {
+    return pointLightsState.liveUpdate;
+  }
+  return false;
+}
+
 function setSwarmDefaults() {
-  swarmEnabledToggle.checked = DEFAULT_SWARM_SETTINGS.useAgentSwarm;
-  swarmLitModeToggle.checked = DEFAULT_SWARM_SETTINGS.useLitSwarm;
-  swarmFollowZoomToggle.checked = DEFAULT_SWARM_SETTINGS.followZoomBySpeed;
-  swarmFollowZoomInInput.value = String(DEFAULT_SWARM_SETTINGS.followZoomIn);
-  swarmFollowZoomOutInput.value = String(DEFAULT_SWARM_SETTINGS.followZoomOut);
-  swarmFollowHawkRangeGizmoToggle.checked = DEFAULT_SWARM_SETTINGS.followHawkRangeGizmo;
-  swarmFollowAgentSpeedSmoothingInput.value = String(DEFAULT_SWARM_SETTINGS.followAgentSpeedSmoothing);
-  swarmFollowAgentZoomSmoothingInput.value = String(DEFAULT_SWARM_SETTINGS.followAgentZoomSmoothing);
-  swarmStatsPanelToggle.checked = DEFAULT_SWARM_SETTINGS.showStatsPanel;
-  swarmShowTerrainToggle.checked = DEFAULT_SWARM_SETTINGS.showTerrainInSwarm;
-  swarmBackgroundColorInput.value = DEFAULT_SWARM_SETTINGS.backgroundColor;
-  swarmAgentCountInput.value = String(DEFAULT_SWARM_SETTINGS.agentCount);
-  swarmUpdateIntervalInput.value = String(DEFAULT_SWARM_SETTINGS.simulationSpeed);
-  swarmMaxSpeedInput.value = String(DEFAULT_SWARM_SETTINGS.maxSpeed);
-  swarmSteeringMaxInput.value = String(DEFAULT_SWARM_SETTINGS.maxSteering);
-  swarmVariationStrengthInput.value = String(DEFAULT_SWARM_SETTINGS.variationStrengthPct);
-  swarmNeighborRadiusInput.value = String(DEFAULT_SWARM_SETTINGS.neighborRadius);
-  swarmMinHeightInput.value = String(DEFAULT_SWARM_SETTINGS.minHeight);
-  swarmMaxHeightInput.value = String(DEFAULT_SWARM_SETTINGS.maxHeight);
-  swarmSeparationRadiusInput.value = String(DEFAULT_SWARM_SETTINGS.separationRadius);
-  swarmAlignmentWeightInput.value = String(DEFAULT_SWARM_SETTINGS.alignmentWeight);
-  swarmCohesionWeightInput.value = String(DEFAULT_SWARM_SETTINGS.cohesionWeight);
-  swarmSeparationWeightInput.value = String(DEFAULT_SWARM_SETTINGS.separationWeight);
-  swarmWanderWeightInput.value = String(DEFAULT_SWARM_SETTINGS.wanderWeight);
-  swarmRestChanceInput.value = String(DEFAULT_SWARM_SETTINGS.restChancePct);
-  swarmRestTicksInput.value = String(DEFAULT_SWARM_SETTINGS.restTicks);
-  swarmBreedingThresholdInput.value = String(DEFAULT_SWARM_SETTINGS.breedingThreshold);
-  swarmBreedingSpawnChanceInput.value = String(DEFAULT_SWARM_SETTINGS.breedingSpawnChance);
-  swarmCursorModeInput.value = DEFAULT_SWARM_SETTINGS.cursorMode;
-  swarmCursorStrengthInput.value = String(DEFAULT_SWARM_SETTINGS.cursorStrength);
-  swarmCursorRadiusInput.value = String(DEFAULT_SWARM_SETTINGS.cursorRadius);
-  swarmHawkEnabledToggle.checked = DEFAULT_SWARM_SETTINGS.useHawk;
-  swarmHawkCountInput.value = String(DEFAULT_SWARM_SETTINGS.hawkCount);
-  swarmHawkColorInput.value = DEFAULT_SWARM_SETTINGS.hawkColor;
-  swarmHawkSpeedInput.value = String(DEFAULT_SWARM_SETTINGS.hawkSpeed);
-  swarmHawkSteeringInput.value = String(DEFAULT_SWARM_SETTINGS.hawkSteering);
-  swarmHawkTargetRangeInput.value = String(DEFAULT_SWARM_SETTINGS.hawkTargetRange);
-  swarmFollowTargetInput.value = "agent";
-  swarmFollowState.enabled = false;
-  swarmFollowState.targetType = "agent";
-  swarmFollowState.agentIndex = -1;
-  swarmFollowState.hawkIndex = -1;
+  updateStoreFromAppliedSettings("swarm", normalizeAppliedSettings("swarm", DEFAULT_SWARM_SETTINGS, DEFAULT_SWARM_SETTINGS));
+  applySwarmSettingsLegacy(DEFAULT_SWARM_SETTINGS);
+  stopSwarmFollow({ targetType: "agent" });
   swarmState.breedingActive = false;
-  resetSwarmFollowSpeedSmoothing();
 }
 
 function isSwarmEnabled() {
-  return swarmEnabledToggle.checked;
+  return Boolean(getSwarmSettings().useAgentSwarm);
 }
 
 function updateSwarmLabels() {
@@ -4323,10 +4629,11 @@ function updateSwarmLabels() {
 }
 
 function updateSwarmUi() {
-  const swarmEnabled = isSwarmEnabled();
-  const cursorMode = getSwarmCursorMode();
+  const settings = getSwarmSettings();
+  const swarmEnabled = Boolean(settings.useAgentSwarm);
+  const cursorMode = settings.cursorMode;
   const cursorControlsEnabled = swarmEnabled && cursorMode !== "none";
-  const followZoomControlsEnabled = swarmEnabled && swarmFollowZoomToggle.checked;
+  const followZoomControlsEnabled = swarmEnabled && Boolean(settings.followZoomBySpeed);
   syncSwarmStatsPanelVisibility();
   swarmShowTerrainToggle.disabled = !swarmEnabled;
   swarmLitModeToggle.disabled = !swarmEnabled;
@@ -4361,11 +4668,11 @@ function updateSwarmUi() {
   swarmCursorStrengthInput.disabled = !cursorControlsEnabled;
   swarmCursorRadiusInput.disabled = !cursorControlsEnabled;
   swarmHawkEnabledToggle.disabled = !swarmEnabled;
-  swarmHawkCountInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
-  swarmHawkColorInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
-  swarmHawkSpeedInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
-  swarmHawkSteeringInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
-  swarmHawkTargetRangeInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
+  swarmHawkCountInput.disabled = !swarmEnabled || !settings.useHawk;
+  swarmHawkColorInput.disabled = !swarmEnabled || !settings.useHawk;
+  swarmHawkSpeedInput.disabled = !swarmEnabled || !settings.useHawk;
+  swarmHawkSteeringInput.disabled = !swarmEnabled || !settings.useHawk;
+  swarmHawkTargetRangeInput.disabled = !swarmEnabled || !settings.useHawk;
 }
 
 function ensureSwarmBuffers(count) {
@@ -4397,10 +4704,10 @@ function removeSwarmAgentAtIndex(removeIndex) {
     for (const hawk of swarmState.hawks) {
       hawk.targetIndex = -1;
     }
-    swarmFollowState.agentIndex = -1;
     if (swarmFollowState.targetType === "agent") {
-      swarmFollowState.enabled = false;
-      resetSwarmFollowSpeedSmoothing();
+      stopSwarmFollow();
+    } else {
+      swarmFollowState.agentIndex = -1;
     }
     return true;
   }
@@ -4470,8 +4777,7 @@ function removeSwarmAgentAtIndex(removeIndex) {
     if (swarmFollowState.agentIndex === removeIndex) {
       swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
       if (swarmFollowState.agentIndex < 0) {
-        swarmFollowState.enabled = false;
-        resetSwarmFollowSpeedSmoothing();
+        stopSwarmFollow({ resetSpeed: true });
       }
     } else if (swarmFollowState.agentIndex > removeIndex) {
       swarmFollowState.agentIndex -= 1;
@@ -4595,6 +4901,7 @@ function normalizeSwarmHeightRangeInputs(changed = "min") {
   }
   swarmMinHeightInput.value = String(minHeight);
   swarmMaxHeightInput.value = String(maxHeight);
+  return { minHeight, maxHeight };
 }
 
 function normalizeSwarmFollowZoomInputs(changed = "out") {
@@ -4609,6 +4916,7 @@ function normalizeSwarmFollowZoomInputs(changed = "out") {
   }
   swarmFollowZoomOutInput.value = zoomOut.toFixed(1);
   swarmFollowZoomInInput.value = zoomIn.toFixed(1);
+  return { zoomOut, zoomIn };
 }
 
 function chooseRandomSwarmTargetIndex() {
@@ -4740,7 +5048,11 @@ function reseedSwarmAgents(count = getSwarmSettings().agentCount) {
       swarmState.hawks.push(createSpawnedHawk(minFlight, maxFlight, settings.hawkTargetRange));
     }
   }
-  swarmFollowState.agentIndex = swarmFollowState.enabled ? chooseRandomFollowAgentIndex() : -1;
+  if (swarmFollowState.enabled && swarmFollowState.targetType === "agent") {
+    swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
+  } else if (!swarmFollowState.enabled) {
+    swarmFollowState.agentIndex = -1;
+  }
   requestOverlayDraw();
 }
 
@@ -5266,20 +5578,13 @@ function updateSwarm(nowMs, dtSec, routedTiming) {
 function updateSwarmFollowCamera() {
   if (!swarmFollowState.enabled) return;
   if (!isSwarmEnabled() || swarmState.count <= 0) {
-    swarmFollowState.enabled = false;
-    swarmFollowState.hawkIndex = -1;
-    swarmFollowState.agentIndex = -1;
-    resetSwarmFollowSpeedSmoothing();
-    updateSwarmFollowButtonUi();
+    stopSwarmFollow({ syncStore: true });
     return;
   }
   const settings = getSwarmSettings();
   if (swarmFollowState.targetType === "hawk") {
     if (!settings.useHawk || swarmState.hawks.length <= 0) {
-      swarmFollowState.enabled = false;
-      swarmFollowState.hawkIndex = -1;
-      resetSwarmFollowSpeedSmoothing();
-      updateSwarmFollowButtonUi();
+      stopSwarmFollow({ targetType: "hawk", syncStore: true });
       return;
     }
     if (!Number.isInteger(swarmFollowState.hawkIndex) || swarmFollowState.hawkIndex < 0 || swarmFollowState.hawkIndex >= swarmState.hawks.length) {
@@ -5405,14 +5710,14 @@ function ensureSwarmPointVertexCapacity(vertexCount) {
   swarmPointVertexData = new Float32Array(required);
 }
 
-function renderSwarmLit(params, timeState, settings) {
+function renderSwarmLit(params, timeState, settings, uniformInput) {
   const hawkCount = settings.useHawk ? swarmState.hawks.length : 0;
   const totalCount = swarmState.count + hawkCount;
   if (totalCount <= 0) return;
 
   ensureSwarmPointVertexCapacity(totalCount);
-  const useAgentRayShadows = shadowsToggle.checked;
-  const blockedShadowFactor = 1 - clamp(Number(shadowStrengthInput.value), 0, 1);
+  const useAgentRayShadows = Boolean(uniformInput && uniformInput.useShadows);
+  const blockedShadowFactor = 1 - clamp(Number(uniformInput && uniformInput.shadowStrength), 0, 1);
   let writeIndex = 0;
   const agentPos = swarmLitAgentScratch;
   for (let i = 0; i < swarmState.count; i++) {
@@ -5480,20 +5785,20 @@ function renderSwarmLit(params, timeState, settings) {
   gl.uniform1f(swarmUniforms.uMoonStrength, params.moonStrength);
   gl.uniform3f(swarmUniforms.uAmbientColor, params.ambientColor[0], params.ambientColor[1], params.ambientColor[2]);
   gl.uniform1f(swarmUniforms.uAmbient, params.ambientFinal);
-  gl.uniform1f(swarmUniforms.uUseShadows, shadowsToggle.checked ? 1 : 0);
-  gl.uniform1f(swarmUniforms.uUseFog, fogToggle.checked ? 1 : 0);
+  gl.uniform1f(swarmUniforms.uUseShadows, uniformInput && uniformInput.useShadows ? 1 : 0);
+  gl.uniform1f(swarmUniforms.uUseFog, uniformInput && uniformInput.useFog ? 1 : 0);
   gl.uniform3f(swarmUniforms.uFogColor, params.fogColor[0], params.fogColor[1], params.fogColor[2]);
-  gl.uniform1f(swarmUniforms.uFogMinAlpha, clamp(Number(fogMinAlphaInput.value), 0, 1));
-  gl.uniform1f(swarmUniforms.uFogMaxAlpha, clamp(Number(fogMaxAlphaInput.value), 0, 1));
-  gl.uniform1f(swarmUniforms.uFogFalloff, clamp(Number(fogFalloffInput.value), 0.2, 4));
-  gl.uniform1f(swarmUniforms.uFogStartOffset, clamp(Number(fogStartOffsetInput.value), 0, 1));
+  gl.uniform1f(swarmUniforms.uFogMinAlpha, clamp(Number(uniformInput && uniformInput.fogMinAlpha), 0, 1));
+  gl.uniform1f(swarmUniforms.uFogMaxAlpha, clamp(Number(uniformInput && uniformInput.fogMaxAlpha), 0, 1));
+  gl.uniform1f(swarmUniforms.uFogFalloff, clamp(Number(uniformInput && uniformInput.fogFalloff), 0.2, 4));
+  gl.uniform1f(swarmUniforms.uFogStartOffset, clamp(Number(uniformInput && uniformInput.fogStartOffset), 0, 1));
   gl.uniform1f(swarmUniforms.uCameraHeightNorm, params.cameraHeightNorm);
-  gl.uniform1f(swarmUniforms.uUseVolumetric, volumetricToggle.checked ? 1 : 0);
-  gl.uniform1f(swarmUniforms.uVolumetricStrength, clamp(Number(volumetricStrengthInput.value), 0, 1));
-  gl.uniform1f(swarmUniforms.uVolumetricDensity, clamp(Number(volumetricDensityInput.value), 0, 2));
-  gl.uniform1f(swarmUniforms.uVolumetricAnisotropy, clamp(Number(volumetricAnisotropyInput.value), 0, 0.95));
-  gl.uniform1f(swarmUniforms.uVolumetricLength, Math.round(clamp(Number(volumetricLengthInput.value), 8, 160)));
-  gl.uniform1f(swarmUniforms.uVolumetricSamples, Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)));
+  gl.uniform1f(swarmUniforms.uUseVolumetric, uniformInput && uniformInput.useVolumetric ? 1 : 0);
+  gl.uniform1f(swarmUniforms.uVolumetricStrength, clamp(Number(uniformInput && uniformInput.volumetricStrength), 0, 1));
+  gl.uniform1f(swarmUniforms.uVolumetricDensity, clamp(Number(uniformInput && uniformInput.volumetricDensity), 0, 2));
+  gl.uniform1f(swarmUniforms.uVolumetricAnisotropy, clamp(Number(uniformInput && uniformInput.volumetricAnisotropy), 0, 0.95));
+  gl.uniform1f(swarmUniforms.uVolumetricLength, Math.round(clamp(Number(uniformInput && uniformInput.volumetricLength), 8, 160)));
+  gl.uniform1f(swarmUniforms.uVolumetricSamples, Math.round(clamp(Number(uniformInput && uniformInput.volumetricSamples), 4, 24)));
   gl.uniform1f(swarmUniforms.uMapAspect, getMapAspect());
   gl.uniform2f(swarmUniforms.uMapTexelSize, 1 / heightSize.width, 1 / heightSize.height);
   gl.uniform2f(swarmUniforms.uMapSize, splatSize.width, splatSize.height);
@@ -5502,19 +5807,19 @@ function renderSwarmLit(params, timeState, settings) {
   gl.uniform2f(swarmUniforms.uPanWorld, panWorld.x, panWorld.y);
   gl.uniform1f(swarmUniforms.uTimeSec, Math.max(0, Number(timeState && timeState.nowSec) || 0));
   gl.uniform1f(swarmUniforms.uCloudTimeSec, Math.max(0, Number(timeState && timeState.cloudTimeSec) || 0));
-  gl.uniform1f(swarmUniforms.uPointFlickerEnabled, pointFlickerToggle.checked ? 1 : 0);
-  gl.uniform1f(swarmUniforms.uPointFlickerStrength, clamp(Number(pointFlickerStrengthInput.value), 0, 1));
-  gl.uniform1f(swarmUniforms.uPointFlickerSpeed, clamp(Number(pointFlickerSpeedInput.value), 0.1, 12));
-  gl.uniform1f(swarmUniforms.uPointFlickerSpatial, clamp(Number(pointFlickerSpatialInput.value), 0, 4));
-  gl.uniform1f(swarmUniforms.uUseClouds, cloudToggle.checked ? 1 : 0);
-  gl.uniform1f(swarmUniforms.uCloudCoverage, clamp(Number(cloudCoverageInput.value), 0, 1));
-  gl.uniform1f(swarmUniforms.uCloudSoftness, clamp(Number(cloudSoftnessInput.value), 0.01, 0.35));
-  gl.uniform1f(swarmUniforms.uCloudOpacity, clamp(Number(cloudOpacityInput.value), 0, 1));
-  gl.uniform1f(swarmUniforms.uCloudScale, clamp(Number(cloudScaleInput.value), 0.5, 8));
-  gl.uniform1f(swarmUniforms.uCloudSpeed1, clamp(Number(cloudSpeed1Input.value), -0.3, 0.3));
-  gl.uniform1f(swarmUniforms.uCloudSpeed2, clamp(Number(cloudSpeed2Input.value), -0.3, 0.3));
-  gl.uniform1f(swarmUniforms.uCloudSunParallax, clamp(Number(cloudSunParallaxInput.value), 0, 2));
-  gl.uniform1f(swarmUniforms.uCloudUseSunProjection, cloudSunProjectToggle.checked ? 1 : 0);
+  gl.uniform1f(swarmUniforms.uPointFlickerEnabled, uniformInput && uniformInput.pointFlickerEnabled ? 1 : 0);
+  gl.uniform1f(swarmUniforms.uPointFlickerStrength, clamp(Number(uniformInput && uniformInput.pointFlickerStrength), 0, 1));
+  gl.uniform1f(swarmUniforms.uPointFlickerSpeed, clamp(Number(uniformInput && uniformInput.pointFlickerSpeed), 0.1, 12));
+  gl.uniform1f(swarmUniforms.uPointFlickerSpatial, clamp(Number(uniformInput && uniformInput.pointFlickerSpatial), 0, 4));
+  gl.uniform1f(swarmUniforms.uUseClouds, uniformInput && uniformInput.useClouds ? 1 : 0);
+  gl.uniform1f(swarmUniforms.uCloudCoverage, clamp(Number(uniformInput && uniformInput.cloudCoverage), 0, 1));
+  gl.uniform1f(swarmUniforms.uCloudSoftness, clamp(Number(uniformInput && uniformInput.cloudSoftness), 0.01, 0.35));
+  gl.uniform1f(swarmUniforms.uCloudOpacity, clamp(Number(uniformInput && uniformInput.cloudOpacity), 0, 1));
+  gl.uniform1f(swarmUniforms.uCloudScale, clamp(Number(uniformInput && uniformInput.cloudScale), 0.5, 8));
+  gl.uniform1f(swarmUniforms.uCloudSpeed1, clamp(Number(uniformInput && uniformInput.cloudSpeed1), -0.3, 0.3));
+  gl.uniform1f(swarmUniforms.uCloudSpeed2, clamp(Number(uniformInput && uniformInput.cloudSpeed2), -0.3, 0.3));
+  gl.uniform1f(swarmUniforms.uCloudSunParallax, clamp(Number(uniformInput && uniformInput.cloudSunParallax), 0, 2));
+  gl.uniform1f(swarmUniforms.uCloudUseSunProjection, uniformInput && uniformInput.cloudUseSunProjection ? 1 : 0);
   gl.uniform3f(swarmUniforms.uHawkColor, hawkColor[0], hawkColor[1], hawkColor[2]);
   gl.uniform1f(swarmUniforms.uSwarmHeightMax, SWARM_Z_MAX);
   gl.uniform1f(swarmUniforms.uPointLightEdgeMin, SWARM_POINT_LIGHT_EDGE_MIN);
@@ -5610,33 +5915,33 @@ function worldToScreen(world) {
 }
 
 function updatePathfindingRangeLabel() {
-  const value = Math.round(clamp(Number(pathfindingRangeInput.value), 30, 300));
+  const value = getPathfindingStateSnapshot().range;
   pathfindingRangeValue.textContent = `${value} x ${value}`;
 }
 
 function updatePathWeightLabels() {
-  const slopeWeight = clamp(Number(pathWeightSlopeInput.value), 0, 10);
-  const heightWeight = clamp(Number(pathWeightHeightInput.value), 0, 10);
-  const waterWeight = clamp(Number(pathWeightWaterInput.value), 0, 100);
+  const pathfinding = getPathfindingStateSnapshot();
+  const slopeWeight = pathfinding.weightSlope;
+  const heightWeight = pathfinding.weightHeight;
+  const waterWeight = pathfinding.weightWater;
   pathWeightSlopeValue.textContent = slopeWeight.toFixed(1);
   pathWeightHeightValue.textContent = heightWeight.toFixed(1);
   pathWeightWaterValue.textContent = waterWeight.toFixed(1);
 }
 
 function updatePathSlopeCutoffLabel() {
-  const cutoff = Math.round(clamp(Number(pathSlopeCutoffInput.value), 0, 90));
+  const cutoff = getPathfindingStateSnapshot().slopeCutoff;
   pathSlopeCutoffValue.textContent = `${cutoff} deg`;
 }
 
 function updatePathBaseCostLabel() {
-  const baseCost = clamp(Number(pathBaseCostInput.value), 0, 2);
+  const baseCost = getPathfindingStateSnapshot().baseCost;
   pathBaseCostValue.textContent = baseCost.toFixed(1);
 }
 
 function setInteractionMode(mode) {
   const requestedMode = mode === "lighting" || mode === "pathfinding" ? mode : "none";
   const nextMode = canUseInteractionInCurrentMode(requestedMode) ? requestedMode : "none";
-  interactionMode = nextMode;
   dockLightingModeToggle.classList.toggle("active", nextMode === "lighting");
   dockPathfindingModeToggle.classList.toggle("active", nextMode === "pathfinding");
   dockLightingModeToggle.setAttribute("aria-pressed", nextMode === "lighting" ? "true" : "false");
@@ -5645,6 +5950,13 @@ function setInteractionMode(mode) {
     movePreviewState.hoverPixel = null;
     movePreviewState.pathPixels = [];
   }
+  runtimeCore.store.update((prev) => ({
+    ...prev,
+    gameplay: {
+      ...prev.gameplay,
+      interactionMode: nextMode,
+    },
+  }));
   requestOverlayDraw();
 }
 
@@ -5672,6 +5984,7 @@ function applyLoadedNpc(rawData) {
   playerState.charID = player.charID;
   playerState.color = player.color;
   setPlayerPosition(player.pixelX, player.pixelY);
+  syncCoreSettingsStateFromRuntime();
 }
 
 function getGrayAt(imageData, x, y, sourceWidth = splatSize.width, sourceHeight = splatSize.height) {
@@ -5689,7 +6002,7 @@ function getGrayAt(imageData, x, y, sourceWidth = splatSize.width, sourceHeight 
 }
 
 function movementWindowBounds() {
-  const size = Math.round(clamp(Number(pathfindingRangeInput.value), 30, 300));
+  const size = getPathfindingStateSnapshot().range;
   const halfA = Math.floor((size - 1) / 2);
   const halfB = size - halfA - 1;
   return {
@@ -5701,6 +6014,7 @@ function movementWindowBounds() {
 }
 
 function computeMoveStepCost(fromX, fromY, toX, toY) {
+  const pathfinding = getPathfindingStateSnapshot();
   const isDiag = fromX !== toX && fromY !== toY;
   const dist = isDiag ? Math.SQRT2 : 1;
   const slope = getGrayAt(slopeImageData, toX, toY);
@@ -5710,14 +6024,14 @@ function computeMoveStepCost(fromX, fromY, toX, toY) {
   const uphill = Math.max(heightDelta, 0);
   const water = getGrayAt(waterImageData, toX, toY);
   const slopeDeg = slope * 90;
-  const slopeCutoffDeg = clamp(Number(pathSlopeCutoffInput.value), 0, 90);
+  const slopeCutoffDeg = pathfinding.slopeCutoff;
   if (slopeDeg > slopeCutoffDeg) {
     return Number.POSITIVE_INFINITY;
   }
-  const slopeWeight = clamp(Number(pathWeightSlopeInput.value), 0, 10);
-  const heightWeight = clamp(Number(pathWeightHeightInput.value), 0, 10);
-  const waterWeight = clamp(Number(pathWeightWaterInput.value), 0, 100);
-  const baseCost = clamp(Number(pathBaseCostInput.value), 0, 2);
+  const slopeWeight = pathfinding.weightSlope;
+  const heightWeight = pathfinding.weightHeight;
+  const waterWeight = pathfinding.weightWater;
+  const baseCost = pathfinding.baseCost;
   const weightedCost = slopeWeight * slope + heightWeight * uphill + waterWeight * water;
   return dist * (baseCost + weightedCost);
 }
@@ -5849,7 +6163,7 @@ function extractPathTo(pixelX, pixelY) {
 }
 
 function refreshPathPreview() {
-  if (interactionMode !== "pathfinding" || !movePreviewState.hoverPixel) {
+  if (getInteractionModeSnapshot() !== "pathfinding" || !movePreviewState.hoverPixel) {
     movePreviewState.pathPixels = [];
     requestOverlayDraw();
     return;
@@ -5859,7 +6173,7 @@ function refreshPathPreview() {
 }
 
 function updatePathPreviewFromPointer(clientX, clientY) {
-  if (interactionMode !== "pathfinding") {
+  if (getInteractionModeSnapshot() !== "pathfinding") {
     movePreviewState.hoverPixel = null;
     movePreviewState.pathPixels = [];
     return;
@@ -5941,7 +6255,7 @@ function updateInfoPanel() {
 }
 
 function syncSwarmStatsPanelVisibility() {
-  const showStatsPanel = swarmStatsPanelToggle.checked;
+  const showStatsPanel = Boolean(getSwarmSettings().showStatsPanel);
   swarmStatsPanelEl.hidden = !showStatsPanel;
   swarmStatsPanelEl.classList.toggle("hidden", !showStatsPanel);
   swarmStatsPanelEl.style.display = showStatsPanel ? "block" : "none";
@@ -5975,61 +6289,66 @@ function updateSwarmStatsPanel() {
 }
 
 function updateParallaxStrengthLabel() {
-  const value = clamp(Number(parallaxStrengthInput.value), 0, 1);
+  const value = clamp(Number(serializeParallaxSettings().parallaxStrength), 0, 1);
   parallaxStrengthValue.textContent = value.toFixed(2);
 }
 
 function updateParallaxBandsLabel() {
-  const value = Math.round(clamp(Number(parallaxBandsInput.value), 2, 256));
+  const value = Math.round(clamp(Number(serializeParallaxSettings().parallaxBands), 2, 256));
   parallaxBandsValue.textContent = String(value);
 }
 
 function updateShadowBlurLabel() {
-  const value = clamp(Number(shadowBlurInput.value), 0, 3);
+  const value = clamp(Number(serializeLightingSettings().shadowBlur), 0, 3);
   shadowBlurValue.textContent = `${value.toFixed(2)} px`;
 }
 
 function updateSimTickLabel() {
-  const value = normalizeSimTickHours(simTickHoursInput.value);
+  const value = normalizeSimTickHours(serializeLightingSettings().simTickHours);
   simTickHoursValue.textContent = value.toFixed(3);
 }
 
 function updateFogAlphaLabels() {
-  fogMinAlphaValue.textContent = clamp(Number(fogMinAlphaInput.value), 0, 1).toFixed(2);
-  fogMaxAlphaValue.textContent = clamp(Number(fogMaxAlphaInput.value), 0, 1).toFixed(2);
+  const fog = serializeFogSettings();
+  fogMinAlphaValue.textContent = clamp(Number(fog.fogMinAlpha), 0, 1).toFixed(2);
+  fogMaxAlphaValue.textContent = clamp(Number(fog.fogMaxAlpha), 0, 1).toFixed(2);
 }
 
 function updateFogFalloffLabel() {
-  fogFalloffValue.textContent = clamp(Number(fogFalloffInput.value), 0.2, 4).toFixed(2);
+  const fog = serializeFogSettings();
+  fogFalloffValue.textContent = clamp(Number(fog.fogFalloff), 0.2, 4).toFixed(2);
 }
 
 function updateFogStartOffsetLabel() {
-  fogStartOffsetValue.textContent = clamp(Number(fogStartOffsetInput.value), 0, 1).toFixed(2);
+  const fog = serializeFogSettings();
+  fogStartOffsetValue.textContent = clamp(Number(fog.fogStartOffset), 0, 1).toFixed(2);
 }
 
 function updatePointFlickerLabels() {
-  pointFlickerStrengthValue.textContent = clamp(Number(pointFlickerStrengthInput.value), 0, 1).toFixed(2);
-  pointFlickerSpeedValue.textContent = `${clamp(Number(pointFlickerSpeedInput.value), 0.1, 12).toFixed(2)} Hz`;
-  pointFlickerSpatialValue.textContent = clamp(Number(pointFlickerSpatialInput.value), 0, 4).toFixed(2);
+  const lighting = serializeLightingSettings();
+  pointFlickerStrengthValue.textContent = clamp(Number(lighting.pointFlickerStrength), 0, 1).toFixed(2);
+  pointFlickerSpeedValue.textContent = `${clamp(Number(lighting.pointFlickerSpeed), 0.1, 12).toFixed(2)} Hz`;
+  pointFlickerSpatialValue.textContent = clamp(Number(lighting.pointFlickerSpatial), 0, 4).toFixed(2);
 }
 
 function updatePointFlickerUi() {
-  const enabled = pointFlickerToggle.checked;
+  const enabled = Boolean(serializeLightingSettings().pointFlickerEnabled);
   pointFlickerStrengthInput.disabled = !enabled;
   pointFlickerSpeedInput.disabled = !enabled;
   pointFlickerSpatialInput.disabled = !enabled;
 }
 
 function updateVolumetricLabels() {
-  volumetricStrengthValue.textContent = clamp(Number(volumetricStrengthInput.value), 0, 1).toFixed(2);
-  volumetricDensityValue.textContent = clamp(Number(volumetricDensityInput.value), 0, 2).toFixed(2);
-  volumetricAnisotropyValue.textContent = clamp(Number(volumetricAnisotropyInput.value), 0, 0.95).toFixed(2);
-  volumetricLengthValue.textContent = `${Math.round(clamp(Number(volumetricLengthInput.value), 8, 160))} px`;
-  volumetricSamplesValue.textContent = String(Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)));
+  const lighting = serializeLightingSettings();
+  volumetricStrengthValue.textContent = clamp(Number(lighting.volumetricStrength), 0, 1).toFixed(2);
+  volumetricDensityValue.textContent = clamp(Number(lighting.volumetricDensity), 0, 2).toFixed(2);
+  volumetricAnisotropyValue.textContent = clamp(Number(lighting.volumetricAnisotropy), 0, 0.95).toFixed(2);
+  volumetricLengthValue.textContent = `${Math.round(clamp(Number(lighting.volumetricLength), 8, 160))} px`;
+  volumetricSamplesValue.textContent = String(Math.round(clamp(Number(lighting.volumetricSamples), 4, 24)));
 }
 
 function updateVolumetricUi() {
-  const enabled = volumetricToggle.checked;
+  const enabled = Boolean(serializeLightingSettings().useVolumetric);
   volumetricStrengthInput.disabled = !enabled;
   volumetricDensityInput.disabled = !enabled;
   volumetricAnisotropyInput.disabled = !enabled;
@@ -6038,44 +6357,47 @@ function updateVolumetricUi() {
 }
 
 function updateCloudLabels() {
-  cloudCoverageValue.textContent = clamp(Number(cloudCoverageInput.value), 0, 1).toFixed(2);
-  cloudSoftnessValue.textContent = clamp(Number(cloudSoftnessInput.value), 0.01, 0.35).toFixed(2);
-  cloudOpacityValue.textContent = clamp(Number(cloudOpacityInput.value), 0, 1).toFixed(2);
-  cloudScaleValue.textContent = clamp(Number(cloudScaleInput.value), 0.5, 8).toFixed(2);
-  cloudSpeed1Value.textContent = clamp(Number(cloudSpeed1Input.value), -0.3, 0.3).toFixed(3);
-  cloudSpeed2Value.textContent = clamp(Number(cloudSpeed2Input.value), -0.3, 0.3).toFixed(3);
-  cloudSunParallaxValue.textContent = clamp(Number(cloudSunParallaxInput.value), 0, 2).toFixed(2);
+  const clouds = serializeCloudSettings();
+  cloudCoverageValue.textContent = clamp(Number(clouds.cloudCoverage), 0, 1).toFixed(2);
+  cloudSoftnessValue.textContent = clamp(Number(clouds.cloudSoftness), 0.01, 0.35).toFixed(2);
+  cloudOpacityValue.textContent = clamp(Number(clouds.cloudOpacity), 0, 1).toFixed(2);
+  cloudScaleValue.textContent = clamp(Number(clouds.cloudScale), 0.5, 8).toFixed(2);
+  cloudSpeed1Value.textContent = clamp(Number(clouds.cloudSpeed1), -0.3, 0.3).toFixed(3);
+  cloudSpeed2Value.textContent = clamp(Number(clouds.cloudSpeed2), -0.3, 0.3).toFixed(3);
+  cloudSunParallaxValue.textContent = clamp(Number(clouds.cloudSunParallax), 0, 2).toFixed(2);
 }
 
 function updateWaterLabels() {
-  waterFlowDirectionValue.textContent = `${Math.round(clamp(Number(waterFlowDirectionInput.value), 0, 360))} deg`;
-  waterLocalFlowMixValue.textContent = clamp(Number(waterLocalFlowMixInput.value), 0, 1).toFixed(2);
-  waterDownhillBoostValue.textContent = clamp(Number(waterDownhillBoostInput.value), 0, 4).toFixed(2);
-  waterFlowRadius1Value.textContent = String(Math.round(clamp(Number(waterFlowRadius1Input.value), 1, 12)));
-  waterFlowRadius2Value.textContent = String(Math.round(clamp(Number(waterFlowRadius2Input.value), 1, 24)));
-  waterFlowRadius3Value.textContent = String(Math.round(clamp(Number(waterFlowRadius3Input.value), 1, 40)));
-  waterFlowWeight1Value.textContent = clamp(Number(waterFlowWeight1Input.value), 0, 1).toFixed(2);
-  waterFlowWeight2Value.textContent = clamp(Number(waterFlowWeight2Input.value), 0, 1).toFixed(2);
-  waterFlowWeight3Value.textContent = clamp(Number(waterFlowWeight3Input.value), 0, 1).toFixed(2);
-  waterFlowStrengthValue.textContent = clamp(Number(waterFlowStrengthInput.value), 0, 0.15).toFixed(3);
-  waterFlowSpeedValue.textContent = clamp(Number(waterFlowSpeedInput.value), 0, 2.5).toFixed(2);
-  waterFlowScaleValue.textContent = clamp(Number(waterFlowScaleInput.value), 0.5, 14).toFixed(2);
-  waterShimmerStrengthValue.textContent = clamp(Number(waterShimmerStrengthInput.value), 0, 0.2).toFixed(3);
-  waterGlintStrengthValue.textContent = clamp(Number(waterGlintStrengthInput.value), 0, 1.5).toFixed(2);
-  waterGlintSharpnessValue.textContent = clamp(Number(waterGlintSharpnessInput.value), 0, 1).toFixed(2);
-  waterShoreFoamStrengthValue.textContent = clamp(Number(waterShoreFoamStrengthInput.value), 0, 0.5).toFixed(2);
-  waterShoreWidthValue.textContent = `${clamp(Number(waterShoreWidthInput.value), 0.4, 6).toFixed(1)} px`;
-  waterReflectivityValue.textContent = clamp(Number(waterReflectivityInput.value), 0, 1).toFixed(2);
-  waterTintStrengthValue.textContent = clamp(Number(waterTintStrengthInput.value), 0, 1).toFixed(2);
+  const water = serializeWaterSettings();
+  waterFlowDirectionValue.textContent = `${Math.round(clamp(Number(water.waterFlowDirectionDeg), 0, 360))} deg`;
+  waterLocalFlowMixValue.textContent = clamp(Number(water.waterLocalFlowMix), 0, 1).toFixed(2);
+  waterDownhillBoostValue.textContent = clamp(Number(water.waterDownhillBoost), 0, 4).toFixed(2);
+  waterFlowRadius1Value.textContent = String(Math.round(clamp(Number(water.waterFlowRadius1), 1, 12)));
+  waterFlowRadius2Value.textContent = String(Math.round(clamp(Number(water.waterFlowRadius2), 1, 24)));
+  waterFlowRadius3Value.textContent = String(Math.round(clamp(Number(water.waterFlowRadius3), 1, 40)));
+  waterFlowWeight1Value.textContent = clamp(Number(water.waterFlowWeight1), 0, 1).toFixed(2);
+  waterFlowWeight2Value.textContent = clamp(Number(water.waterFlowWeight2), 0, 1).toFixed(2);
+  waterFlowWeight3Value.textContent = clamp(Number(water.waterFlowWeight3), 0, 1).toFixed(2);
+  waterFlowStrengthValue.textContent = clamp(Number(water.waterFlowStrength), 0, 0.15).toFixed(3);
+  waterFlowSpeedValue.textContent = clamp(Number(water.waterFlowSpeed), 0, 2.5).toFixed(2);
+  waterFlowScaleValue.textContent = clamp(Number(water.waterFlowScale), 0.5, 14).toFixed(2);
+  waterShimmerStrengthValue.textContent = clamp(Number(water.waterShimmerStrength), 0, 0.2).toFixed(3);
+  waterGlintStrengthValue.textContent = clamp(Number(water.waterGlintStrength), 0, 1.5).toFixed(2);
+  waterGlintSharpnessValue.textContent = clamp(Number(water.waterGlintSharpness), 0, 1).toFixed(2);
+  waterShoreFoamStrengthValue.textContent = clamp(Number(water.waterShoreFoamStrength), 0, 0.5).toFixed(2);
+  waterShoreWidthValue.textContent = `${clamp(Number(water.waterShoreWidth), 0.4, 6).toFixed(1)} px`;
+  waterReflectivityValue.textContent = clamp(Number(water.waterReflectivity), 0, 1).toFixed(2);
+  waterTintStrengthValue.textContent = clamp(Number(water.waterTintStrength), 0, 1).toFixed(2);
 }
 
 function updateParallaxUi() {
-  parallaxStrengthInput.disabled = !parallaxToggle.checked;
-  parallaxBandsInput.disabled = !parallaxToggle.checked;
+  const enabled = Boolean(serializeParallaxSettings().useParallax);
+  parallaxStrengthInput.disabled = !enabled;
+  parallaxBandsInput.disabled = !enabled;
 }
 
 function updateFogUi() {
-  const enabled = fogToggle.checked;
+  const enabled = Boolean(serializeFogSettings().useFog);
   fogColorInput.disabled = !enabled;
   fogMinAlphaInput.disabled = !enabled;
   fogMaxAlphaInput.disabled = !enabled;
@@ -6084,7 +6406,8 @@ function updateFogUi() {
 }
 
 function updateCloudUi() {
-  const enabled = cloudToggle.checked;
+  const clouds = serializeCloudSettings();
+  const enabled = Boolean(clouds.useClouds);
   cloudCoverageInput.disabled = !enabled;
   cloudSoftnessInput.disabled = !enabled;
   cloudOpacityInput.disabled = !enabled;
@@ -6096,8 +6419,9 @@ function updateCloudUi() {
 }
 
 function updateWaterUi() {
-  const enabled = waterFxToggle.checked;
-  const downhill = waterFlowDownhillToggle.checked;
+  const water = serializeWaterSettings();
+  const enabled = Boolean(water.useWaterFx);
+  const downhill = Boolean(water.waterFlowDownhill);
   waterFlowDownhillToggle.disabled = !enabled;
   waterFlowInvertDownhillToggle.disabled = !enabled || !downhill;
   waterFlowDebugToggle.disabled = !enabled;
@@ -6179,7 +6503,7 @@ function drawOverlay() {
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   const worldPerMapPixel = getMapAspect() / splatSize.width;
 
-  if (interactionMode === "lighting") {
+  if (getInteractionModeSnapshot() === "lighting") {
     for (const light of pointLights) {
       const selected = light.id === selectedLightId;
       const displayStrength = selected && lightEditDraft ? lightEditDraft.strength : light.strength;
@@ -6212,7 +6536,8 @@ function drawOverlay() {
     }
   }
 
-  if (cursorLightModeToggle.checked && cursorLightState.active && cursorLightState.showGizmo) {
+  const cursorLight = getCursorLightSnapshot();
+  if (cursorLight.enabled && cursorLightState.active && cursorLight.showGizmo) {
     const cursorPixelX = clamp(Math.floor(cursorLightState.uvX * splatSize.width), 0, splatSize.width - 1);
     const cursorPixelY = clamp(Math.floor((1 - cursorLightState.uvY) * splatSize.height), 0, splatSize.height - 1);
     const centerWorld = mapPixelToWorld(cursorPixelX, cursorPixelY);
@@ -6246,7 +6571,7 @@ function drawOverlay() {
     overlayCtx.fill();
   };
 
-  if (interactionMode === "pathfinding" && movePreviewState.pathPixels.length > 0) {
+  if (getInteractionModeSnapshot() === "pathfinding" && movePreviewState.pathPixels.length > 0) {
     for (const node of movePreviewState.pathPixels) {
       drawMapDot(node.x, node.y, "rgba(112, 214, 255, 0.9)");
     }
@@ -6270,8 +6595,8 @@ bindCanvasControls({
   updateCursorLightFromPointer,
   updatePathPreviewFromPointer,
   isMiddleDragging: () => isMiddleDragging,
-  cursorLightModeToggle,
-  getInteractionMode: () => interactionMode,
+  isCursorLightEnabled: () => getCursorLightSnapshot().enabled,
+  getInteractionMode: () => getInteractionModeSnapshot(),
   requestOverlayDraw,
   clientToNdc,
   worldFromNdc,
@@ -6367,10 +6692,11 @@ bindInteractionAndCycleControls({
   windowEl: window,
   dockLightingModeToggle,
   dockPathfindingModeToggle,
+  cycleSpeedInput,
   cycleHourInput,
   simTickHoursInput,
   dispatchCoreCommand,
-  getInteractionMode: () => interactionMode,
+  getInteractionMode: () => getInteractionModeSnapshot(),
   canUseInteractionMode: canUseInteractionInCurrentMode,
   movePreviewState,
   rebuildMovementField,
@@ -6439,6 +6765,7 @@ bindPointLightEditorControls({
   requestOverlayDraw,
   applyDraftToSelectedPointLight,
   bakePointLightsTexture,
+  syncCoreSettingsStateFromRuntime,
   updateLightEditorUi,
   getSelectedPointLight,
   deletePointLightById: (id) => {
@@ -6447,10 +6774,7 @@ bindPointLightEditorControls({
       pointLights.splice(idx, 1);
     }
   },
-  clearLightEditSelection: () => {
-    selectedLightId = null;
-    lightEditDraft = null;
-  },
+  clearLightEditSelection,
   isPointLightsSaveConfirmArmed: () => pointLightsSaveConfirmArmed,
   armPointLightsSaveConfirmation,
   resetPointLightsSaveConfirmation,
@@ -6583,7 +6907,11 @@ function resize() {
   }
 }
 
-function computeLightingParams() {
+function computeLightingParams(coreState = null) {
+  const simulation = coreState && coreState.simulation ? coreState.simulation : null;
+  const knobs = simulation && simulation.knobs ? simulation.knobs : null;
+  const lightingSettings = knobs && knobs.lighting ? knobs.lighting : getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
+  const fogSettings = knobs && knobs.fog ? knobs.fog : getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS);
   const sun = sampleSunAtHour(cycleState.hour);
   const moonTrack = sampleSunAtHour(wrapHour(cycleState.hour + 12));
   const azimuthRad = sun.azimuthDeg * Math.PI / 180;
@@ -6604,8 +6932,8 @@ function computeLightingParams() {
     Math.sin(moonAltitudeRad),
   ];
 
-  const ambientBase = Number(ambientInput.value);
-  const diffuseBase = clamp(Number(diffuseInput.value), 0, 2);
+  const ambientBase = clamp(Number(lightingSettings.ambient), 0, 1);
+  const diffuseBase = clamp(Number(lightingSettings.diffuse), 0, 2);
   const sunVisible = smoothstep(-4, 2, sun.altitudeDeg);
   const moonVisible = smoothstep(-10, 6, moonAltitudeDeg);
   const sunStrength = sunVisible * diffuseBase;
@@ -6642,10 +6970,13 @@ function computeLightingParams() {
     (sun.sunColor[1] * fogSunWeight + moonColor[1] * fogMoonWeight + ambientColor[1] * fogAmbientWeight + fogBaseColor[1] * fogBaseWeight) / fogWeightSum,
     (sun.sunColor[2] * fogSunWeight + moonColor[2] * fogMoonWeight + ambientColor[2] * fogAmbientWeight + fogBaseColor[2] * fogBaseWeight) / fogWeightSum,
   ];
-  if (!fogColorManual) {
+  const resolvedFogColorManual = fogSettings ? Boolean(fogSettings.fogColorManual) : fogColorManual;
+  if (!resolvedFogColorManual) {
     fogColorInput.value = rgbToHex(fogColorAuto);
   }
-  const fogColor = fogColorManual ? hexToRgb01(fogColorInput.value) : fogColorAuto;
+  const fogColor = resolvedFogColorManual
+    ? hexToRgb01(typeof fogSettings.fogColor === "string" ? fogSettings.fogColor : "#ffffff")
+    : fogColorAuto;
   const skySunWeight = 0.65 * sunVisible;
   const skyMoonWeight = 0.35 * moonVisible;
   const skyBaseWeight = 0.45;
@@ -6794,33 +7125,17 @@ function render(nowMs) {
       ? 0
       : Math.min(0.25, Math.max(0, (nowMs - runtimeCore.frame.lastNowMs) * 0.001));
   runtimeCore.frame.lastNowMs = nowMs;
-  updateCoreFrameSnapshot(runtimeCore.store, nowMs, {
-    clamp,
-    cycleSpeedInput,
-    panWorld,
-    getZoom: () => zoom,
-    currentMapFolderPath,
-    splatSize,
-    getInteractionMode: () => interactionMode,
-    getPlayerState: () => playerState,
-    getPathfindingState: getPathfindingStateSnapshot,
-    getSwarmRuntimeState: getSwarmRuntimeStateSnapshot,
-    getMovementState: () => movementSystem.getSnapshot(),
-    getWeatherInput: getWeatherInputSnapshot,
-    getSimulationKnobs: getSimulationKnobsSnapshot,
-    getCursorLightState: getCursorLightSnapshot,
-  });
   const preUpdateState = runtimeCore.store.getState();
   const prevTimeState = preUpdateState.systems && preUpdateState.systems.time
     ? preUpdateState.systems.time
     : null;
-  const cycleSpeedHoursPerSec = clamp(Number(cycleSpeedInput.value), 0, 1);
+  const cycleSpeedHoursPerSec = clamp(Number(preUpdateState.clock && preUpdateState.clock.timeScale), 0, 1);
   const frameTimeState = buildFrameTimeState({
     prevTimeState,
     dtSec,
     cycleSpeedHoursPerSec,
-    simTickHours: getConfiguredSimTickHours(),
-    routing: getCurrentTimeRoutingFromInputs(),
+    simTickHours: getConfiguredSimTickHoursFromStoreOrInputs(),
+    routing: getCurrentTimeRoutingFromStoreOrInputs(),
   });
   const routedTime = {
     movement: getRoutedSystemTime(frameTimeState, "movement", dtSec),
@@ -6832,88 +7147,27 @@ function render(nowMs) {
   const smoothCloudTimeSec = getInterpolatedRoutedTimeSec(routedTime.clouds);
   runtimeCore.scheduler.updateAll({ nowMs, dtSec, time: { ...frameTimeState, systems: routedTime } }, preUpdateState);
   const coreState = runtimeCore.store.getState();
-  applyRuntimeParityFromCoreState(coreState, {
-    clamp,
-    panWorld,
-    cycleSpeedInput,
-    simTickHoursInput,
-    swarmTimeRoutingInput,
-    cloudTimeRoutingInput,
-    waterTimeRoutingInput,
-    setZoom: (value) => {
-      zoom = value;
-    },
-    setInteractionMode,
-    pathfindingRangeInput,
-    pathWeightSlopeInput,
-    pathWeightHeightInput,
-    pathWeightWaterInput,
-    pathSlopeCutoffInput,
-    pathBaseCostInput,
-  });
 
   resize();
   overlayHooks.updateGameplay(nowMs, dtSec, routedTime.swarm);
   const systemState = coreState.systems || {};
   const simulationState = coreState.simulation || {};
+  const simulationKnobs = simulationState.knobs || {};
   const simulationWeather = simulationState.weather || null;
   const lightingParams = systemState.lighting && systemState.lighting.lightingParams
     ? systemState.lighting.lightingParams
-    : computeLightingParams();
+    : computeLightingParams(coreState);
   const uniformInput = buildUniformInputState({
     clamp,
     getMapAspect,
     cursorLightState,
-    cursorLightModeToggle,
-    heightScaleInput,
-    shadowStrengthInput,
-    shadowBlurInput,
-    shadowsToggle,
-    parallaxToggle,
-    parallaxStrengthInput,
-    parallaxBandsInput,
-    fogToggle,
-    fogMinAlphaInput,
-    fogMaxAlphaInput,
-    fogFalloffInput,
-    fogStartOffsetInput,
-    volumetricToggle,
-    volumetricStrengthInput,
-    volumetricDensityInput,
-    volumetricAnisotropyInput,
-    volumetricLengthInput,
-    volumetricSamplesInput,
-    pointFlickerToggle,
-    pointFlickerStrengthInput,
-    pointFlickerSpeedInput,
-    pointFlickerSpatialInput,
-    cloudToggle,
-    cloudCoverageInput,
-    cloudSoftnessInput,
-    cloudOpacityInput,
-    cloudScaleInput,
-    cloudSpeed1Input,
-    cloudSpeed2Input,
-    cloudSunParallaxInput,
-    cloudSunProjectToggle,
-    waterFxToggle,
-    waterFlowDownhillToggle,
-    waterFlowInvertDownhillToggle,
-    waterFlowDebugToggle,
-    waterFlowDirectionInput,
-    waterLocalFlowMixInput,
-    waterDownhillBoostInput,
-    waterFlowStrengthInput,
-    waterFlowSpeedInput,
-    waterFlowScaleInput,
-    waterShimmerStrengthInput,
-    waterGlintStrengthInput,
-    waterGlintSharpnessInput,
-    waterShoreFoamStrengthInput,
-    waterShoreWidthInput,
-    waterReflectivityInput,
-    waterTintColorInput,
-    waterTintStrengthInput,
+    lightingSettings: simulationKnobs.lighting || null,
+    parallaxSettings: simulationKnobs.parallax || null,
+    defaultLightingSettings: getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
+    defaultParallaxSettings: getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS),
+    defaultFogSettings: getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS),
+    defaultCloudSettings: getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS),
+    defaultWaterSettings: getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS),
     hexToRgb01,
     fogState: systemState.fog || null,
     cloudState: systemState.clouds || null,
@@ -6925,7 +7179,7 @@ function render(nowMs) {
   const cycleSpeed = Number(systemState.time && systemState.time.cycleSpeedHoursPerSec) || 0;
   const simTick = normalizeSimTickHours(systemState.time && systemState.time.simTickHours != null
     ? systemState.time.simTickHours
-    : simTickHoursInput.value);
+    : getConfiguredSimTickHours());
   const nextCycleInfo = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeed.toFixed(2)} h/s | Tick: ${simTick.toFixed(3)}h`;
   if (cycleInfoEl.textContent !== nextCycleInfo) {
     cycleInfoEl.textContent = nextCycleInfo;
@@ -6959,13 +7213,13 @@ function render(nowMs) {
     lightingParams,
     uniformInput,
     showTerrain,
-    backgroundColorRgb: hexToRgb01(swarmBackgroundColorInput.value),
+    backgroundColorRgb: hexToRgb01(swarmSettings.backgroundColor),
     swarmEnabled,
     swarmLitEnabled: swarmSettings.useLitSwarm,
   });
   renderer.renderTerrainFrame(frameState);
   if (frameState.swarm.enabled && frameState.swarm.litEnabled) {
-    renderSwarmLit(frameState.lightingParams, frameState.time, swarmSettings);
+    renderSwarmLit(frameState.lightingParams, frameState.time, swarmSettings, frameState.uniformInput);
   }
 
   overlayHooks.renderOverlayIfNeeded(frameState);

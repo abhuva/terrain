@@ -20,10 +20,14 @@ No game engine is used.
 - Main implementation: `src/main.js`
 - Desktop wrapper: `src-tauri/` (Tauri v2)
 - Rendering backend: WebGL2 terrain pass + 2D overlay canvas for interaction markers
-- Gameplay scaffolding modules now exist under `src/gameplay/` (`entityStore`, `pathfindingSystem`, `movementSystem`) and are scheduler-driven adapters around existing runtime behavior.
+- Gameplay scaffolding modules now exist under `src/gameplay/` (`entityStore`, `movementSystem`) and are scheduler-driven adapters around existing runtime behavior.
 - Interaction command routing is now extracted to `src/gameplay/interactionCommands.js` and composed into main command registration.
 - Overlay/gameplay frame integration now goes through `src/ui/overlays/overlayHooks.js` (gameplay update hook + overlay render hook).
-- Core/runtime migration parity now uses `src/core/runtimeParityAdapter.js` to keep legacy inputs/globals aligned with core state during refactor.
+- The old per-frame `frameSnapshot` / `runtimeParityAdapter` bridge has been removed.
+- Core state is now updated through command handlers, settings apply flows, bootstrap/map-load synchronization, and scheduler-owned system updates.
+- Migration is still in progress:
+  - active time/render FX/pathfinding/swarm settings now prefer core state
+  - some UI/apply helpers still remain DOM-backed for view synchronization and legacy save/apply paths
 - Settings UI: left vertical topic-icon dock + single side panel (one topic open at a time)
   - Mode toggles: `LM` and `PF` (note: `AS` is a topic button that opens the Agent Swarm panel in `index.html`, not a mode toggle)
   - Runtime mode capability gating is now active (`dev`/`gameplay`/`hybrid`) for topic buttons + interaction mode toggles.

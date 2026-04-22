@@ -7,13 +7,6 @@ export function registerInteractionCommands(commandBus, deps) {
 
   commandBus.register("core/interaction/setMode", (command, ctx) => {
     deps.setInteractionMode(command.mode);
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        interactionMode: deps.getInteractionMode(),
-      },
-    }));
   });
 
   commandBus.register("core/interaction/clickMapPixel", (command, ctx) => {
@@ -57,7 +50,6 @@ export function registerInteractionCommands(commandBus, deps) {
         ...prev,
         gameplay: {
           ...prev.gameplay,
-          interactionMode: deps.getInteractionMode(),
           player: {
             ...prev.gameplay.player,
             pixelX: deps.playerState.pixelX,
@@ -112,21 +104,22 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   function syncPathfindingStateToStore(ctx) {
-    if (typeof deps.getPathfindingStateSnapshot !== "function") return;
-    const next = deps.getPathfindingStateSnapshot();
     ctx.store.update((prev) => ({
       ...prev,
       gameplay: {
         ...prev.gameplay,
         pathfinding: {
           ...prev.gameplay.pathfinding,
-          ...next,
+          ...(typeof deps.getPathfindingStateSnapshot === "function" ? deps.getPathfindingStateSnapshot() : {}),
         },
       },
     }));
   }
 
   commandBus.register("core/pathfinding/setRange", (command, ctx) => {
+    if (deps.pathfindingRangeInput && Number.isFinite(Number(command.value))) {
+      deps.pathfindingRangeInput.value = String(Math.round(deps.clamp(Number(command.value), 30, 300)));
+    }
     deps.updatePathfindingRangeLabel();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
@@ -135,6 +128,9 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setWeightSlope", (command, ctx) => {
+    if (deps.pathWeightSlopeInput && Number.isFinite(Number(command.value))) {
+      deps.pathWeightSlopeInput.value = String(deps.clamp(Number(command.value), 0, 10));
+    }
     deps.updatePathWeightLabels();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
@@ -143,6 +139,9 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setWeightHeight", (command, ctx) => {
+    if (deps.pathWeightHeightInput && Number.isFinite(Number(command.value))) {
+      deps.pathWeightHeightInput.value = String(deps.clamp(Number(command.value), 0, 10));
+    }
     deps.updatePathWeightLabels();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
@@ -151,6 +150,9 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setWeightWater", (command, ctx) => {
+    if (deps.pathWeightWaterInput && Number.isFinite(Number(command.value))) {
+      deps.pathWeightWaterInput.value = String(deps.clamp(Number(command.value), 0, 100));
+    }
     deps.updatePathWeightLabels();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
@@ -159,6 +161,9 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setSlopeCutoff", (command, ctx) => {
+    if (deps.pathSlopeCutoffInput && Number.isFinite(Number(command.value))) {
+      deps.pathSlopeCutoffInput.value = String(Math.round(deps.clamp(Number(command.value), 0, 90)));
+    }
     deps.updatePathSlopeCutoffLabel();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
@@ -167,6 +172,9 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setBaseCost", (command, ctx) => {
+    if (deps.pathBaseCostInput && Number.isFinite(Number(command.value))) {
+      deps.pathBaseCostInput.value = String(deps.clamp(Number(command.value), 0, 2));
+    }
     deps.updatePathBaseCostLabel();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();

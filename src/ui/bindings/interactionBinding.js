@@ -74,4 +74,15 @@ export function bindInteractionAndCycleControls(deps) {
     deps.simTickHoursInput.addEventListener("input", dispatchTickChange);
     deps.simTickHoursInput.addEventListener("change", dispatchTickChange);
   }
+
+  if (deps.cycleSpeedInput) {
+    const dispatchCycleSpeedChange = () => {
+      deps.dispatchCoreCommand({
+        type: "core/time/setCycleSpeed",
+        cycleSpeed: Number(deps.cycleSpeedInput.value),
+      });
+    };
+    deps.cycleSpeedInput.addEventListener("input", dispatchCycleSpeedChange);
+    deps.cycleSpeedInput.addEventListener("change", dispatchCycleSpeedChange);
+  }
 }

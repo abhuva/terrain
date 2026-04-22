@@ -1,6 +1,6 @@
 # Time Wire Task List
 
-Last updated: 2026-04-22
+Last updated: 2026-04-23
 Owner: Codex + Marc
 Branch policy: dedicated implementation branch, no direct commits to `main`
 Primary scope: complete the transition from hybrid time wiring to a fully migrated runtime architecture
@@ -18,14 +18,15 @@ Important clarification:
 
 Current hybrid structure:
 - `src/main.js` still owns most live runtime state, DOM input reads, render orchestration, overlay drawing, and significant gameplay state.
-- `src/core/frameSnapshot.js` copies selected runtime state into the core store every frame.
+- `src/core/frameSnapshot.js` has been removed.
 - `runtimeCore.scheduler` systems run against that core state.
-- `src/core/runtimeParityAdapter.js` writes some core state back into legacy runtime variables and DOM inputs.
+- `src/core/runtimeParityAdapter.js` has been removed.
+- Core store updates now happen through commands, settings apply/bootstrap synchronization, and scheduler system updates.
 
 Meaning:
 - The newer core/scheduler path is active and real.
 - The legacy runtime path is still the dominant owner.
-- The adapter layers are still bridging the two.
+- The adapter layers are gone, but some domains still retain DOM-backed helpers and duplicated ownership patterns.
 
 So:
 - Time wiring is not blocked.
@@ -103,10 +104,10 @@ Dependencies: none
   - [x] P1.2.1 Time routing foundation is in place.
   - [x] P1.2.2 Movement queue/tick execution is in place.
   - [x] P1.2.3 Render, DOM, and much of runtime state are still `main.js` owned.
-- [ ] P1.3 Create explicit ownership map for remaining migration
-  - [ ] P1.3.1 List all runtime domains still reading DOM inputs directly.
+- [-] P1.3 Create explicit ownership map for remaining migration
+  - [-] P1.3.1 List all runtime domains still reading DOM inputs directly.
   - [ ] P1.3.2 List all core state branches that are still snapshots instead of authoritative state.
-  - [ ] P1.3.3 List all places where parity writes state back into runtime/DOM.
+  - [x] P1.3.3 List all places where parity writes state back into runtime/DOM.
 
 Exit criteria:
 - Hybrid-state reality is documented.
@@ -116,7 +117,7 @@ Exit criteria:
 
 Dependencies: Phase 1
 
-- [ ] P2.1 Make core state complete enough to become sole runtime authority
+- [-] P2.1 Make core state complete enough to become sole runtime authority
   - [ ] P2.1.1 Audit missing authoritative state branches for:
     - render FX controls
     - pathfinding settings
@@ -124,8 +125,8 @@ Dependencies: Phase 1
     - interaction mode
     - camera state
     - map/session state
-  - [ ] P2.1.2 Remove any remaining dependence on reading those values primarily from DOM inputs.
-  - [ ] P2.1.3 Ensure settings defaults/serialize/apply paths align with canonical core state shape.
+  - [-] P2.1.2 Remove any remaining dependence on reading those values primarily from DOM inputs.
+  - [-] P2.1.3 Ensure settings defaults/serialize/apply paths align with canonical core state shape.
 - [ ] P2.2 Define stable command surface for all user-driven state changes
   - [ ] P2.2.1 Route all mutable UI-backed settings through commands.
   - [ ] P2.2.2 Remove direct imperative state mutation where command routing should own behavior.
@@ -142,18 +143,18 @@ Exit criteria:
 
 Dependencies: Phase 2
 
-- [ ] P3.1 Convert DOM controls from source-of-truth to state views
-  - [ ] P3.1.1 Time controls (`cycleSpeed`, `simTickHours`, routing controls).
-  - [ ] P3.1.2 Pathfinding controls.
-  - [ ] P3.1.3 Fog/cloud/water/parallax/lighting controls.
-  - [ ] P3.1.4 Swarm controls.
-- [ ] P3.2 Remove direct DOM reads from runtime-hot paths
-  - [ ] P3.2.1 Eliminate per-frame settings reads that should come from core state.
-  - [ ] P3.2.2 Eliminate system logic that derives behavior from raw inputs instead of state.
+- [-] P3.1 Convert DOM controls from source-of-truth to state views
+  - [x] P3.1.1 Time controls (`cycleSpeed`, `simTickHours`, routing controls).
+  - [-] P3.1.2 Pathfinding controls.
+  - [-] P3.1.3 Fog/cloud/water/parallax/lighting controls.
+  - [-] P3.1.4 Swarm controls.
+- [-] P3.2 Remove direct DOM reads from runtime-hot paths
+  - [-] P3.2.1 Eliminate per-frame settings reads that should come from core state.
+  - [-] P3.2.2 Eliminate system logic that derives behavior from raw inputs instead of state.
   - [ ] P3.2.3 Keep only event-time UI reads inside bindings where unavoidable.
-- [ ] P3.3 Make UI update one-way
-  - [ ] P3.3.1 State change updates labels/inputs/UI.
-  - [ ] P3.3.2 User interaction dispatches command.
+- [-] P3.3 Make UI update one-way
+  - [-] P3.3.1 State change updates labels/inputs/UI.
+  - [-] P3.3.2 User interaction dispatches command.
   - [ ] P3.3.3 Remove implicit two-way parity behavior.
 
 Exit criteria:
@@ -272,9 +273,9 @@ Migration is only complete when all of the following are true:
 ## Immediate Next Work
 
 Recommended next sequence:
-- [ ] N1 Finish Phase 1 ownership map.
-- [ ] N2 Start Phase 2 by auditing missing canonical state branches.
-- [ ] N3 Choose the first concrete ownership slice to migrate fully:
+- [-] N1 Finish Phase 1 ownership map.
+- [-] N2 Start Phase 2 by auditing missing canonical state branches.
+- [-] N3 Choose the first concrete ownership slice to migrate fully:
   - render FX controls
   - pathfinding controls
   - swarm controls
@@ -319,3 +320,154 @@ Reason:
     - defined final single-source-of-truth target
     - added ordered migration phases, subtasks, and dependencies
     - defined completion criteria for removing `frameSnapshot` and `runtimeParityAdapter`
+- 2026-04-23:
+  - Removed the per-frame bridge layers from active runtime usage:
+    - deleted `src/core/frameSnapshot.js`
+    - deleted `src/core/runtimeParityAdapter.js`
+    - deleted unused `src/gameplay/pathfindingSystem.js`
+  - Replaced per-frame runtime mirroring with explicit state synchronization on:
+    - bootstrap
+    - map load/apply
+    - settings apply
+    - command-driven changes
+    - scheduler-owned system updates
+  - Moved active time/render FX/pathfinding/swarm logic to prefer canonical core state over live DOM reads.
+  - Migration is still not complete:
+    - some UI/update/apply helpers still read/write DOM directly
+    - `main.js` still owns too much orchestration and domain logic
+  - Continued store-first migration after bridge removal:
+    - time/render FX systems now prefer core-state settings over direct DOM reads
+    - settings apply flows seed canonical store state before legacy DOM reflection
+    - remaining UI enable/disable helpers were moved to serialized/store-backed snapshots for:
+      - parallax
+      - fog
+      - clouds
+      - water
+      - volumetrics
+      - point flicker
+      - cursor light follow-height
+      - swarm panel state
+      - swarm stats panel visibility
+  - Remaining migration hotspots after this pass:
+    - interaction/cursor-light settings still mix runtime state and DOM reflection
+    - some swarm/bootstrap defaults still originate from direct DOM values
+    - `main.js` still contains too much domain logic and should be reduced further
+  - Continued interaction-state migration:
+    - cursor-light canonical state now includes config fields previously leaking through DOM/runtime locals:
+      - enabled
+      - color
+      - gizmo visibility
+    - cursor-light "enabled" is now separated from transient pointer-inside activity
+      - avoids canonical state flipping to disabled when the cursor leaves the canvas
+    - point-light live-update is now synchronized back into canonical gameplay state on user changes
+    - interaction serialization now prefers canonical cursor-light and point-light state instead of reading raw DOM values
+  - Remaining migration hotspots after this pass:
+    - interaction/pathfinding state still has DOM reflection in apply/bootstrap flows
+    - some swarm/bootstrap defaults still originate from direct DOM values
+    - `main.js` still contains too much domain logic and should be reduced further
+  - Continued pathfinding/interaction-mode migration:
+    - pathfinding control bindings now dispatch explicit values into commands instead of relying on DOM reads during command handling
+    - pathfinding command handlers now clamp and write normalized values before syncing canonical state
+    - hot-path interaction-mode reads now prefer canonical store state through a snapshot getter
+    - mode-capability enforcement now synchronizes forced interaction-mode changes back into canonical state
+  - Remaining migration hotspots after this pass:
+    - pathfinding apply/bootstrap still reflects through DOM before becoming fully store-driven
+    - interaction mode still keeps a local runtime fallback cache in `main.js`
+    - some swarm/bootstrap defaults still originate from direct DOM values
+    - `main.js` still contains too much domain logic and should be reduced further
+  - Continued store-first cleanup in interaction/pathfinding:
+    - pathfinding runtime snapshot now reads canonical store state only
+    - interaction-mode changes now write canonical gameplay state directly from `setInteractionMode(...)`
+    - local `interactionMode` is no longer used as the hot-path source of truth
+  - Remaining migration hotspots after this pass:
+    - pathfinding apply/bootstrap still reflects through DOM before becoming fully store-driven
+    - `interactionMode` local cache still exists in `main.js` and should be removed entirely
+    - some swarm/bootstrap defaults still originate from direct DOM values
+    - `main.js` still contains too much domain logic and should be reduced further
+  - Continued interaction apply cleanup:
+    - removed the remaining local `interactionMode` mirror and redundant command-side store writes around it
+    - `applyInteractionSettingsLegacy(...)` now behaves more like store-to-view reflection:
+      - pathfinding inputs are populated from canonical pathfinding state
+      - cursor-light inputs are populated from canonical cursor-light state
+      - point-light live-update toggle is populated from canonical gameplay state
+  - Remaining migration hotspots after this pass:
+    - interaction/pathfinding apply/bootstrap still uses DOM reflection as the final view layer
+    - some swarm/bootstrap defaults still originate from direct DOM values
+    - `main.js` still contains too much domain logic and should be reduced further
+  - Continued swarm store-first cleanup:
+    - `getSwarmSettings()` now resolves from canonical gameplay state with defaults, instead of falling back to swarm DOM controls
+    - `setSwarmDefaults()` now seeds canonical swarm state first and only then reflects UI controls from that state
+    - `applySwarmSettingsLegacy(...)` now acts as store-to-view reflection for swarm settings rather than treating raw JSON/input as direct UI truth
+    - swarm follow-target resets during settings apply now synchronize back into canonical gameplay state
+    - render background color now uses canonical swarm settings instead of reading `swarmBackgroundColorInput` in the frame loop
+    - swarm command handling no longer reads raw DOM for:
+      - agent-count reseed
+      - enabled-toggle branch behavior
+      - follow-target selection when starting follow mode
+  - Remaining migration hotspots after this pass:
+    - swarm bindings still dispatch generic change actions instead of fully normalized payloads
+    - some apply/bootstrap flows still end in DOM reflection rather than a pure state-driven view layer
+    - `main.js` still owns too much swarm runtime/simulation orchestration
+  - Continued command-surface cleanup:
+    - swarm panel bindings now dispatch explicit payloads per control instead of generic "something changed" actions
+    - swarm command handling now clamps, normalizes, and stores those payloads directly instead of reading swarm DOM inputs during command execution
+    - swarm command handling still reflects normalized values back into inputs where the UI needs corrected bounds
+    - startup time-routing and sim-tick fallback no longer reads routing/tick values from DOM inputs when canonical store state is absent
+    - cursor-light startup fallback and live-update fallback were reduced further away from raw DOM state
+  - Remaining migration hotspots after this pass:
+    - some render and serialization helpers still retain DOM fallbacks for startup compatibility
+    - several apply/bootstrap paths still use DOM reflection as the last UI sync layer
+    - `main.js` still owns too much domain/runtime orchestration beyond pure composition
+  - Continued settings-serialization cleanup:
+    - lighting/fog/parallax/cloud/water legacy serializers now prefer canonical store-backed knobs or registry defaults instead of falling back to live DOM inputs
+    - startup fallback for cursor-light state was moved from DOM inputs to interaction defaults
+    - point-light live-update fallback now resolves from canonical gameplay state/default behavior instead of checkbox state
+  - Remaining migration hotspots after this pass:
+    - several apply helpers still mirror canonical state into DOM controls as a final reflection layer
+    - some render-time setup paths still keep DOM fallbacks where canonical settings/defaults should be sufficient
+    - `main.js` is still larger than the target composition-only end state
+  - Continued render/setup decoupling:
+    - `buildUniformInputState(...)` now resolves lighting/parallax/fog/cloud/water uniforms from canonical settings or registry defaults instead of reading panel inputs
+    - flow-map rebuild settings now come from canonical water settings/defaults instead of water panel inputs
+    - shadow-pass uniform setup now reads lighting settings/defaults instead of shadow controls
+    - point-light bake height-scale lookup now reads canonical lighting settings/defaults instead of the height-scale input
+    - `computeLightingParams(...)` now falls back to canonical/default lighting and fog settings instead of render-time DOM reads
+  - Remaining migration hotspots after this pass:
+    - apply helpers still use DOM reflection as the last UI sync layer
+    - some non-settings runtime/editor paths still read local inputs directly by design and may need later separation
+    - `main.js` still owns too much rendering/gameplay orchestration for the final target
+  - Continued apply-path cleanup:
+    - `applyLightingSettingsLegacy(...)` now reflects from canonical lighting/time/ui state instead of raw loaded input
+    - `applyFogSettingsLegacy(...)`, `applyParallaxSettingsLegacy(...)`, `applyCloudSettingsLegacy(...)`, and `applyWaterSettingsLegacy(...)` now reflect canonical state/defaults instead of raw loaded input
+    - cloud/water routing input reflection now resolves from canonical time routing state
+  - Remaining migration hotspots after this pass:
+    - apply helpers still exist as DOM reflection layers, even though they are now canonical-state based
+    - runtime/editor-only local state still exists in point-light editing, cursor movement, and some map-load/bootstrap flows
+    - `main.js` still remains the largest ownership surface and needs further decomposition
+  - Continued bootstrap/hydration cleanup:
+    - added explicit map hydration helpers for:
+      - setting current map folder path + syncing map state
+      - applying default per-map settings
+      - resetting runtime state after images are loaded
+    - default-map load and folder-selection load now share the same canonical reset/hydration path instead of duplicating the settings/bootstrap sequence inline
+  - Remaining migration hotspots after this pass:
+    - map/bootstrap still lives inside `main.js` and is only partially decomposed into helpers
+    - runtime/editor-only local state still exists in point-light editing, cursor movement, and follow/editor flows
+    - `main.js` is still the dominant owner and needs further extraction before migration can be called complete
+  - Continued runtime/editor-state cleanup:
+    - point-light editor selection/draft lifecycle is now centralized through explicit helper functions instead of scattered inline mutations
+    - clearing light selection and creating editor drafts now go through a single ownership path
+  - Remaining migration hotspots after this pass:
+    - point-light editor state is still local runtime state, only better contained
+    - cursor/follow transient state still lives in `main.js`
+    - larger extraction of editor/gameplay/runtime ownership is still pending
+  - Continued transient-state and render-read cleanup:
+    - cursor-light pointer lifecycle is now centralized through explicit helper functions instead of scattered inline mutations
+    - swarm follow start/stop/apply state now goes through explicit helper functions, reducing ad hoc follow-state mutation across `main.js` and command handlers
+    - canvas hover redraw no longer checks cursor-light checkbox DOM state directly
+    - `applyInteractionSettingsLegacy(...)` no longer prewrites raw loaded interaction values into the DOM before reflecting canonical state
+    - shadow-blur render pass now reads canonical lighting settings instead of `shadowBlurInput` directly during render setup
+  - Remaining migration hotspots after this pass:
+    - point-light editor state is still local runtime state, though now better bounded
+    - some map/bootstrap and editor-only flows still live inside `main.js`
+    - `main.js` still remains the dominant orchestration surface and needs further extraction before migration can be called complete
