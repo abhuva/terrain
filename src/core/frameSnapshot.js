@@ -34,13 +34,16 @@ export function updateCoreFrameSnapshot(store, nowMs, deps) {
     ? Number(deps.cycleSpeedInput.value)
     : 0;
   const safeCycleSpeed = Number.isFinite(cycleSpeed) ? cycleSpeed : 0;
+  const clamp01 = typeof deps.clamp === "function"
+    ? (value) => deps.clamp(value, 0, 1)
+    : (value) => Math.max(0, Math.min(1, value));
 
   store.update((prev) => ({
     ...prev,
     clock: {
       ...prev.clock,
       nowSec: Math.max(0, Number(nowMs) * 0.001),
-      timeScale: deps.clamp(safeCycleSpeed, 0, 1),
+      timeScale: clamp01(safeCycleSpeed),
     },
     camera: {
       ...prev.camera,

@@ -6,24 +6,37 @@ function normalizeDirDeg(value) {
 }
 
 export function createWeatherSystem(deps) {
+  function finite(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function safeClamp(value, min, max) {
+    if (typeof deps.clamp === "function") {
+      return deps.clamp(value, min, max);
+    }
+    return Math.max(min, Math.min(max, value));
+  }
+
   return {
     update(ctx, state) {
       const input = state && state.simulation && state.simulation.weather ? state.simulation.weather : {};
-      const windDirDeg = normalizeDirDeg(input.windDirDeg);
-      const windSpeed = deps.clamp(Number(input.windSpeed), 0, 1);
-      const localModulation = deps.clamp(Number(input.localModulation), 0, 1);
+      const windDirDeg = normalizeDirDeg(finite(input.windDirDeg, 0));
+      const windSpeed = safeClamp(finite(input.windSpeed, 0), 0, 1);
+      const localModulation = safeClamp(finite(input.localModulation, 0), 0, 1);
       const weatherType = typeof input.type === "string" ? input.type : "clear";
 
       const windDirRad = (windDirDeg * Math.PI) / 180;
+      const nowMs = finite(ctx && ctx.nowMs, 0);
       const weatherState = {
         type: weatherType,
-        intensity: deps.clamp(Number(input.intensity), 0, 1),
+        intensity: safeClamp(finite(input.intensity, 0), 0, 1),
         windDirDeg,
         windSpeed,
         localModulation,
         windDirX: Math.cos(windDirRad),
         windDirY: Math.sin(windDirRad),
-        timeSec: ctx.nowMs * 0.001,
+        timeSec: nowMs * 0.001,
       };
 
       if (typeof deps.setWeatherState === "function") {

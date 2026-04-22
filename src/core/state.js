@@ -88,13 +88,17 @@ export function createStore(initialState = createInitialState()) {
   const listeners = new Set();
 
   function getState() {
-    return state;
+    return { ...state };
   }
 
   function setState(nextState) {
     state = nextState;
     for (const listener of listeners) {
-      listener(state);
+      try {
+        listener(state);
+      } catch (error) {
+        console.error("Store listener failed during state update:", error, state);
+      }
     }
   }
 

@@ -1,4 +1,27 @@
 export function bindPointLightEditorControls(deps) {
+  const requiredElements = [
+    "pointLightColorInput",
+    "pointLightStrengthInput",
+    "pointLightIntensityInput",
+    "pointLightHeightOffsetInput",
+    "pointLightFlickerInput",
+    "pointLightFlickerSpeedInput",
+    "pointLightLiveUpdateToggle",
+    "lightSaveBtn",
+    "lightCancelBtn",
+    "lightDeleteBtn",
+    "pointLightsSaveAllBtn",
+    "pointLightsLoadAllBtn",
+    "pointLightsLoadInput",
+  ];
+  for (const key of requiredElements) {
+    const element = deps[key];
+    if (!element || typeof element.addEventListener !== "function") {
+      console.warn(`bindPointLightEditorControls skipped: missing DOM element '${key}'.`);
+      return;
+    }
+  }
+
   deps.pointLightColorInput.addEventListener("input", () => {
     if (!deps.hasLightEditDraft()) return;
     deps.setLightEditDraftColor(deps.hexToRgb01(deps.pointLightColorInput.value));

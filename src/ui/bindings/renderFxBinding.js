@@ -62,6 +62,9 @@ export function bindRenderFxControls(deps) {
   ];
 
   for (const binding of bindings) {
+    if (!binding || !binding.element || typeof binding.element.addEventListener !== "function") {
+      continue;
+    }
     binding.element.addEventListener(binding.eventType, () => {
       dispatchRenderFxChange(binding.section, binding.options || {});
     });

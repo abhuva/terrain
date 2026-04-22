@@ -12,6 +12,9 @@ export function bindInteractionAndCycleControls(deps) {
     deps.dispatchCoreCommand({ type: "core/interaction/setMode", mode: "lighting" });
     deps.movePreviewState.hoverPixel = null;
     deps.movePreviewState.pathPixels = [];
+    if (typeof deps.requestOverlayDraw === "function") {
+      deps.requestOverlayDraw();
+    }
     deps.setStatus("Lighting mode enabled: click terrain to add/select point lights.");
   });
 
@@ -24,6 +27,9 @@ export function bindInteractionAndCycleControls(deps) {
       deps.dispatchCoreCommand({ type: "core/interaction/setMode", mode: "none" });
       deps.movePreviewState.hoverPixel = null;
       deps.movePreviewState.pathPixels = [];
+      if (typeof deps.requestOverlayDraw === "function") {
+        deps.requestOverlayDraw();
+      }
       deps.setStatus("Pathfinding mode disabled.");
       return;
     }

@@ -15,6 +15,17 @@ export function bindPointLightWorker(pointLightBakeWorker, deps) {
     return false;
   }
 
+  function normalizeRgbaBuffer(rgbaBuffer) {
+    if (ArrayBuffer.isView(rgbaBuffer)) {
+      return new Uint8ClampedArray(
+        rgbaBuffer.buffer,
+        rgbaBuffer.byteOffset,
+        rgbaBuffer.byteLength,
+      );
+    }
+    return new Uint8ClampedArray(rgbaBuffer);
+  }
+
   function failPendingRequest(requestId, reason) {
     console.warn(`Point-light bake worker payload ignored: ${reason}`);
     if (requestId === deps.getPendingRequestId()) {
@@ -43,9 +54,7 @@ export function bindPointLightWorker(pointLightBakeWorker, deps) {
       failPendingRequest(requestId, "invalid RGBA buffer payload");
       return;
     }
-    const rgba = rgbaBuffer instanceof Uint8ClampedArray
-      ? new Uint8ClampedArray(rgbaBuffer.buffer, rgbaBuffer.byteOffset, rgbaBuffer.byteLength)
-      : new Uint8ClampedArray(rgbaBuffer);
+    const rgba = normalizeRgbaBuffer(rgbaBuffer);
     deps.setPendingRequestId(requestId);
     deps.applyPointLightBakeRgba(rgba, width, height);
   });

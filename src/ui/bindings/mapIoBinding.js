@@ -15,7 +15,7 @@ export function bindMapIoControls(deps) {
         deps.setStatus("Map folder selection canceled.");
         return;
       }
-      targetPath = pickedFolder;
+      targetPath = deps.normalizeMapFolderPath(pickedFolder);
     }
     try {
       await deps.loadMapFromPath(targetPath);

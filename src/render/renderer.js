@@ -8,6 +8,9 @@ export function createRenderer(deps) {
     if (!pass || typeof pass.execute !== "function") {
       throw new Error(`Render pass '${id}' must provide execute(frame).`);
     }
+    if (passes.has(id)) {
+      throw new Error(`Render pass '${id}' is already registered.`);
+    }
     passes.set(id, pass);
   }
 

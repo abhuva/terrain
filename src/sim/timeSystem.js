@@ -11,11 +11,12 @@ export function createTimeSystem(deps) {
           cycleSpeedHoursPerSec,
         });
       }
+      const scrubbing = deps.isCycleHourScrubbing();
 
-      if (cycleSpeedHoursPerSec > 0 && !deps.isCycleHourScrubbing()) {
+      if (cycleSpeedHoursPerSec > 0 && !scrubbing) {
         deps.cycleState.hour = deps.wrapHour(deps.cycleState.hour + cycleSpeedHoursPerSec * ctx.dtSec);
       }
-      if (!deps.isCycleHourScrubbing()) {
+      if (!scrubbing) {
         deps.setCycleHourSliderFromState();
       }
     },

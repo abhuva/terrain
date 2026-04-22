@@ -2,16 +2,17 @@ export function createSettingsRegistry() {
   const subsystems = new Map();
 
   function register(key, contract) {
-    if (!key || typeof key !== "string") {
+    if (typeof key !== "string" || key.trim().length === 0) {
       throw new Error("Settings key must be a non-empty string.");
     }
+    const normalizedKey = key.trim();
     if (!contract || typeof contract.defaults !== "function") {
       throw new Error("Settings contract must provide defaults().");
     }
-    if (subsystems.has(key)) {
-      throw new Error(`Settings subsystem already registered for key: ${key}`);
+    if (subsystems.has(normalizedKey)) {
+      throw new Error(`Settings subsystem already registered for key: ${normalizedKey}`);
     }
-    subsystems.set(key, contract);
+    subsystems.set(normalizedKey, contract);
   }
 
   function has(key) {

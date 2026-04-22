@@ -16,12 +16,14 @@ export function createCommandBus() {
   }
 
   function dispatch(command, ctx) {
-    if (!command || typeof command.type !== "string") {
-      throw new Error("Command must include a string `type`.");
+    const type = command ? command.type : undefined;
+    const validType = typeof type === "string" ? type.length > 0 : typeof type === "symbol";
+    if (!validType) {
+      throw new Error("Command must include a non-empty string or symbol `type`.");
     }
-    const handler = handlers.get(command.type);
+    const handler = handlers.get(type);
     if (!handler) {
-      throw new Error(`No handler registered for command: ${command.type}`);
+      throw new Error(`No handler registered for command: ${String(type)}`);
     }
     return handler(command, ctx);
   }

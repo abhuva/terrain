@@ -3726,7 +3726,15 @@ registerMainCommands(runtimeCore.commandBus, {
   chooseRandomFollowHawkIndex,
   chooseRandomFollowAgentIndex,
 });
-runtimeCore.store.subscribe(() => {
+let previousMode = runtimeCore.store.getState().mode;
+runtimeCore.store.subscribe((nextState) => {
+  const nextMode = nextState && typeof nextState.mode === "string"
+    ? nextState.mode
+    : previousMode;
+  if (nextMode === previousMode) {
+    return;
+  }
+  previousMode = nextMode;
   updateModeCapabilitiesUi();
 });
 
@@ -6035,6 +6043,7 @@ bindInteractionAndCycleControls({
   canUseInteractionMode: canUseInteractionInCurrentMode,
   movePreviewState,
   rebuildMovementField,
+  requestOverlayDraw,
   setStatus,
 });
 
@@ -6485,6 +6494,8 @@ function render(nowMs) {
   resize();
   overlayHooks.updateGameplay(nowMs);
   const systemState = coreState.systems || {};
+  const simulationState = coreState.simulation || {};
+  const simulationWeather = simulationState.weather || null;
   const lightingParams = systemState.lighting && systemState.lighting.lightingParams
     ? systemState.lighting.lightingParams
     : computeLightingParams();
@@ -6546,7 +6557,7 @@ function render(nowMs) {
     fogState: systemState.fog || null,
     cloudState: systemState.clouds || null,
     waterFxState: systemState.waterFx || null,
-    weatherState: systemState.weather || null,
+    weatherState: simulationWeather,
   });
   const cycleSpeed = Number(systemState.time && systemState.time.cycleSpeedHoursPerSec) || 0;
   cycleInfoEl.textContent = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeed.toFixed(2)} h/s`;
@@ -6560,7 +6571,7 @@ function render(nowMs) {
   renderResources.setWeatherFieldMeta({
     width: Math.max(1, Math.floor(splatSize.width * 0.25)),
     height: Math.max(1, Math.floor(splatSize.height * 0.25)),
-    updatedAtSec: Number(systemState.weather && systemState.weather.timeSec) || nowMs * 0.001,
+    updatedAtSec: Number(simulationWeather && simulationWeather.timeSec) || nowMs * 0.001,
   });
   const frameState = buildFrameRenderState({
     coreState,

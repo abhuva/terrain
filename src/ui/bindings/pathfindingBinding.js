@@ -8,9 +8,21 @@ export function bindPathfindingControls(deps) {
     { element: deps.pathBaseCostInput, type: "core/pathfinding/setBaseCost" },
   ];
 
+  const listeners = [];
   for (const binding of bindings) {
-    binding.element.addEventListener("input", () => {
+    if (!binding.element || typeof binding.element.addEventListener !== "function") {
+      continue;
+    }
+    const handler = () => {
       deps.dispatchCoreCommand({ type: binding.type });
-    });
+    };
+    binding.element.addEventListener("input", handler);
+    listeners.push({ element: binding.element, handler });
   }
+
+  return () => {
+    for (const listener of listeners) {
+      listener.element.removeEventListener("input", listener.handler);
+    }
+  };
 }

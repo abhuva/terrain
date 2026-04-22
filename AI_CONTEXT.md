@@ -138,7 +138,9 @@ No game engine is used.
   - core state now includes weather contract (`type`, `intensity`, `windDirDeg`, `windSpeed`, `localModulation`)
   - scheduler includes `weatherSystem` producing per-frame weather/wind vectors
   - render resources include placeholder weather-field metadata hook (no visible weather rendering feature yet)
-  - main render path now consumes scheduler-updated values from `coreState.systems` for time/lighting/fog/cloud/water/weather.
+  - main render path consumes scheduler-updated values from
+    `coreState.systems` for time/lighting/fog/cloud/water, and from
+    `coreState.simulation.weather` for weather.
 
 ## Camera/Interaction
 
@@ -277,6 +279,24 @@ Targeted architecture tests:
 - No georeferenced sun position.
 - No animated movement yet (currently instant click-to-move).
 - Full modularization is still in progress; `src/main.js` remains the largest integration surface, but core/render/sim/ui/gameplay modules are now established and wired.
+
+## Render Module Breakdown
+
+- `src/render/renderer.js`:
+  - render-pass registration and execution facade.
+  - orchestrates which pass chain runs per frame.
+- `src/render/resources.js`:
+  - render resource helpers.
+  - metadata hooks, including weather-field metadata.
+- `src/render/passes/*`:
+  - pass modules for shadow, blur, main terrain, and point-light usage.
+- `src/render/precompute/*`:
+  - map-space precompute adapters.
+  - currently includes flow-map and point-light bake orchestration.
+- `src/render/frameRenderState.js`:
+  - builds frame render DTO from core state + frame inputs.
+- `src/render/uniformInputState.js`:
+  - assembles uniform input object consumed by terrain shading upload.
 
 ## Session Handoff (2026-04-20)
 
