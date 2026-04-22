@@ -12,10 +12,12 @@
       <button id="dockPathfindingModeToggle" class="mode-btn" type="button" title="Pathfinding Mode" aria-label="Pathfinding mode toggle">PF</button>
       <button class="topic-btn" type="button" data-topic="map" title="Load Map" aria-label="Load map">M</button>
       <button class="topic-btn" type="button" data-topic="interaction" title="Interaction" aria-label="Interaction settings">I</button>
+      <button class="topic-btn" type="button" data-topic="swarm" title="Agent Swarm" aria-label="Agent swarm settings">A</button>
       <button class="topic-btn" type="button" data-topic="lighting" title="Main Lighting" aria-label="Main lighting">L</button>
       <button class="topic-btn" type="button" data-topic="parallax" title="Parallax" aria-label="Parallax settings">P</button>
       <button class="topic-btn" type="button" data-topic="fog" title="Height Fog" aria-label="Height fog">F</button>
       <button class="topic-btn" type="button" data-topic="clouds" title="Cloud Shadows" aria-label="Cloud shadow settings">C</button>
+      <button class="topic-btn" type="button" data-topic="water" title="Water FX" aria-label="Water effects">W</button>
       <button class="topic-btn" type="button" data-topic="editor" title="Point Light Editor" aria-label="Point light editor">E</button>
       <button class="topic-btn" type="button" data-topic="info" title="Info" aria-label="Information">?</button>
     </nav>
@@ -30,7 +32,7 @@
           <div class="row">
             <label for="mapPathInput">Map Path</label>
             <div class="inline-control">
-              <input id="mapPathInput" type="text" value="assets/map1/" />
+              <input id="mapPathInput" type="text" value="assets/Map 1/" />
               <button id="mapPathLoadBtn" class="row-action-btn" type="button">Load</button>
             </div>
           </div>
@@ -119,6 +121,254 @@
           </div>
         </section>
 
+        <section class="topic-card" data-topic="swarm" data-title="Agent Swarm">
+          <p class="help">Swarm runs in map space and can render as unlit overlay or fully lit pass.</p>
+          <div class="row">
+            <label for="swarmEnabledToggle">Use Agent Swarm</label>
+            <input id="swarmEnabledToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmFollowToggle">Follow Agent</label>
+            <button id="swarmFollowToggle" class="row-action-btn" type="button">Follow Agent Mode</button>
+          </div>
+          <div class="row">
+            <label for="swarmFollowTarget">Follow Target</label>
+            <select id="swarmFollowTarget">
+              <option value="agent">Agent</option>
+              <option value="hawk">Hawk</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="swarmFollowZoomToggle">Speed Zoom</label>
+            <input id="swarmFollowZoomToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmFollowZoomIn">Max Zoom In</label>
+            <div class="inline-control">
+              <input id="swarmFollowZoomIn" type="range" min="0.5" max="32" step="0.1" value="2.2" />
+              <span id="swarmFollowZoomInValue">2.2x</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmFollowZoomOut">Max Zoom Out</label>
+            <div class="inline-control">
+              <input id="swarmFollowZoomOut" type="range" min="0.5" max="32" step="0.1" value="0.8" />
+              <span id="swarmFollowZoomOutValue">0.8x</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmFollowHawkRangeGizmoToggle">Hawk Range Gizmo</label>
+            <input id="swarmFollowHawkRangeGizmoToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmFollowAgentSpeedSmoothing">Bird Speed Smooth</label>
+            <div class="inline-control">
+              <input id="swarmFollowAgentSpeedSmoothing" type="range" min="0.01" max="0.25" step="0.01" value="0.04" />
+              <span id="swarmFollowAgentSpeedSmoothingValue">0.04</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmFollowAgentZoomSmoothing">Bird Zoom Smooth</label>
+            <div class="inline-control">
+              <input id="swarmFollowAgentZoomSmoothing" type="range" min="0.01" max="0.25" step="0.01" value="0.07" />
+              <span id="swarmFollowAgentZoomSmoothingValue">0.07</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmStatsPanelToggle">Stats Panel</label>
+            <input id="swarmStatsPanelToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmShowTerrainToggle">Show Terrain</label>
+            <input id="swarmShowTerrainToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmLitModeToggle">Fully Lit Swarm</label>
+            <input id="swarmLitModeToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmBackgroundColor">Studio Background</label>
+            <input id="swarmBackgroundColor" type="color" value="#1c2b44" />
+          </div>
+          <div class="row">
+            <label for="swarmAgentCount">Agent Count</label>
+            <div class="inline-control">
+              <input id="swarmAgentCount" type="range" min="100" max="1000" step="10" value="300" />
+              <span id="swarmAgentCountValue">300</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmUpdateInterval">Sim Speed</label>
+            <div class="inline-control">
+              <input id="swarmUpdateInterval" type="range" min="0.1" max="20" step="0.1" value="1.0" />
+              <span id="swarmUpdateIntervalValue">1.0x</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmMaxSpeed">Max Speed</label>
+            <div class="inline-control">
+              <input id="swarmMaxSpeed" type="range" min="30" max="300" step="1" value="120" />
+              <span id="swarmMaxSpeedValue">120 px/s</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmSteeringMax">Max Steering</label>
+            <div class="inline-control">
+              <input id="swarmSteeringMax" type="range" min="10" max="500" step="1" value="140" />
+              <span id="swarmSteeringMaxValue">140 px/s^2</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmVariationStrength">Variation</label>
+            <div class="inline-control">
+              <input id="swarmVariationStrength" type="range" min="0" max="50" step="1" value="0" />
+              <span id="swarmVariationStrengthValue">0%</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmNeighborRadius">Neighbor Radius</label>
+            <div class="inline-control">
+              <input id="swarmNeighborRadius" type="range" min="10" max="200" step="1" value="52" />
+              <span id="swarmNeighborRadiusValue">52 px</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmMinHeight">Min Height</label>
+            <div class="inline-control">
+              <input id="swarmMinHeight" type="range" min="0" max="256" step="1" value="0" />
+              <span id="swarmMinHeightValue">0</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmMaxHeight">Max Height</label>
+            <div class="inline-control">
+              <input id="swarmMaxHeight" type="range" min="16" max="256" step="1" value="256" />
+              <span id="swarmMaxHeightValue">256</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmSeparationRadius">Separation Radius</label>
+            <div class="inline-control">
+              <input id="swarmSeparationRadius" type="range" min="6" max="120" step="1" value="22" />
+              <span id="swarmSeparationRadiusValue">22 px</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmAlignmentWeight">Alignment</label>
+            <div class="inline-control">
+              <input id="swarmAlignmentWeight" type="range" min="0" max="4" step="0.05" value="1.1" />
+              <span id="swarmAlignmentWeightValue">1.10</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmCohesionWeight">Cohesion</label>
+            <div class="inline-control">
+              <input id="swarmCohesionWeight" type="range" min="0" max="4" step="0.05" value="0.85" />
+              <span id="swarmCohesionWeightValue">0.85</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmSeparationWeight">Separation</label>
+            <div class="inline-control">
+              <input id="swarmSeparationWeight" type="range" min="0" max="6" step="0.05" value="2.4" />
+              <span id="swarmSeparationWeightValue">2.40</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmWanderWeight">Wander</label>
+            <div class="inline-control">
+              <input id="swarmWanderWeight" type="range" min="0" max="2" step="0.01" value="0.22" />
+              <span id="swarmWanderWeightValue">0.22</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmRestChance">Rest Chance</label>
+            <div class="inline-control">
+              <input id="swarmRestChance" type="range" min="0" max="0.002" step="0.0001" value="0" />
+              <span id="swarmRestChanceValue">0.0000</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmRestTicks">Rest Ticks</label>
+            <div class="inline-control">
+              <input id="swarmRestTicks" type="range" min="100" max="10000" step="1" value="1000" />
+              <span id="swarmRestTicksValue">1000</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmBreedingThreshold">Breeding Threshold</label>
+            <div class="inline-control">
+              <input id="swarmBreedingThreshold" type="range" min="0" max="1000" step="1" value="180" />
+              <span id="swarmBreedingThresholdValue">180</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmBreedingSpawnChance">Breed Spawn Chance</label>
+            <div class="inline-control">
+              <input id="swarmBreedingSpawnChance" type="range" min="0" max="1" step="0.01" value="0.35" />
+              <span id="swarmBreedingSpawnChanceValue">35%</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmCursorMode">Cursor Force</label>
+            <select id="swarmCursorMode">
+              <option value="none">None</option>
+              <option value="attract">Attract</option>
+              <option value="repel">Repel</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="swarmCursorStrength">Cursor Strength</label>
+            <div class="inline-control">
+              <input id="swarmCursorStrength" type="range" min="0" max="8" step="0.1" value="2.5" />
+              <span id="swarmCursorStrengthValue">2.5</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmCursorRadius">Cursor Radius</label>
+            <div class="inline-control">
+              <input id="swarmCursorRadius" type="range" min="20" max="260" step="1" value="130" />
+              <span id="swarmCursorRadiusValue">130 px</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmHawkEnabledToggle">Use Hawk</label>
+            <input id="swarmHawkEnabledToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmHawkCount">Hawk Count</label>
+            <div class="inline-control">
+              <input id="swarmHawkCount" type="range" min="0" max="20" step="1" value="1" />
+              <span id="swarmHawkCountValue">1</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmHawkColor">Hawk Color</label>
+            <input id="swarmHawkColor" type="color" value="#ff7c5c" />
+          </div>
+          <div class="row">
+            <label for="swarmHawkSpeed">Hawk Speed</label>
+            <div class="inline-control">
+              <input id="swarmHawkSpeed" type="range" min="30" max="420" step="1" value="180" />
+              <span id="swarmHawkSpeedValue">180 px/s</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmHawkSteering">Hawk Steering</label>
+            <div class="inline-control">
+              <input id="swarmHawkSteering" type="range" min="20" max="700" step="1" value="240" />
+              <span id="swarmHawkSteeringValue">240 px/s^2</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmHawkTargetRange">Hawk Target Range</label>
+            <div class="inline-control">
+              <input id="swarmHawkTargetRange" type="range" min="20" max="500" step="1" value="180" />
+              <span id="swarmHawkTargetRangeValue">180 px</span>
+            </div>
+          </div>
+        </section>
+
         <section class="topic-card" data-topic="lighting" data-title="Main Lighting">
           <div class="row">
             <label for="cycleSpeed">Day Speed</label>
@@ -144,12 +394,58 @@
             <input id="shadowStrength" type="range" min="0" max="1" step="0.01" value="0.6" />
           </div>
           <div class="row">
+            <label for="shadowBlur">Shadow Blur</label>
+            <div class="inline-control">
+              <input id="shadowBlur" type="range" min="0" max="3" step="0.05" value="0" />
+              <span id="shadowBlurValue">0.00 px</span>
+            </div>
+          </div>
+          <div class="row">
             <label for="ambient">Ambient</label>
             <input id="ambient" type="range" min="0" max="1" step="0.01" value="0.35" />
           </div>
           <div class="row">
             <label for="diffuse">Diffuse</label>
             <input id="diffuse" type="range" min="0" max="2" step="0.01" value="1" />
+          </div>
+          <div class="row">
+            <label for="volumetricToggle">Volumetric Scatter</label>
+            <input id="volumetricToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="volumetricStrength">Scatter Strength</label>
+            <div class="inline-control">
+              <input id="volumetricStrength" type="range" min="0" max="1" step="0.01" value="0.24" />
+              <span id="volumetricStrengthValue">0.24</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricDensity">Scatter Density</label>
+            <div class="inline-control">
+              <input id="volumetricDensity" type="range" min="0" max="2" step="0.01" value="0.85" />
+              <span id="volumetricDensityValue">0.85</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricAnisotropy">Anisotropy</label>
+            <div class="inline-control">
+              <input id="volumetricAnisotropy" type="range" min="0" max="0.95" step="0.01" value="0.45" />
+              <span id="volumetricAnisotropyValue">0.45</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricLength">Ray Length</label>
+            <div class="inline-control">
+              <input id="volumetricLength" type="range" min="8" max="160" step="1" value="52" />
+              <span id="volumetricLengthValue">52 px</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="volumetricSamples">Ray Samples</label>
+            <div class="inline-control">
+              <input id="volumetricSamples" type="range" min="4" max="24" step="1" value="12" />
+              <span id="volumetricSamplesValue">12</span>
+            </div>
           </div>
           <div class="row">
             <label for="pointFlickerToggle">Light Flicker</label>
@@ -298,6 +594,162 @@
           </div>
         </section>
 
+        <section class="topic-card" data-topic="water" data-title="Water FX">
+          <div class="row">
+            <label for="waterFxToggle">Water FX</label>
+            <input id="waterFxToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="waterFlowDownhillToggle">Flow From Height</label>
+            <input id="waterFlowDownhillToggle" type="checkbox" checked />
+          </div>
+          <div class="row">
+            <label for="waterFlowInvertDownhillToggle">Invert Downhill</label>
+            <input id="waterFlowInvertDownhillToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="waterFlowDebugToggle">Flow Debug</label>
+            <input id="waterFlowDebugToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="waterFlowDirection">Flow Direction</label>
+            <div class="inline-control">
+              <input id="waterFlowDirection" type="range" min="0" max="360" step="1" value="135" />
+              <span id="waterFlowDirectionValue">135 deg</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowStrength">Flow Strength</label>
+            <div class="inline-control">
+              <input id="waterFlowStrength" type="range" min="0" max="0.15" step="0.001" value="0.045" />
+              <span id="waterFlowStrengthValue">0.045</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowSpeed">Flow Speed</label>
+            <div class="inline-control">
+              <input id="waterFlowSpeed" type="range" min="0" max="2.5" step="0.01" value="0.75" />
+              <span id="waterFlowSpeedValue">0.75</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowScale">Flow Scale</label>
+            <div class="inline-control">
+              <input id="waterFlowScale" type="range" min="0.5" max="14" step="0.05" value="4.2" />
+              <span id="waterFlowScaleValue">4.20</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterLocalFlowMix">Local Flow Mix</label>
+            <div class="inline-control">
+              <input id="waterLocalFlowMix" type="range" min="0" max="1" step="0.01" value="0.35" />
+              <span id="waterLocalFlowMixValue">0.35</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterDownhillBoost">Downhill Boost</label>
+            <div class="inline-control">
+              <input id="waterDownhillBoost" type="range" min="0" max="4" step="0.05" value="1" />
+              <span id="waterDownhillBoostValue">1.00</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowRadius1">Trend Radius 1</label>
+            <div class="inline-control">
+              <input id="waterFlowRadius1" type="range" min="1" max="12" step="1" value="1" />
+              <span id="waterFlowRadius1Value">1</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowRadius2">Trend Radius 2</label>
+            <div class="inline-control">
+              <input id="waterFlowRadius2" type="range" min="1" max="24" step="1" value="3" />
+              <span id="waterFlowRadius2Value">3</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowRadius3">Trend Radius 3</label>
+            <div class="inline-control">
+              <input id="waterFlowRadius3" type="range" min="1" max="40" step="1" value="6" />
+              <span id="waterFlowRadius3Value">6</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowWeight1">Trend Weight 1</label>
+            <div class="inline-control">
+              <input id="waterFlowWeight1" type="range" min="0" max="1" step="0.01" value="0.22" />
+              <span id="waterFlowWeight1Value">0.22</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowWeight2">Trend Weight 2</label>
+            <div class="inline-control">
+              <input id="waterFlowWeight2" type="range" min="0" max="1" step="0.01" value="0.33" />
+              <span id="waterFlowWeight2Value">0.33</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterFlowWeight3">Trend Weight 3</label>
+            <div class="inline-control">
+              <input id="waterFlowWeight3" type="range" min="0" max="1" step="0.01" value="0.45" />
+              <span id="waterFlowWeight3Value">0.45</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterShimmerStrength">Shimmer</label>
+            <div class="inline-control">
+              <input id="waterShimmerStrength" type="range" min="0" max="0.2" step="0.001" value="0.05" />
+              <span id="waterShimmerStrengthValue">0.050</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterGlintStrength">Glint Strength</label>
+            <div class="inline-control">
+              <input id="waterGlintStrength" type="range" min="0" max="1.5" step="0.01" value="0.55" />
+              <span id="waterGlintStrengthValue">0.55</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterGlintSharpness">Glint Sharpness</label>
+            <div class="inline-control">
+              <input id="waterGlintSharpness" type="range" min="0" max="1" step="0.01" value="0.55" />
+              <span id="waterGlintSharpnessValue">0.55</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterShoreFoamStrength">Shore Foam</label>
+            <div class="inline-control">
+              <input id="waterShoreFoamStrength" type="range" min="0" max="0.5" step="0.01" value="0.14" />
+              <span id="waterShoreFoamStrengthValue">0.14</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterShoreWidth">Shore Width</label>
+            <div class="inline-control">
+              <input id="waterShoreWidth" type="range" min="0.4" max="6" step="0.1" value="2.2" />
+              <span id="waterShoreWidthValue">2.2 px</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterReflectivity">Reflectivity</label>
+            <div class="inline-control">
+              <input id="waterReflectivity" type="range" min="0" max="1" step="0.01" value="0.33" />
+              <span id="waterReflectivityValue">0.33</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="waterTintColor">Water Tint</label>
+            <input id="waterTintColor" type="color" value="#4aa6c8" />
+          </div>
+          <div class="row">
+            <label for="waterTintStrength">Tint Strength</label>
+            <div class="inline-control">
+              <input id="waterTintStrength" type="range" min="0" max="1" step="0.01" value="0.20" />
+              <span id="waterTintStrengthValue">0.20</span>
+            </div>
+          </div>
+        </section>
+
         <section class="topic-card" data-topic="editor" data-title="Point Light Editor" aria-live="polite">
           <p id="lightEditorEmpty" class="light-editor-empty">No light selected.</p>
           <div id="lightEditorFields" class="light-editor-fields">
@@ -367,6 +819,13 @@
       </div>
     </aside>
 
+    <aside id="swarmStatsPanel" class="swarm-stats-panel hidden">
+      <h2>Swarm Stats</h2>
+      <p><span>Birds Alive</span><strong id="swarmStatsBirdsValue">0</strong></p>
+      <p><span>Hawks Alive</span><strong id="swarmStatsHawksValue">0</strong></p>
+      <p><span>Time Running (steps)</span><strong id="swarmStatsStepsValue">0</strong></p>
+      <p><span>Avg Hawk Kill Time</span><strong id="swarmStatsAvgHawkKillValue">--</strong></p>
+    </aside>
     <canvas id="glCanvas"></canvas>
     <canvas id="overlayCanvas"></canvas>
     <script type="module" src="./src/main.js"></script>

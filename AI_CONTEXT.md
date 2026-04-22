@@ -21,8 +21,8 @@ No game engine is used.
 - Desktop wrapper: `src-tauri/` (Tauri v2)
 - Rendering backend: WebGL2 terrain pass + 2D overlay canvas for interaction markers
 - Settings UI: left vertical topic-icon dock + single side panel (one topic open at a time)
+  - Mode toggles: `LM` and `PF` (note: `AS` is a topic button that opens the Agent Swarm panel in `index.html`, not a mode toggle)
 - Map bundle auto-load tries these folders in order:
-  - `assets/map1/`
   - `assets/Map 1/`
   - `assets/`
 - Required PNG names in each candidate folder:
@@ -38,6 +38,8 @@ No game engine is used.
   - `interaction.json`
   - `fog.json`
   - `clouds.json`
+  - `waterfx.json`
+  - `swarm.json`
   - `npc.json`
 - `Load Map` topic supports loading by folder path or folder picker (map bundle semantics)
 - Desktop map-load behavior:
@@ -66,8 +68,9 @@ No game engine is used.
   - blended sun/moon ambient tint and intensity
   - includes a small blue night-ambient floor to avoid pitch-black nights
 - Shadows:
-  - texture-space raymarch over `uHeight`
-  - texel step uses height-map dimensions (`heightSize`)
+  - map-space shadow texture pass raymarches over `uHeight` (sun + moon channels)
+  - optional second blur pass smooths that shadow texture before main terrain shading
+  - shadow pass runs on a reduced map-space resolution (`heightSize * 0.5`) for performance
 - Optional point lights:
   - `Lighting Mode` toggle switches click behavior to light placement/selection
   - each point light stores map pixel coordinate + color + range (radius in px) + intensity + height offset + per-light flicker amount + per-light flicker speed
@@ -109,8 +112,22 @@ No game engine is used.
   - two scrolling noise layers provide cloud-shape motion/parallax
   - controls: coverage, softness, opacity, scale, layer speeds
   - optional sun projection offsets cloud shadows by sun direction with adjustable strength
+- Optional volumetric scattering mode (toggle in Main Lighting UI):
+  - lightweight texture-space raymarch along projected sun direction
+  - each sample combines fog-density shaping + cloud sun-occlusion to estimate in-scattering
+  - controls: strength, density, anisotropy, ray length, sample count
+- Optional water FX mode (toggle in Water UI):
+  - masked by `water.png`
+  - animated shimmer + flow-line cues from fixed or downhill direction
+  - water tint color + tint-strength control can apply additional stylized color influence
+  - downhill flow direction can be flipped with an explicit invert toggle
+  - downhill direction samples a precomputed multi-scale flow-map texture built from `height.png`
+  - flow-map precompute uses user-controlled 3-radius / 3-weight trend settings; runtime can blend trend with local 1-texel downhill flow
+  - optional flow debug overlay displays computed water direction on water pixels
+  - water shading is evaluated at map texel centers (pixel-locked) so water influence is per map pixel
+  - altitude-aware sun/moon glints, shoreline foam band, and sky-tint reflection
 - Map-level persistence:
-  - `Load Map -> Save All` writes `pointlights.json`, `lighting.json`, `parallax.json`, `interaction.json`, `fog.json`, `clouds.json`, and `npc.json`
+  - `Load Map -> Save All` writes `pointlights.json`, `lighting.json`, `parallax.json`, `interaction.json`, `fog.json`, `clouds.json`, `waterfx.json`, `swarm.json`, and `npc.json`
   - map loading auto-applies these files when present
 
 ## Camera/Interaction
@@ -119,9 +136,50 @@ No game engine is used.
 - Middle mouse drag: pan
 - `LM` dock toggle enables `lighting` interaction mode.
 - `PF` dock toggle enables `pathfinding` interaction mode.
+- `Agent Swarm` panel has a `Use Agent Swarm` toggle for enabling/disabling swarm simulation.
+- `Agent Swarm` panel has a `Fully Lit Swarm` toggle:
+  - `off`: previous unlit overlay swarm rendering
+  - `on`: swarm rendered in WebGL using terrain lighting pipeline (sun/moon, baked point lights, cloud shading, fog, volumetrics)
+  - lit mode shadowing uses per-agent directional height-ray tests (sun + moon) instead of terrain shadow-texture sampling, reducing altitude-inconsistent shadow flicker over rugged terrain
+  - lit mode applies height-aware point-light reach for swarm: baked brightness is treated as vertical reach from terrain height, with linear falloff by altitude
+- `Agent Swarm` panel has a `Follow Agent Mode` button that tracks camera pan to a random selected swarm agent while keeping zoom/other controls available.
+- Follow mode now has optional speed-driven zoom:
+  - `Speed Zoom` toggle enables dynamic camera zoom while follow mode is active.
+  - low XY movement zooms in toward `Max Zoom In`.
+  - high XY movement zooms out toward `Max Zoom Out`.
+  - both bounds are user-adjustable in swarm controls and persisted in `swarm.json`.
+  - optional `Hawk Range Gizmo` can draw the followed hawk target-range ring while follow target is `hawk`.
+  - normal-agent follow smoothing is user-tunable via `Bird Speed Smooth` and `Bird Zoom Smooth` sliders.
+  - hawk follow keeps separate fixed smoothing values.
+- `Agent Swarm` panel also has a `Stats Panel` toggle that opens a right-side overlay showing:
+  - birds alive
+  - hawks alive
+  - simulation time running in integration steps
+  - average hawk kill interval (ticks), computed from accumulated hawk kill events
 - Mode behavior:
   - `lighting`: left click adds/selects point lights.
   - `pathfinding`: hover shows live path preview from player; left click moves player instantly to clicked cell.
+  - swarm is not an interaction mode; it runs in map space while normal camera controls and interaction modes remain available.
+  - Agent swarm simulation space uses map coordinates (`0..mapWidth-1`, `0..mapHeight-1`) with edge-bounce constraints (no toroidal wraparound).
+  - Swarm altitude is modeled in `z: 0..256`; each integration step validates against `height.png` at target `(x,y)` and clamps to at least `terrainHeight + clearance` so agents cannot move below terrain.
+  - Swarm controls expose `Min Height` and `Max Height` to define an allowed altitude band (for example `30..200`) while still enforcing terrain floor constraints.
+  - Swarm controls expose `Variation` (`0..50%`) that assigns per-agent speed and turnability multipliers (`1 +/- variation`) on reseed/spawn.
+  - Swarm controls expose `Sim Speed` (`0.1x..20.0x`) to scale swarm simulation time independent of render framerate.
+  - Swarm agents support resting state:
+    - per-tick `Rest Chance` (`0..0.002`, step `0.0001`) can switch a flying agent into rest
+    - `Rest Ticks` (`100..10000`) controls how long resting lasts
+    - resting agents stay landed/immobile at terrain floor and wake immediately on nearby hawk threat
+    - resting is forbidden on water pixels from `water.png`
+- Optional hawk predator:
+  - has independent count/color/speed/turnability controls
+  - target selection is range-based via `Hawk Target Range`: hawk retarget picks randomly among agents within that radius (fallback to global random if none are in range)
+  - hawks do not starve/despawn; they are persistent while swarm is enabled
+  - chases a random agent and switches target on reach
+  - flock agents apply hawk-repulsion using the same radius/strength controls as cursor repulsion
+- Swarm breeding bounce-back:
+  - when bird count drops below `Breeding Threshold`, breeding mode becomes active
+  - while breeding mode is active, each new rest event has `Breed Spawn Chance` to create one adjacent resting bird
+  - breeding mode auto-disables when bird count returns to configured `Agent Count`
   - `none`: left click is no-op.
 - Lighting mode on:
   - Left click adds a point light unless one already exists at that map pixel
@@ -146,9 +204,13 @@ Main light uniforms:
 - `uAmbientColor`, `uAmbient`
 - `uPointLightTex`
 - `uCloudNoiseTex`
+- `uShadowTex`
+- `uWater`
+- `uFlowMap`
 - `uUseCursorLight`, `uCursorLightUv`, `uCursorLightColor`, `uCursorLightStrength`, `uCursorLightHeightOffset`, `uUseCursorTerrainHeight`, `uCursorLightMapSize`
 - `uTimeSec`, `uPointFlickerEnabled`, `uPointFlickerStrength`, `uPointFlickerSpeed`, `uPointFlickerSpatial`
 - `uUseClouds`, `uCloudCoverage`, `uCloudSoftness`, `uCloudOpacity`, `uCloudScale`, `uCloudSpeed1`, `uCloudSpeed2`, `uCloudSunParallax`, `uCloudUseSunProjection`
+- `uUseWaterFx`, `uWaterFlowDownhill`, `uWaterFlowInvertDownhill`, `uWaterFlowDebug`, `uWaterFlowDir`, `uWaterLocalFlowMix`, `uWaterFlowStrength`, `uWaterFlowSpeed`, `uWaterFlowScale`, `uWaterShimmerStrength`, `uWaterGlintStrength`, `uWaterGlintSharpness`, `uWaterShoreFoamStrength`, `uWaterShoreWidth`, `uWaterReflectivity`, `uWaterTintColor`, `uWaterTintStrength`, `uSkyColor`
 
 Map/camera uniforms:
 - `uSplat`, `uNormals`, `uHeight`
@@ -157,6 +219,7 @@ Map/camera uniforms:
 - `uResolution`, `uViewHalfExtents`, `uPanWorld`
 - `uUseParallax`, `uParallaxStrength`, `uParallaxBands`, `uZoom`
 - `uUseFog`, `uFogColor`, `uFogMinAlpha`, `uFogMaxAlpha`, `uFogFalloff`, `uFogStartOffset`, `uCameraHeightNorm`
+- `uUseVolumetric`, `uVolumetricStrength`, `uVolumetricDensity`, `uVolumetricAnisotropy`, `uVolumetricLength`, `uVolumetricSamples`
 
 ## Change Rules
 
@@ -195,3 +258,63 @@ After lighting/camera/map-load changes, verify:
 - No georeferenced sun position.
 - No animated movement yet (currently instant click-to-move).
 - No multi-file module architecture yet; all runtime code is in `src/main.js`.
+
+## Session Handoff (2026-04-20)
+
+Current code now includes the following major rendering/pipeline changes:
+
+- Shadow pipeline refactor (performance):
+  - Main terrain shader no longer raymarches shadows per screen pixel.
+  - Separate map-space shadow pass writes sun/moon visibility into `uShadowTex` (R/G channels).
+  - Optional blur pass is applied to that shadow texture before terrain lighting.
+  - Shadow map is rendered at reduced resolution (`heightSize * 0.5`) for speed.
+
+- Volumetric scattering:
+  - Uses fog + cloud occlusion integration and now has soft-knee compression/headroom compositing to avoid overblown highlights.
+  - Explicit sun-altitude scaling is applied so midday rays are shorter/weaker than low-sun rays.
+
+- Water FX system:
+  - New `Water` topic panel and `waterfx.json` persistence.
+  - Effects combined in one shader path (water-mask only):
+    - flow shimmer
+    - flow-line modulation
+    - sun/moon glints
+    - shoreline foam
+    - sky-tint reflection
+  - Supports fixed direction or downhill flow mode.
+
+- Downhill flow implementation (latest state):
+  - Runtime no longer computes only local slope for downhill direction.
+  - A precomputed multi-scale flow-map texture (`uFlowMap`) is generated from `height.png` on map load and sampled in shader.
+  - In downhill mode, fixed-direction slider input is no longer used to seed flow direction; direction comes only from flow-map trend + local height gradient.
+  - Precompute is controlled by 3 user radii and 3 user weights.
+  - Runtime direction can blend trend flow-map direction with local 1-texel downhill via `Local Flow Mix`.
+  - `Downhill Boost` scales downhill water-motion intensity (normal perturbation + flow-line tint) without affecting fixed-direction mode.
+  - Water tint applies in the shader as a controllable (`0..1`) color mix over water-lit shading.
+  - Downhill direction now has an `Invert Downhill` toggle for rapid direction flip when source gradients appear reversed.
+  - Flow-map precompute resolution is increased (`~height/2`, clamped to `64..512`) to reduce coarse direction blocks and visible zone seams.
+  - Water FX sampling now snaps to map texel centers before evaluating water mask/flow/noise/shoreline, which removes sub-pixel water variation and keeps influence map-pixel locked.
+  - `Flow Debug` toggle overlays computed direction on water pixels for inspection.
+
+Where to look in code for continuation:
+
+- Main shader water logic:
+  - `applyWaterFx(...)` in `src/main.js`
+- Flow-map build/update:
+  - `buildFlowMapImageDataFromHeight(...)`
+  - `rebuildFlowMapTexture()`
+  - called from map-image apply and water-flow control updates
+- Water settings lifecycle:
+  - `DEFAULT_WATER_SETTINGS`
+  - `serializeWaterSettings()`
+  - `applyWaterSettings(...)`
+  - map save/load includes `waterfx.json`
+
+Likely next tuning work (based on latest user feedback):
+
+- Fine-tune default values for:
+  - `waterLocalFlowMix`
+  - `waterFlowRadius1/2/3`
+  - `waterFlowWeight1/2/3`
+- Validate that `Flow Debug` gives intuitive direction colors and optional magnitude cue.
+- If needed, add presets (for example `Local`, `Balanced`, `Trend`) to quickly switch between looks.

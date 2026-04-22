@@ -22,9 +22,8 @@ Prototype goals:
 
 Auto-load checks these folders in order:
 
-1. `assets/map1/`
-2. `assets/Map 1/`
-3. `assets/`
+1. `assets/Map 1/`
+2. `assets/`
 
 Each candidate folder should contain:
 
@@ -39,6 +38,7 @@ Each candidate folder should contain:
 - optional: `interaction.json`
 - optional: `fog.json`
 - optional: `clouds.json`
+- optional: `waterfx.json`
 - optional but recommended: `npc.json`
 
 If no candidate folder contains the required PNGs, the app starts with fallback textures. You can load a map by folder path or folder picker in the `Load Map` panel.
@@ -115,6 +115,13 @@ One-command helper:
 - `Path Window` slider controls local Dijkstra field size (`30x30 .. 100x100`).
 - Player state is read from `<mapFolder>/npc.json` (`charID`, `pixelX`, `pixelY`, `color`) and rendered as a map-pixel circle.
 - `Cursor Light` mode turns the mouse into a live point light (no bake per mouse move).
+- `Fully Lit Swarm` toggle renders swarm agents through the terrain lighting stack (sun/moon, point lights, cloud shading, fog, volumetric scattering).
+- Lit swarm shadows are evaluated per agent via directional height-map ray tests (sun + moon), avoiding false blinking from terrain shadow-map micro crevice detail.
+- When `Fully Lit Swarm` is off, swarm uses the previous unlit overlay shading.
+- In lit mode, baked point-light brightness is treated as swarm vertical reach in height units:
+  - full effect at terrain height
+  - linear falloff with altitude above terrain
+  - reaches a small minimum at the brightness edge, then drops to zero above the reach
 - Cursor light supports:
   - terrain-following elevation (`cursor terrain height + offset`)
   - old fixed-height behavior (height derived from light strength)
@@ -135,11 +142,12 @@ One-command helper:
 - In desktop runtime, map path can be left empty and `Load` opens a native folder picker.
 - `Load Map` includes a map-level `Save All` action that writes:
   - `pointlights.json`
-  - `lighting.json` (`heightScale`, `shadowStrength`, `useShadows`, `ambient`, `diffuse`, cycle + point-flicker controls)
+  - `lighting.json` (`heightScale`, `shadowStrength`, `shadowBlur`, `useShadows`, `ambient`, `diffuse`, volumetric-scatter controls, cycle + point-flicker controls)
   - `parallax.json` (`useParallax`, `parallaxStrength`, `parallaxBands`)
   - `interaction.json` (pathfinding window/weights/cutoff/base-cost + cursor-light UI settings)
   - `fog.json` (`useFog`, color, alpha/falloff/start settings)
   - `clouds.json` (`useClouds`, coverage/softness/opacity/scale, two-layer scroll speeds, sun-projection controls)
+  - `waterfx.json` (`useWaterFx`, downhill/fixed flow, `waterFlowInvertDownhill`, `waterDownhillBoost`, local-mix, trend radii/weights, debug overlay, shimmer/specular/shore/reflection controls, `waterTintColor`, `waterTintStrength`)
   - `npc.json` (`charID`, `pixelX`, `pixelY`, `color`)
 - Map loading automatically applies these JSON files when present in the selected map folder.
 - Point lighting is baked into a map-space light texture only when lights or normal/height inputs change.
@@ -164,7 +172,26 @@ One-command helper:
 - `Fog Color` is user-pickable; by default it auto-tracks current lighting tint until manually changed.
 - `Cloud Shadows` uses a generated seamless repeating noise texture sampled in two scrolling layers.
 - Cloud controls include `Coverage`, `Softness`, `Opacity`, `Scale`, `Layer A/B Speed`, plus optional `Sun Projection` with `Sun Offset` to shift cloud shadows with sun direction.
-- Height shadowing is a texture-space raymarch for prototype quality.
+- `Water FX` (Water panel, masked by `water.png`) combines:
+  - animated flow shimmer + anisotropic flow-line modulation
+  - altitude-aware sun/moon glints
+  - shoreline foam/lapping near water-land transitions
+  - sky-tint reflection blended by reflectivity
+- Flow can use fixed direction or downhill mode.
+- Downhill flow includes an `Invert Downhill` toggle to quickly flip detected flow direction.
+- Downhill mode samples a precomputed multi-scale flow map (from `height.png`) and can be blended with local 1-texel downhill flow via `Local Flow Mix`.
+- `Downhill Boost` amplifies downhill water-motion intensity without changing fixed-direction mode.
+- `Water Tint` color plus `Tint Strength` (`0..1`) applies controllable water color tinting.
+- Water shading is now evaluated at map-texel centers (pixel-locked), so water influence is resolved per map pixel instead of per screen fragment.
+- Trend precompute is tunable with `Trend Radius 1/2/3` + `Trend Weight 1/2/3`.
+- `Flow Debug` renders direction overlay on water to inspect computed flow behavior.
+- `Volumetric Scatter` (Main Lighting panel) adds a lightweight single-pass in-scattering estimate:
+  - raymarches along projected sun direction in texture space
+  - reuses cloud shadow occlusion + fog density shaping per sample
+  - tints toward sun/fog color blend and supports anisotropy
+- Volumetric controls: `Scatter Strength`, `Scatter Density`, `Anisotropy`, `Ray Length`, `Ray Samples`.
+- Height shadowing now uses a map-space shadow texture pass (sun + moon channels) generated by texture-space raymarch.
+- `Shadow Blur` is a second pass over that shadow texture before terrain shading (`0.00 px` = off).
 - Texture sampling is nearest-neighbor for pixel-sharp zoomed rendering.
 - Desktop file I/O behavior:
   - Tauri runtime prefers native commands for JSON save/load + folder validation/picking.
