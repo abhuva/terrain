@@ -170,15 +170,7 @@ input[type="file"] {
   width: 100%;
 }
 
-.row input[type="text"] {
-  width: 100%;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
-  padding: 5px 8px;
-}
-
+.row input[type="text"],
 .row select {
   width: 100%;
   border: 1px solid var(--panel-border);

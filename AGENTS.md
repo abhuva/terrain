@@ -127,7 +127,7 @@ Build a self-contained prototype for top-down terrain rendering from Gaea-export
 - Optional volumetric scattering in the main lighting pass:
   - samples fog density + cloud sun-occlusion along projected sun direction
   - exposes `strength`, `density`, `anisotropy`, `ray length`, `sample count`
-- Map-level `Save All` writes point lights + lighting + parallax + interaction + fog + clouds + npc JSON alongside map textures
+- Map-level `Save All` writes point lights + lighting + parallax + interaction + fog + clouds + waterfx + swarm + npc JSON alongside map textures
 
 ## Gameplay Prototype (Current)
 

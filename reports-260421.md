@@ -11,7 +11,7 @@
 
 ## Current Architecture Snapshot (Observed)
 
-- Runtime is in one large file: `src/main.js` (`~4.3k` lines).
+- Runtime is in one large file: `src/main.js` (`~6.1k` lines).
 - UI bindings, renderer setup, shader source strings, sim logic, gameplay logic, file I/O, and event wiring are all mixed in one module.
 - Global mutable state is shared broadly across features.
 - Main render loop directly reads UI controls and writes uniforms each frame.

@@ -43,17 +43,18 @@
   space, each new cell visited has a certain chance to find the resource
   (depending on the map data) - of course normal travel stuff applies.
 
-
 ## Interesting Links
 
-https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_growth_simulation/
+[Reddit thread](https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/)
 
-**Prebaked particle effects** https://www.youtube.com/watch?v=39A0n24PX8g
+[Prebaked particle effects
+(YouTube)](https://www.youtube.com/watch?v=39A0n24PX8g)
 
 ## Weather System Brainstorm (2026-04-21)
 
-- Goal: convincing, localized, moving weather on map scale (`~1x1 km` now, later up to `~4x4 km`), not physically exact simulation.
-- Keep weather as a low-resolution field, not full-resolution per pixel logic.
+- Goal: convincing, localized, moving weather on map scale (`~1x1 km` now,
+  later up to `~4x4 km`), not physically exact simulation.
+- Keep weather as a low-resolution field, not full-resolution per-pixel logic.
 - Candidate base resolution for weather field:
   - `20x20` for `1000x1000` map as a valid starting point.
   - Allow higher (`32x32`, `64x64`) if seams/blocks are too visible.
@@ -64,11 +65,11 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
   - Use that sample to modulate cloud/fog/light/wind parameters locally.
 
 - Important representation choice:
-  - Avoid single scalar noise -> hard weather bands.
-  - Prefer multi-channel weather texture/field:
-    - `R`: cloud density/coverage driver
+  - Avoid a single scalar noise -> hard weather bands.
+  - Prefer a multi-channel weather texture/field:
+    - `R`: cloud density/coverage
     - `G`: humidity/fog potential
-    - `B`: precipitation or stormness proxy
+    - `B`: precipitation or storm intensity
     - `A`: gust/front intensity (or spare channel)
 
 - Wind model direction:
@@ -111,12 +112,14 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
 ## Survival/Activity Simulation Concept (2026-04-21)
 
 - Core direction:
-  - Avoid classic individual resource-node gameplay (no "see node, click node" loop).
+  - Avoid classic individual resource-node gameplay (no "see node, click node"
+    loop).
   - Use broad ecological field simulation + player activity actions.
   - Example ecology: `grass/forage -> rabbits -> foxes`.
 
 - Representation:
-  - Per-species/resource density fields on a coarse grid (for example `32x32` or `64x64` over map).
+  - Per-species/resource density fields on a coarse grid (for example `32x32`
+    or `64x64` over map).
   - Store values like:
     - `forageDensity`
     - `rabbitDensity`
@@ -124,15 +127,18 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
   - Terrain/biome/water/altitude can bias carrying capacity per cell.
 
 - Player activity loop:
-  - Action-based gameplay (for example `Hunt Rabbits`) instead of explicit target picking.
-  - During action, player moves automatically in local search pattern (biased random walk).
+  - Action-based gameplay (for example `Hunt Rabbits`) instead of explicit
+    target picking.
+  - During action, player moves automatically in local search pattern (biased
+    random walk).
   - At each step:
     - sample local density
     - compute encounter probability
     - apply tool/skill/weather/time modifiers
     - roll yield
     - pay energy/time cost
-  - Result: hunting in bad regions still works but yields poor return (energy efficiency gameplay).
+  - Result: hunting in bad regions still works but yields poor return (energy
+    efficiency gameplay).
 
 - Stability guidelines:
   - Split timescales:
@@ -168,8 +174,10 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
 ## Zoom Detail Layer / Sprite Tilemap Idea (2026-04-21)
 
 - Concept:
-  - At higher zoom levels, blend in a sprite/tile detail map driven by map data classes.
-  - Keep base terrain shading/tint partially visible to preserve macro variation and coherence.
+  - At higher zoom levels, blend in a sprite/tile detail map driven by map data
+    classes.
+  - Keep base terrain shading/tint partially visible to preserve macro
+    variation and coherence.
 
 - Data inputs:
   - Additional terrain-class map (for example `terrain_class.png`):
@@ -179,11 +187,13 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
 - Alignment and rendering:
   - Sprite layer must remain pixel-perfect and locked to map coordinates.
   - Blend amount increases with zoom (`smoothstep` style).
-  - Keep non-zero base tint/lighting contribution even at max zoom to avoid flat sprite-only look.
+  - Keep non-zero base tint/lighting contribution even at max zoom to avoid
+    flat sprite-only look.
 
 - Technical notes:
   - Use nearest-neighbor sampling for crisp pixel art.
-  - Deterministic per-tile variant choice from coordinate hash to reduce repetition.
+  - Deterministic per-tile variant choice from coordinate hash to reduce
+    repetition.
   - Consider transition/autotile rules between classes once baseline works.
 
 - Incremental implementation order:
@@ -195,7 +205,8 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
 
 - Direction chosen:
   - Keep "alone vs nature" vibe (not full settlement simulator).
-  - Prefer predefined functional blueprints over freeform tile-by-tile construction.
+  - Prefer predefined functional blueprints over freeform tile-by-tile
+    construction.
 
 - Placement model:
   - Placeable objects (tent, firepit, shelter, trail marker, etc.) with:
@@ -207,38 +218,45 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
 - Roads/trails:
   - Important strategic feature.
   - Lower movement/travel costs and improve route reliability.
-  - Can be rendered as sprite overlays and integrated directly into path cost map.
+  - Can be rendered as sprite overlays and integrated directly into path cost
+    map.
 
 - Extensibility:
-  - Placement-object architecture can later expand into more detailed building if desired.
+  - Placement-object architecture can later expand into more detailed building
+    if desired.
   - No need to commit to full construction system now.
 
 ## Scenario/Campaign/Sandbox Structure (2026-04-21)
 
 - Map scalability insight:
-  - With many maps possible, gameplay should be objective-driven, not endless by default.
+  - With many maps possible, gameplay should be objective-driven, not endless
+    by default.
 
 - Proposed game modes:
-  - Scenario mode (primary): self-contained objective + constraints + success/failure.
+  - Scenario mode (primary): self-contained objective + constraints +
+    success/failure.
   - Campaign mode: sequence of scenarios with light connective framing.
   - Sandbox survival: open play for experimentation/modding.
 
 - Example scenario goals:
   - Endurance: survive `N` seasons/years, survive a winter.
   - Expedition: reach summit/cross region/return alive.
-  - Preparation: build shelter chain + stockpile thresholds before weather shift.
+  - Preparation: build shelter chain + stockpile thresholds before weather
+    shift.
   - Ecology-aware: meet goals without collapsing local prey/resource field.
   - Weather-event survival: endure blizzard/drought/flood windows.
 
 - Design principle:
   - Objective should drive system usage and decisions.
-  - Avoid adding mechanics that do not create meaningful tradeoffs for scenario completion.
+  - Avoid adding mechanics that do not create meaningful tradeoffs for scenario
+    completion.
 
 ## Simulation Timing Architecture Notes (2026-04-21)
 
 - Core gameplay timing direction:
   - Use fixed-step simulation for gameplay/systems (deterministic updates).
-  - Pause/unpause and speed control drive how many simulation ticks are processed.
+  - Pause/unpause and speed control drive how many simulation ticks are
+    processed.
 
 - Tick concept:
   - Example base sim step: `0.01` hours.
@@ -246,19 +264,23 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
   - Faster speed means more simulation steps processed per real second.
 
 - Action queue model:
-  - Entity actions (for example movement path) should be queued with precomputed costs/timings.
+  - Entity actions (for example movement path) should be queued with
+    precomputed costs/timings.
   - Movement edge example:
     - tile cost `45` => `0.45` in-game hours (`45 * 0.01`)
     - at `0.1 h/s` speed => `4.5s` real-time for that edge.
 
 - Design decision:
   - Rewind requirement is dropped.
-  - No need for full "state as pure function of time" architecture for everything.
-  - Keep deterministic step/event simulation for history-dependent gameplay systems.
+  - No need for full "state as pure function of time" architecture for
+    everything.
+  - Keep deterministic step/event simulation for history-dependent gameplay
+    systems.
 
 - Practical split:
   - gameplay/sim systems: fixed-step updates.
-  - renderer: frame-rate rendering/interpolation and time-driven visual-only effects where useful.
+  - renderer: frame-rate rendering/interpolation and time-driven visual-only
+    effects where useful.
 
 ## Particle System Direction (2026-04-21)
 
@@ -269,7 +291,8 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
 - Visual scope by zoom:
   - zoomed out: precipitation/macro atmosphere (rain/snow).
   - mid zoom: smoke, dust, leaves.
-  - high zoom: micro effects (embers, insects, tiny fauna representations if desired).
+  - high zoom: micro effects (embers, insects, tiny fauna representations if
+    desired).
 
 - Representation:
   - Support both:
@@ -279,12 +302,14 @@ https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/transport_based_g
 
 - System integration:
   - Weather/wind should drive particle motion/intensity.
-  - Terrain/masks can gate spawn zones (water, slopes, biomes, near fires, etc.).
+  - Terrain/masks can gate spawn zones (water, slopes, biomes, near fires,
+    etc.).
 
 ## In-Game Particle Builder (2026-04-21)
 
 - Need:
-  - Dedicated in-game editor for particle effects (like current atmosphere controls).
+  - Dedicated in-game editor for particle effects (like current atmosphere
+    controls).
   - Start simple but design for extensibility.
 
 - Effect asset model:

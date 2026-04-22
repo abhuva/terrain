@@ -1559,28 +1559,29 @@ const DEFAULT_SWARM_SETTINGS = {
 const SWARM_Z_MAX = 256;
 const SWARM_TERRAIN_CLEARANCE = 1;
 const SWARM_Z_NEIGHBOR_SCALE = 1;
+const LIGHTING_SAVE_PRECISION = 2;
 
 function serializeLightingSettings() {
   return {
     version: 1,
     useShadows: shadowsToggle.checked,
-    heightScale: clamp(Number(heightScaleInput.value), 1, 300),
-    shadowStrength: clamp(Number(shadowStrengthInput.value), 0, 1),
-    shadowBlur: clamp(Number(shadowBlurInput.value), 0, 3),
-    ambient: clamp(Number(ambientInput.value), 0, 1),
-    diffuse: clamp(Number(diffuseInput.value), 0, 2),
+    heightScale: Math.round(clamp(Number(heightScaleInput.value), 1, 300)),
+    shadowStrength: clampRound(Number(shadowStrengthInput.value), 0, 1),
+    shadowBlur: clampRound(Number(shadowBlurInput.value), 0, 3),
+    ambient: clampRound(Number(ambientInput.value), 0, 1),
+    diffuse: clampRound(Number(diffuseInput.value), 0, 2),
     useVolumetric: volumetricToggle.checked,
-    volumetricStrength: clamp(Number(volumetricStrengthInput.value), 0, 1),
-    volumetricDensity: clamp(Number(volumetricDensityInput.value), 0, 2),
-    volumetricAnisotropy: clamp(Number(volumetricAnisotropyInput.value), 0, 0.95),
+    volumetricStrength: clampRound(Number(volumetricStrengthInput.value), 0, 1),
+    volumetricDensity: clampRound(Number(volumetricDensityInput.value), 0, 2),
+    volumetricAnisotropy: clampRound(Number(volumetricAnisotropyInput.value), 0, 0.95),
     volumetricLength: Math.round(clamp(Number(volumetricLengthInput.value), 8, 160)),
     volumetricSamples: Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)),
-    cycleHour: clamp(Number(cycleState.hour), 0, 24),
-    cycleSpeed: clamp(Number(cycleSpeedInput.value), 0, 1),
+    cycleHour: clampRound(Number(cycleState.hour), 0, 24),
+    cycleSpeed: clampRound(Number(cycleSpeedInput.value), 0, 1),
     pointFlickerEnabled: pointFlickerToggle.checked,
-    pointFlickerStrength: clamp(Number(pointFlickerStrengthInput.value), 0, 1),
-    pointFlickerSpeed: clamp(Number(pointFlickerSpeedInput.value), 0.1, 12),
-    pointFlickerSpatial: clamp(Number(pointFlickerSpatialInput.value), 0, 4),
+    pointFlickerStrength: clampRound(Number(pointFlickerStrengthInput.value), 0, 1),
+    pointFlickerSpeed: clampRound(Number(pointFlickerSpeedInput.value), 0.1, 12),
+    pointFlickerSpatial: clampRound(Number(pointFlickerSpatialInput.value), 0, 4),
   };
 }
 
@@ -2514,6 +2515,11 @@ function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
 
+function clampRound(v, min, max, decimals = LIGHTING_SAVE_PRECISION) {
+  const clamped = clamp(v, min, max);
+  return Number(clamped.toFixed(decimals));
+}
+
 function lerp(a, b, t) {
   return a + (b - a) * t;
 }
@@ -2827,9 +2833,9 @@ const DEFAULT_POINT_LIGHT_FLICKER_SPEED = 0.5;
 const SWARM_POINT_LIGHT_EDGE_MIN = 0.08;
 let swarmPointVertexData = new Float32Array(0);
 let overlayDirty = true;
-const DEFAULT_MAP_FOLDER = "assets/map1/";
+const DEFAULT_MAP_FOLDER = "assets/Map 1/";
 let currentMapFolderPath = DEFAULT_MAP_FOLDER;
-const DEFAULT_MAP_FOLDER_CANDIDATES = ["assets/map1/", "assets/Map 1/", "assets/"];
+const DEFAULT_MAP_FOLDER_CANDIDATES = ["assets/Map 1/", "assets/"];
 const DEFAULT_PLAYER = {
   charID: "player",
   pixelX: 120,

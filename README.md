@@ -22,9 +22,8 @@ Prototype goals:
 
 Auto-load checks these folders in order:
 
-1. `assets/map1/`
-2. `assets/Map 1/`
-3. `assets/`
+1. `assets/Map 1/`
+2. `assets/`
 
 Each candidate folder should contain:
 

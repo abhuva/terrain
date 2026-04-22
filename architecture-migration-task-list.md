@@ -64,6 +64,7 @@ Core contracts:
 ## Detailed Task List
 
 ### Phase 1: Baseline & Safety Nets
+
 Dependencies: none
 
 - [ ] P1.1 Capture behavior baseline
@@ -82,6 +83,7 @@ Exit criteria:
 - Parity checklist exists and is runnable manually.
 
 ### Phase 2: Core Runtime Foundation
+
 Dependencies: Phase 1
 
 - [ ] P2.1 Create core folders and initial modules
@@ -102,6 +104,7 @@ Exit criteria:
 - No direct feature logic required to read/write random globals outside state modules.
 
 ### Phase 3: Render Pipeline Extraction
+
 Dependencies: Phase 2
 
 - [ ] P3.1 Build render module skeleton
@@ -125,6 +128,7 @@ Exit criteria:
 - Pass boundaries are explicit and testable in isolation.
 
 ### Phase 4: UI Decoupling & Mode Capabilities
+
 Dependencies: Phase 2 (can overlap partially with Phase 3)
 
 - [ ] P4.1 Extract panel bindings
@@ -145,6 +149,7 @@ Exit criteria:
 - Modes switch behavior through capability config instead of hard forks.
 
 ### Phase 5: Simulation Systemization
+
 Dependencies: Phase 2, strongly benefits from Phase 4
 
 - [ ] P5.1 Extract existing time/light/fog/cloud/water drivers into systems
@@ -166,6 +171,7 @@ Exit criteria:
 - Subsystem settings are centrally managed and versionable.
 
 ### Phase 6: Gameplay Foundation Extraction
+
 Dependencies: Phase 2, Phase 4
 
 - [ ] P6.1 Entity/gameplay core
@@ -183,6 +189,7 @@ Exit criteria:
 - Dev tooling remains available via hybrid mode.
 
 ### Phase 7: Hardening & Documentation
+
 Dependencies: Phases 3-6
 
 - [ ] P7.1 Test suite (targeted, high ROI)

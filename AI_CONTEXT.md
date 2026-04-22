@@ -21,9 +21,8 @@ No game engine is used.
 - Desktop wrapper: `src-tauri/` (Tauri v2)
 - Rendering backend: WebGL2 terrain pass + 2D overlay canvas for interaction markers
 - Settings UI: left vertical topic-icon dock + single side panel (one topic open at a time)
-  - Mode toggles now include `LM`, `PF`, and `AS` (agent swarm studio mode)
+  - Mode toggles: `LM` and `PF` (note: `AS` is a topic button that opens the Agent Swarm panel in `index.html`, not a mode toggle)
 - Map bundle auto-load tries these folders in order:
-  - `assets/map1/`
   - `assets/Map 1/`
   - `assets/`
 - Required PNG names in each candidate folder:
@@ -128,7 +127,7 @@ No game engine is used.
   - water shading is evaluated at map texel centers (pixel-locked) so water influence is per map pixel
   - altitude-aware sun/moon glints, shoreline foam band, and sky-tint reflection
 - Map-level persistence:
-  - `Load Map -> Save All` writes `pointlights.json`, `lighting.json`, `parallax.json`, `interaction.json`, `fog.json`, `clouds.json`, `waterfx.json`, and `npc.json`
+  - `Load Map -> Save All` writes `pointlights.json`, `lighting.json`, `parallax.json`, `interaction.json`, `fog.json`, `clouds.json`, `waterfx.json`, `swarm.json`, and `npc.json`
   - map loading auto-applies these files when present
 
 ## Camera/Interaction
