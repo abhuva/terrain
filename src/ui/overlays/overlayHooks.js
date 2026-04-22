@@ -5,8 +5,10 @@ export function createOverlayHooks(deps) {
   }
 
   function renderOverlayIfNeeded(frameState) {
-    const swarmEnabled = Boolean(frameState?.swarm?.enabled);
-    if (deps.isOverlayDirty() || swarmEnabled) {
+    const animateOverlay = typeof deps.shouldAnimateOverlay === "function"
+      ? deps.shouldAnimateOverlay(frameState)
+      : Boolean(frameState?.swarm?.enabled);
+    if (deps.isOverlayDirty() || animateOverlay) {
       deps.drawOverlay();
       deps.clearOverlayDirty();
     }

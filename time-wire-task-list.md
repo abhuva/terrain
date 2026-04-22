@@ -1,27 +1,69 @@
-
 # Time Wire Task List
 
 Last updated: 2026-04-22
 Owner: Codex + Marc
 Branch policy: dedicated implementation branch, no direct commits to `main`
-Scope: wire fixed-step simulation timing into gameplay systems while preserving detached visual timing where intended
+Primary scope: complete the transition from hybrid time wiring to a fully migrated runtime architecture
 
 ## Purpose
 
-This file is the implementation control document and session-to-session memory for the simulation timing integration.
+This file is the implementation control document and session-to-session memory for the time-wiring feature and the remaining architecture migration needed to make it the final runtime model.
 
-Goals:
-- Introduce a fixed-step global simulation clock for gameplay/simulation systems.
-- Bind movement, swarm, clouds, and later weather to explicit time routing.
-- Keep water detached by default as a visual-only effect.
-- Replace teleport movement with a queued action model driven by precomputed path costs.
-- Make per-system detach/override behavior a consequence of architecture, not one-off wiring.
+## Current Status
 
-Non-goals:
-- Rewind support.
-- Full "state as pure function of time" architecture for all systems.
-- Major renderer redesign beyond what timing separation requires.
-- Sub-pixel walking interpolation in the first implementation.
+Important clarification:
+- The time-wiring feature itself is largely implemented.
+- The architecture migration is not complete.
+- The runtime is currently hybrid.
+
+Current hybrid structure:
+- `src/main.js` still owns most live runtime state, DOM input reads, render orchestration, overlay drawing, and significant gameplay state.
+- `src/core/frameSnapshot.js` copies selected runtime state into the core store every frame.
+- `runtimeCore.scheduler` systems run against that core state.
+- `src/core/runtimeParityAdapter.js` writes some core state back into legacy runtime variables and DOM inputs.
+
+Meaning:
+- The newer core/scheduler path is active and real.
+- The legacy runtime path is still the dominant owner.
+- The adapter layers are still bridging the two.
+
+So:
+- Time wiring is not blocked.
+- Full migration is the remaining strategic task.
+
+## What Is Done
+
+Implemented already:
+- Fixed-step time router foundation.
+- Routed timing for movement, swarm, clouds, water, and weather context.
+- Queued movement instead of pathfinding teleport.
+- Sim tick configuration and routing persistence.
+- Swarm and cloud smoothing/interpolation.
+- Water detached by default.
+- Initial command/state/settings contract wiring.
+- Targeted tests for tick math and movement queue behavior.
+
+Done does not mean:
+- core state is the only source of truth
+- `main.js` no longer owns runtime state
+- DOM controls are passive views
+- frame snapshot / parity adapters are removable
+
+## Migration Target
+
+Target end state:
+- Core state is the single source of truth for runtime state.
+- Scheduler systems read canonical core state directly.
+- UI controls dispatch commands into state instead of being read ad hoc by runtime code.
+- Render code consumes already-resolved state instead of reading DOM inputs directly.
+- `src/core/frameSnapshot.js` is removed.
+- `src/core/runtimeParityAdapter.js` is removed.
+- `src/main.js` becomes a thin composition layer:
+  - bootstrapping
+  - renderer setup
+  - input binding
+  - command dispatch
+  - frame orchestration
 
 ## Progress Rules
 
@@ -32,399 +74,218 @@ Status markers:
 - `[!]` blocked
 
 Execution rules:
-- Only one major phase in progress at once.
-- Every completed subtask should add a short note in the `Session Log`.
-- Prefer deterministic fixed-step updates for gameplay/simulation logic.
-- Keep visual-only effects in renderer/frame-time paths when they are intentionally detached.
-- Do not treat this document as authoritative proof of completion; always verify actual code state first.
-
-## Timing Architecture (Reference)
-
-Core direction:
-- Gameplay/simulation systems use fixed-step simulation.
-- Pause/unpause and speed control determine how many simulation ticks are processed.
-- Rendering remains frame-rate driven and may use interpolation or detached visual timing where useful.
-
-Base timing model:
-- Base simulation tick: `0.01` hours.
-- Runtime speed is expressed in hours per second.
-- Faster runtime speed means more simulation ticks processed per real second.
-
-Movement/action model:
-- Entity actions are queued with precomputed timings/costs (from the pathfinding).
-- Movement edge example:
-  - tile cost `45`
-  - edge duration `0.45` in-game hours
-  - at `0.1 h/s`, edge duration is `4.5s` real-time
-
-Design decisions:
-- `Day Speed = 0` is the global pause.
-- Rewind is explicitly out of scope.
-- Gameplay systems should remain deterministic and history-aware.
-- Renderer may still use time-driven visual-only effects outside the fixed-step loop.
-
-Practical split:
-- Fixed-step: movement, swarm, cloud timing, weather timing
-- Detached visual time: water
-- Candidate later review: point-light flicker should likely become visual-only after its rework
-
-## Target Behavior (Reference)
-
-Default routing:
-- `movement`: global
-- `swarm`: global
-- `clouds`: global
-- `weather`: global later
-- `water`: detached
-
-Expected behavior:
-- `Day Speed = 0` freezes all global-bound systems.
-- Higher `Day Speed` makes global-bound systems progress faster in real time.
-- Detached systems continue using their own time controls.
-- Clicking a new destination while moving cancels the current movement queue and replaces it.
+- Only one major migration phase should be in progress at once.
+- Keep behavior stable while changing ownership.
+- After each ownership move, remove the old read/write path instead of leaving duplicates behind.
+- Do not mark migration done until adapter layers are removed from runtime.
 
 ## Phase Overview
 
-1. Baseline & Timing Contract
-2. Global Fixed-Step Clock Foundation
-3. Movement Queue Extraction
-4. Movement Execution Rewire
-5. Swarm Time Routing
-6. Cloud Time Routing
-7. Water Detached Time Separation
-8. Time Routing UI & Persistence
-9. Hardening & Documentation
+1. Architecture Baseline and Gap Mapping
+2. Canonical State Contract Completion
+3. Control/Input Ownership Migration
+4. Simulation/System Ownership Migration
+5. Render/Input Decoupling
+6. Adapter Removal
+7. Verification and Documentation
 
 ## Detailed Task List
 
-### Phase 1: Baseline & Timing Contract
+### Phase 1: Architecture Baseline and Gap Mapping
 
 Dependencies: none
 
-- [x] P1.1 Capture timing baseline and invariants
-  - [x] P1.1.1 Record current time ownership points in code:
-    - `cycleSpeed` / day-night progression
-    - swarm update timing
-    - cloud shader timing
-    - water shader timing
-    - pathfinding click-to-move teleport behavior
-  - [x] P1.1.2 Record current JSON settings that will need timing/routing extension:
-    - `lighting.json`
-    - `clouds.json`
-    - `waterfx.json`
-    - `interaction.json`
-    - `swarm.json`
-  - [x] P1.1.3 Record current assumptions that must remain true after migration:
-    - path preview remains intact
-    - save/load compatibility remains intact
-    - existing detached module controls still work
-- [x] P1.2 Define fixed-step timing contract in code-facing terms
-  - [x] P1.2.1 Confirm base sim tick constant location and naming.
-  - [x] P1.2.2 Confirm runtime speed contract:
-    - `hoursPerSecond`
-    - `simTickHours`
-    - `ticksToProcess`
-  - [x] P1.2.3 Define which systems are fixed-step vs detached for the first pass.
-- [x] P1.3 Add or update this task document as external memory
-  - [x] P1.3.1 Keep explicit task IDs and dependencies current.
-  - [x] P1.3.2 Add session notes whenever a task is completed.
+- [x] P1.1 Confirm current runtime is hybrid
+  - [x] P1.1.1 Confirm `src/main.js` still owns live runtime state.
+  - [x] P1.1.2 Confirm `src/core/frameSnapshot.js` still mirrors runtime into core store.
+  - [x] P1.1.3 Confirm `src/core/runtimeParityAdapter.js` still mirrors some state back out.
+- [x] P1.2 Capture migrated vs non-migrated ownership
+  - [x] P1.2.1 Time routing foundation is in place.
+  - [x] P1.2.2 Movement queue/tick execution is in place.
+  - [x] P1.2.3 Render, DOM, and much of runtime state are still `main.js` owned.
+- [ ] P1.3 Create explicit ownership map for remaining migration
+  - [ ] P1.3.1 List all runtime domains still reading DOM inputs directly.
+  - [ ] P1.3.2 List all core state branches that are still snapshots instead of authoritative state.
+  - [ ] P1.3.3 List all places where parity writes state back into runtime/DOM.
 
 Exit criteria:
-- Fixed-step timing contract is explicit enough to implement without reinterpretation.
-- First-pass system routing defaults are documented and stable.
+- Hybrid-state reality is documented.
+- Remaining migration surface is explicit enough to sequence cleanly.
 
-### Phase 2: Global Fixed-Step Clock Foundation
+### Phase 2: Canonical State Contract Completion
 
 Dependencies: Phase 1
 
-- [x] P2.1 Extend core state for timing
-  - [x] P2.1.1 Add simulation clock state in [src/core/state.js](C:/Users/Marc Bielert/Github/terrain/src/core/state.js).
-  - [x] P2.1.2 Include:
-    - fixed tick size in hours
-    - accumulated partial tick remainder
-    - ticks processed this frame
-    - paused/global runtime speed
-  - [x] P2.1.3 Add routing mode state for:
-    - movement
-    - swarm
-    - clouds
-    - water
-    - weather placeholder
-- [x] P2.2 Add global time router
-  - [x] P2.2.1 Create `src/core/timeRouter.js`.
-  - [x] P2.2.2 Expose helpers for:
-    - fixed-step global tick processing
-    - detached wall-clock time
-    - effective time source lookup per subsystem
-  - [x] P2.2.3 Make one source of truth for tick math:
-    - `tickDelta = (hoursPerSecond * frameDtSec) / simTickHours`
-- [x] P2.3 Integrate timing into scheduler context
-  - [x] P2.3.1 Pass routed timing data through scheduler update context.
-  - [x] P2.3.2 Ensure systems can query effective time without direct DOM reads.
-  - [x] P2.3.3 Preserve current behavior until individual systems are switched over.
-- [x] P2.4 Add command/state plumbing for routing and timing settings
-  - [x] P2.4.1 Add commands for changing routing mode.
-  - [x] P2.4.2 Add command/state plumbing for configurable map-level sim tick size.
+- [ ] P2.1 Make core state complete enough to become sole runtime authority
+  - [ ] P2.1.1 Audit missing authoritative state branches for:
+    - render FX controls
+    - pathfinding settings
+    - swarm settings
+    - interaction mode
+    - camera state
+    - map/session state
+  - [ ] P2.1.2 Remove any remaining dependence on reading those values primarily from DOM inputs.
+  - [ ] P2.1.3 Ensure settings defaults/serialize/apply paths align with canonical core state shape.
+- [ ] P2.2 Define stable command surface for all user-driven state changes
+  - [ ] P2.2.1 Route all mutable UI-backed settings through commands.
+  - [ ] P2.2.2 Remove direct imperative state mutation where command routing should own behavior.
+  - [ ] P2.2.3 Ensure commands update both state and required side effects.
+- [ ] P2.3 Clarify ownership boundaries
+  - [ ] P2.3.1 Core store owns persistent/config/runtime gameplay state.
+  - [ ] P2.3.2 Renderer consumes resolved state but does not own it.
+  - [ ] P2.3.3 DOM reflects state and emits commands, but is not authoritative.
 
 Exit criteria:
-- Global fixed-step clock exists in core state.
-- Scheduler can provide routed time payloads.
-- Tick math is centralized and inspectable.
+- Core state model is complete enough that runtime snapshots are no longer needed for missing branches.
 
-### Phase 3: Movement Queue Extraction
+### Phase 3: Control/Input Ownership Migration
 
 Dependencies: Phase 2
 
-- [x] P3.1 Define movement queue runtime model
-  - [x] P3.1.1 Extend movement runtime state in [src/gameplay/movementSystem.js](C:/Users/Marc Bielert/Github/terrain/src/gameplay/movementSystem.js) or a dedicated helper module.
-  - [x] P3.1.2 Add:
-    - `queue`
-    - `currentStepIndex`
-    - `ticksRemaining`
-    - `active`
-    - optional route metadata for debug/status
-- [x] P3.2 Convert path pixels into movement steps
-  - [x] P3.2.1 Reuse the existing path extraction output.
-  - [x] P3.2.2 Reuse `computeMoveStepCost(...)` from [src/main.js](C:/Users/Marc Bielert/Github/terrain/src/main.js).
-  - [x] P3.2.3 Build step records with:
-    - `fromX`, `fromY`
-    - `toX`, `toY`
-    - `cost`
-    - `ticksRequired`
-    - `hoursRequired = cost * simTickHours`
-- [x] P3.3 Add movement queue lifecycle helpers
-  - [x] P3.3.1 Add queue replacement helper.
-  - [x] P3.3.2 Add queue cancel helper.
-  - [x] P3.3.3 Add queue clear-on-invalid-state helper if needed.
-- [x] P3.4 Mirror movement queue state into core gameplay state
-  - [x] P3.4.1 Expose enough snapshot state for UI/debug text.
-  - [x] P3.4.2 Keep runtime ownership clear so queue state does not drift from player position.
+- [ ] P3.1 Convert DOM controls from source-of-truth to state views
+  - [ ] P3.1.1 Time controls (`cycleSpeed`, `simTickHours`, routing controls).
+  - [ ] P3.1.2 Pathfinding controls.
+  - [ ] P3.1.3 Fog/cloud/water/parallax/lighting controls.
+  - [ ] P3.1.4 Swarm controls.
+- [ ] P3.2 Remove direct DOM reads from runtime-hot paths
+  - [ ] P3.2.1 Eliminate per-frame settings reads that should come from core state.
+  - [ ] P3.2.2 Eliminate system logic that derives behavior from raw inputs instead of state.
+  - [ ] P3.2.3 Keep only event-time UI reads inside bindings where unavoidable.
+- [ ] P3.3 Make UI update one-way
+  - [ ] P3.3.1 State change updates labels/inputs/UI.
+  - [ ] P3.3.2 User interaction dispatches command.
+  - [ ] P3.3.3 Remove implicit two-way parity behavior.
 
 Exit criteria:
-- A path can be converted into a deterministic movement queue.
-- Each movement edge has precomputed cost and in-game duration.
-- Queue lifecycle operations are explicit and testable.
+- Runtime logic no longer depends on DOM inputs as the primary state source.
 
-### Phase 4: Movement Execution Rewire
+### Phase 4: Simulation/System Ownership Migration
 
-Dependencies: Phase 3
+Dependencies: Phase 2, Phase 3
 
-- [x] P4.1 Execute movement using fixed simulation ticks
-  - [x] P4.1.1 Consume global fixed-step timing in movement system.
-  - [x] P4.1.2 Process movement using simulation ticks, not raw frame dt.
-  - [x] P4.1.3 Support multiple completed edges in one frame if enough ticks are processed.
-  - [x] P4.1.4 Preserve deterministic order when leftover ticks spill into the next edge.
-- [x] P4.2 Replace teleport click behavior
-  - [x] P4.2.1 Update pathfinding click handling in [src/gameplay/interactionCommands.js](C:/Users/Marc Bielert/Github/terrain/src/gameplay/interactionCommands.js).
-  - [x] P4.2.2 In pathfinding mode:
-    - compute path
-    - leave active queue unchanged if path is invalid
-    - cancel existing queue if valid replacement path exists
-    - enqueue the new steps
-  - [x] P4.2.3 Remove immediate position teleport in pathfinding mode.
-- [x] P4.3 Keep first-pass walking simple and stable
-  - [x] P4.3.1 Keep first implementation tile-step only.
-  - [x] P4.3.2 Do not add interpolation until fixed-step queue semantics are stable.
-- [x] P4.4 Add movement-facing status output
-  - [x] P4.4.1 Show movement active/idle state.
-  - [x] P4.4.2 Show queue length/current step cost/ticks remaining.
+- [ ] P4.1 Make scheduler/core systems read only canonical core state
+  - [ ] P4.1.1 Time system.
+  - [ ] P4.1.2 Lighting system.
+  - [ ] P4.1.3 Fog system.
+  - [ ] P4.1.4 Cloud system.
+  - [ ] P4.1.5 Water FX system.
+  - [ ] P4.1.6 Weather system.
+  - [ ] P4.1.7 Pathfinding/movement integration.
+- [ ] P4.2 Move remaining gameplay runtime ownership out of `main.js`
+  - [ ] P4.2.1 Player/gameplay state snapshots become authoritative state or system-owned runtime.
+  - [ ] P4.2.2 Swarm settings/runtime ownership boundaries are explicit and non-duplicated.
+  - [ ] P4.2.3 Camera state ownership is explicit and does not bounce between runtime and core.
+- [ ] P4.3 Stop per-frame snapshot feeding
+  - [ ] P4.3.1 Replace `updateCoreFrameSnapshot(...)` inputs with authoritative state access.
+  - [ ] P4.3.2 Ensure scheduler update context only carries transient frame values (`nowMs`, `dtSec`, routed time), not mirrored runtime state.
+  - [ ] P4.3.3 Delete remaining snapshot-only helper functions once no longer needed.
 
 Exit criteria:
-- Pathfinding mode no longer teleports the player.
-- Movement progresses through queued steps using simulation ticks.
-- `Day Speed = 0` freezes movement.
-- Higher `Day Speed` reduces real-time duration while preserving in-game duration.
+- Scheduler no longer depends on frame-by-frame mirrored runtime state.
 
-### Phase 5: Swarm Time Routing
+### Phase 5: Render/Input Decoupling
 
-Dependencies: Phase 2
+Dependencies: Phase 4
 
-- [x] P5.1 Audit swarm timing ownership
-  - [x] P5.1.1 Identify current wall-clock dt assumptions in swarm update.
-  - [x] P5.1.2 Identify where swarm speed multiplier is currently applied.
-- [x] P5.2 Route swarm through fixed-step/global timing
-  - [x] P5.2.1 Switch swarm update to routed timing source.
-  - [x] P5.2.2 Preserve current `simulationSpeed` as a local multiplier after routing choice.
-  - [x] P5.2.3 Default swarm routing to `global`.
-- [x] P5.3 Add detached swarm mode
-  - [x] P5.3.1 Ensure detached swarm continues independently when global time is paused.
-  - [x] P5.3.2 Keep current detached controls behavior coherent.
-- [-] P5.4 Expose swarm routing state
-  - [ ] P5.4.1 Mirror swarm routing into core gameplay/sim state.
-  - [x] P5.4.2 Add enough status/debug output for validation.
+- [ ] P5.1 Make render preparation consume resolved state, not raw inputs
+  - [ ] P5.1.1 Uniform input construction reads from core/system state.
+  - [ ] P5.1.2 Frame render state construction reads from core/system state.
+  - [ ] P5.1.3 Overlay rendering reads canonical gameplay/render state.
+- [ ] P5.2 Remove ad hoc render-time settings assembly where possible
+  - [ ] P5.2.1 Avoid recomputing settings snapshots from DOM every frame.
+  - [ ] P5.2.2 Keep only genuinely transient frame calculations in render loop.
+- [ ] P5.3 Reduce `main.js` to orchestration
+  - [ ] P5.3.1 Keep boot/setup.
+  - [ ] P5.3.2 Keep render loop orchestration.
+  - [ ] P5.3.3 Move runtime domain logic into modules when still embedded.
 
 Exit criteria:
-- Global swarm pauses and speeds up with global time.
-- Detached swarm continues independently.
-- Swarm speed multiplier does not double-apply incorrectly.
+- Render loop consumes canonical state with minimal state reconstruction.
 
-### Phase 6: Cloud Time Routing
+### Phase 6: Adapter Removal
 
-Dependencies: Phase 2
+Dependencies: Phases 3, 4, 5
 
-- [x] P6.1 Audit cloud animation timing path
-  - [x] P6.1.1 Identify all cloud shader uses of shared time uniforms.
-  - [x] P6.1.2 Identify any shared time coupling with water or other effects.
-- [x] P6.2 Route clouds to global simulation timing by default
-  - [x] P6.2.1 Feed cloud animation from routed cloud time.
-  - [x] P6.2.2 Preserve cloud speed sliders as local shaping controls.
-  - [x] P6.2.3 Default routing to `global`.
-- [x] P6.3 Add detached cloud mode
-  - [x] P6.3.1 Ensure detached clouds continue when global time is paused.
-  - [x] P6.3.2 Preserve manual testing value of existing cloud controls.
-- [-] P6.4 Rebalance cloud defaults
-  - [x] P6.4.1 Lower layer speed defaults from their current values.
-  - [ ] P6.4.2 Validate that default motion looks slower and more plausible.
+- [ ] P6.1 Remove runtime-to-core mirroring
+  - [ ] P6.1.1 Delete `src/core/frameSnapshot.js` usage from `src/main.js`.
+  - [ ] P6.1.2 Remove obsolete snapshot getters whose only role was frame mirroring.
+- [ ] P6.2 Remove core-to-runtime parity writes
+  - [ ] P6.2.1 Delete `src/core/runtimeParityAdapter.js` usage from `src/main.js`.
+  - [ ] P6.2.2 Remove remaining DOM/runtime write-back assumptions.
+- [ ] P6.3 Simplify interfaces after bridge removal
+  - [ ] P6.3.1 Remove dead command/state plumbing that existed only for parity.
+  - [ ] P6.3.2 Remove duplicate state derivations and duplicate caches.
 
 Exit criteria:
-- Global clouds freeze at `Day Speed = 0`.
-- Global clouds speed up with higher global time rate.
-- Detached clouds remain independently controllable.
-- Default cloud motion is slower than before.
+- No frame snapshot bridge remains.
+- No runtime parity bridge remains.
+- Core state is the one-way authoritative model.
 
-### Phase 7: Water Detached Time Separation
+### Phase 7: Verification and Documentation
 
-Dependencies: Phase 2, Phase 6 if time uniforms need splitting
+Dependencies: Phase 6
 
-- [-] P7.1 Make water timing explicitly detached
-  - [x] P7.1.1 Audit water animation timing usage.
-  - [x] P7.1.2 Route water to detached time by default.
-  - [ ] P7.1.3 Keep current visual behavior in detached mode.
-- [x] P7.2 Separate shared timing paths if required
-  - [x] P7.2.1 Split global and detached shader time uniforms if cloud/water currently share one path.
-  - [x] P7.2.2 Ensure water timing does not change accidentally when cloud timing is rewired.
-- [x] P7.3 Add optional water routing toggle
-  - [x] P7.3.1 Allow later testing in global mode.
-  - [x] P7.3.2 Keep default as detached.
-
-Exit criteria:
-- Water remains animated while global-bound systems are paused.
-- Water time ownership is explicit in architecture, not implicit by legacy wiring.
-
-### Phase 8: Time Routing UI & Persistence
-
-Dependencies: Phases 2, 4, 5, 6, 7
-
-- [x] P8.1 Add routing controls to UI
-  - [x] P8.1.1 Add `Global/Detached` controls for swarm.
-  - [x] P8.1.2 Add `Global/Detached` controls for clouds.
-  - [x] P8.1.3 Add `Global/Detached` controls for water.
-  - [x] P8.1.4 Keep movement implicitly global in first pass unless implementation proves a toggle is needed.
-- [-] P8.2 Add timing debug/status UI
-  - [x] P8.2.1 Show current movement queue/debug state.
-  - [ ] P8.2.2 Show effective routing mode where useful.
-  - [x] P8.2.3 Optionally show sim tick size for inspection.
-- [x] P8.3 Persist timing settings
-  - [x] P8.3.1 Add sim tick size to map settings.
-  - [x] P8.3.2 Persist cloud routing in cloud settings.
-  - [x] P8.3.3 Persist swarm routing in swarm settings.
-  - [x] P8.3.4 Persist water routing in water settings.
-  - [x] P8.3.5 Preserve backward compatibility when new keys are absent.
-- [x] P8.4 Wire commands/settings contracts
-  - [x] P8.4.1 Extend settings registry contracts.
-  - [x] P8.4.2 Add command handlers for routing updates.
-  - [x] P8.4.3 Keep core state as the source of truth.
+- [ ] P7.1 Behavior verification
+  - [ ] P7.1.1 Verify time routing behavior still matches current feature behavior.
+  - [ ] P7.1.2 Verify movement queue behavior still matches shipped behavior.
+  - [ ] P7.1.3 Verify swarm/cloud smoothing still behaves correctly.
+  - [ ] P7.1.4 Verify map save/load still preserves settings.
+- [ ] P7.2 Performance verification
+  - [ ] P7.2.1 Check that frame snapshot/parity churn is gone.
+  - [ ] P7.2.2 Re-profile periodic hitching after bridge removal.
+  - [ ] P7.2.3 Remove any remaining high-frequency DOM/state churn found during validation.
+- [ ] P7.3 Documentation updates
+  - [ ] P7.3.1 Update `README.md` to describe final runtime architecture and controls.
+  - [ ] P7.3.2 Update `AI_CONTEXT.md` to match final ownership model.
+  - [ ] P7.3.3 Update `AGENTS.md` if workflow/runtime notes changed.
+- [ ] P7.4 Task-list closure
+  - [ ] P7.4.1 Replace hybrid-state note with final-state note.
+  - [ ] P7.4.2 Mark migration complete only after adapters are actually removed.
 
 Exit criteria:
-- Routing choices are user-visible and persistent.
-- Map-level simulation tick size is configurable via settings.
-- Older map JSON still loads with safe defaults.
+- Behavior matches expectations.
+- Performance is revalidated after simplification.
+- Docs match the final architecture.
 
-### Phase 9: Hardening & Documentation
-
-Dependencies: Phases 2-8
-
-- [-] P9.1 Add targeted test coverage
-  - [x] P9.1.1 Test tick math and tick accumulation determinism.
-  - [x] P9.1.2 Test movement queue cost-to-time conversion.
-  - [x] P9.1.3 Test movement queue replacement/cancel behavior.
-  - [ ] P9.1.4 Test routing defaults and missing-settings fallback behavior.
-- [ ] P9.2 Run compatibility verification
-  - [ ] P9.2.1 Verify path preview still works.
-  - [ ] P9.2.2 Verify save/load of all existing settings still works.
-  - [ ] P9.2.3 Verify global pause/speed behavior across movement, swarm, clouds, water.
-- [ ] P9.3 Update docs
-  - [ ] P9.3.1 Update [README.md](C:/Users/Marc Bielert/Github/terrain/README.md) timing and controls notes.
-  - [ ] P9.3.2 Update [AI_CONTEXT.md](C:/Users/Marc Bielert/Github/terrain/AI_CONTEXT.md) with timing ownership and walking semantics.
-  - [ ] P9.3.3 Update [AGENTS.md](C:/Users/Marc Bielert/Github/terrain/AGENTS.md) timing model and map-setting expectations.
-- [ ] P9.4 Cleanup
-  - [ ] P9.4.1 Remove obsolete teleport-only logic paths.
-  - [ ] P9.4.2 Remove duplicate wall-clock timing reads for globally routed systems.
-
-Exit criteria:
-- Tests cover the highest-risk timing math and queue behavior.
-- Docs match final behavior.
-- No duplicate time ownership remains for converted systems.
-
-## Dependency Map (High Level)
+## Dependency Map
 
 - Phase 1 -> Phase 2
-- Phase 2 -> Phase 3, 5, 6, 7
-- Phase 3 -> Phase 4
-- Phase 4 + 5 + 6 + 7 -> Phase 8
-- Phases 2-8 -> Phase 9
+- Phase 2 -> Phase 3, Phase 4
+- Phase 3 + Phase 4 -> Phase 5
+- Phases 3, 4, 5 -> Phase 6
+- Phase 6 -> Phase 7
 
 Critical path:
-- P1 -> P2 -> P3 -> P4 -> P8 -> P9
+- P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7
 
-## Compatibility Checklist (Must Pass Before Merge)
+## Completion Definition
 
-- [ ] `Day Speed = 0` freezes movement in global mode.
-- [ ] `Day Speed = 0` freezes swarm in global mode.
-- [ ] `Day Speed = 0` freezes clouds in global mode.
-- [ ] `Day Speed = 0` does not freeze water in detached mode.
-- [ ] Higher `Day Speed` speeds up movement in real time while preserving in-game duration.
-- [ ] Higher `Day Speed` speeds up swarm in real time.
-- [ ] Higher `Day Speed` speeds up clouds in real time.
-- [x] Clicking a new destination while moving cancels the current route and replaces it.
-- [x] Invalid/unreachable click does not discard an active valid queue unless intentionally changed later.
-- [ ] Map save/load preserves new timing settings and older JSON still loads safely.
-- [ ] Existing pathfinding preview still works.
-- [ ] Existing swarm controls still work in detached mode.
-- [ ] Existing water controls still work in detached mode.
+Migration is only complete when all of the following are true:
+- Core state is the authoritative runtime state model.
+- Scheduler systems consume canonical state directly.
+- Render loop does not rebuild core state from runtime snapshots each frame.
+- DOM controls are not used as runtime truth.
+- `src/core/frameSnapshot.js` is unused and removed.
+- `src/core/runtimeParityAdapter.js` is unused and removed.
+- `src/main.js` is reduced to composition/orchestration rather than mixed ownership.
 
-## Testing Strategy (Pragmatic)
+## Immediate Next Work
 
-Mandatory:
-- Deterministic tick math tests.
-- Deterministic movement queue math tests.
-- Manual compatibility checklist for pause/speed/routing.
+Recommended next sequence:
+- [ ] N1 Finish Phase 1 ownership map.
+- [ ] N2 Start Phase 2 by auditing missing canonical state branches.
+- [ ] N3 Choose the first concrete ownership slice to migrate fully:
+  - render FX controls
+  - pathfinding controls
+  - swarm controls
 
-Optional early, required before final completion:
-- Focused visual checks for cloud and water timing separation.
+Recommended first slice:
+- render FX controls
 
-## Suggested File Touch Map
-
-- [src/core/state.js](C:/Users/Marc Bielert/Github/terrain/src/core/state.js)
-- [src/core/scheduler.js](C:/Users/Marc Bielert/Github/terrain/src/core/scheduler.js)
-- [src/core/frameSnapshot.js](C:/Users/Marc Bielert/Github/terrain/src/core/frameSnapshot.js)
-- [src/core/registerMainCommands.js](C:/Users/Marc Bielert/Github/terrain/src/core/registerMainCommands.js)
-- [src/core/runtimeParityAdapter.js](C:/Users/Marc Bielert/Github/terrain/src/core/runtimeParityAdapter.js)
-- `src/core/timeRouter.js` new
-- [src/gameplay/movementSystem.js](C:/Users/Marc Bielert/Github/terrain/src/gameplay/movementSystem.js)
-- [src/gameplay/interactionCommands.js](C:/Users/Marc Bielert/Github/terrain/src/gameplay/interactionCommands.js)
-- [src/sim/timeSystem.js](C:/Users/Marc Bielert/Github/terrain/src/sim/timeSystem.js)
-- [src/sim/cloudSystem.js](C:/Users/Marc Bielert/Github/terrain/src/sim/cloudSystem.js)
-- [src/sim/weatherSystem.js](C:/Users/Marc Bielert/Github/terrain/src/sim/weatherSystem.js)
-- [src/render/frameRenderState.js](C:/Users/Marc Bielert/Github/terrain/src/render/frameRenderState.js)
-- [src/render/uniformInputState.js](C:/Users/Marc Bielert/Github/terrain/src/render/uniformInputState.js)
-- [src/main.js](C:/Users/Marc Bielert/Github/terrain/src/main.js)
-- [index.html](C:/Users/Marc Bielert/Github/terrain/index.html)
-- [README.md](C:/Users/Marc Bielert/Github/terrain/README.md)
-- [AI_CONTEXT.md](C:/Users/Marc Bielert/Github/terrain/AI_CONTEXT.md)
-- [AGENTS.md](C:/Users/Marc Bielert/Github/terrain/AGENTS.md)
-
-## Open Questions
-
-- [ ] OQ1 Decide whether first walking pass remains tile-step only or needs immediate interpolation.
-- [ ] OQ2 Decide whether movement needs a user-facing routing toggle in the first implementation, or remains implicitly global.
-- [ ] OQ3 Confirm when weather should join the routing system after the current pass.
-- [ ] OQ4 Confirm point-light flicker should stay out of this task list until its separate visual rework.
-
-Resolved notes:
-- Sim tick size should be configurable via map settings.
-- Weather is intended to join the routing model later.
-- Point-light flicker is expected to become visual-only later, similar to water.
+Reason:
+- They have high runtime read frequency.
+- They are a direct source of current snapshot/parity churn.
+- They are lower-risk than camera/gameplay ownership changes.
 
 ## Session Log
 
@@ -445,11 +306,16 @@ Resolved notes:
     - renderer vs fixed-step split
   - Updated the plan so map-level sim tick size is a task item under persistence/settings instead of an open-ended note.
   - Implementation started on branch `time-wiring`:
-    - Added core fixed-step time router foundation (`src/core/timeRouter.js`) and wired frame-time routing into scheduler context.
-    - Added routing/tick state to core time state and command plumbing for `simTickHours` + per-system routing.
-    - Replaced pathfinding teleport with movement queue scheduling + fixed-tick execution semantics.
-    - Added initial routing UI/persistence controls for swarm/cloud/water and sim tick.
-    - Split cloud/water shader time inputs so cloud can follow routed global time while water remains detached by default.
-    - Added targeted tests for time-router math and movement queue tick execution.
-  - Updated task status markers across phases to reflect implemented vs pending work from code + tests.
+    - added core fixed-step time router foundation (`src/core/timeRouter.js`) and wired frame-time routing into scheduler context
+    - added routing/tick state to core time state and command plumbing for `simTickHours` + per-system routing
+    - replaced pathfinding teleport with movement queue scheduling + fixed-tick execution semantics
+    - added initial routing UI/persistence controls for swarm/cloud/water and sim tick
+    - split cloud/water shader time inputs so cloud can follow routed global time while water remains detached by default
+    - added targeted tests for time-router math and movement queue tick execution
   - Confirmed baseline global timing mapping stays in place for now (`0.08 h/s` reference).
+  - Clarified that time wiring is implemented on top of a hybrid runtime, not a fully completed architecture migration.
+  - Replaced the old feature-only checklist with a migration-completion plan:
+    - documented current hybrid architecture
+    - defined final single-source-of-truth target
+    - added ordered migration phases, subtasks, and dependencies
+    - defined completion criteria for removing `frameSnapshot` and `runtimeParityAdapter`

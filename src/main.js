@@ -2871,10 +2871,19 @@ const swarmRenderState = {
   prevX: new Float32Array(0),
   prevY: new Float32Array(0),
   prevZ: new Float32Array(0),
-  prevHawks: [],
+  prevHawkX: new Float32Array(0),
+  prevHawkY: new Float32Array(0),
+  prevHawkZ: new Float32Array(0),
   alpha: 1,
   hasPrev: false,
 };
+const swarmFollowAgentScratch = { x: 0, y: 0, z: 0 };
+const swarmFollowHawkScratch = { x: 0, y: 0, z: 0 };
+const swarmOverlayAgentScratch = { x: 0, y: 0, z: 0 };
+const swarmOverlayHawkScratch = { x: 0, y: 0, z: 0 };
+const swarmGizmoHawkScratch = { x: 0, y: 0, z: 0 };
+const swarmLitAgentScratch = { x: 0, y: 0, z: 0 };
+const swarmLitHawkScratch = { x: 0, y: 0, z: 0 };
 
 function invalidateSwarmInterpolation() {
   swarmRenderState.hasPrev = false;
@@ -5171,11 +5180,18 @@ function captureSwarmRenderPreviousState() {
     swarmRenderState.prevY.set(swarmState.y);
     swarmRenderState.prevZ.set(swarmState.z);
   }
-  swarmRenderState.prevHawks = swarmState.hawks.map((hawk) => ({
-    x: hawk.x,
-    y: hawk.y,
-    z: hawk.z,
-  }));
+  const hawkCount = swarmState.hawks.length;
+  if (swarmRenderState.prevHawkX.length !== hawkCount) {
+    swarmRenderState.prevHawkX = new Float32Array(hawkCount);
+    swarmRenderState.prevHawkY = new Float32Array(hawkCount);
+    swarmRenderState.prevHawkZ = new Float32Array(hawkCount);
+  }
+  for (let i = 0; i < hawkCount; i++) {
+    const hawk = swarmState.hawks[i];
+    swarmRenderState.prevHawkX[i] = hawk.x;
+    swarmRenderState.prevHawkY[i] = hawk.y;
+    swarmRenderState.prevHawkZ[i] = hawk.z;
+  }
   swarmRenderState.hasPrev = true;
 }
 
@@ -5183,36 +5199,39 @@ function getSwarmInterpolationAlpha() {
   return clamp(Number(swarmRenderState.alpha), 0, 1);
 }
 
-function getInterpolatedSwarmAgentPos(index) {
-  const x = swarmState.x[index];
-  const y = swarmState.y[index];
-  const z = swarmState.z[index];
+function writeInterpolatedSwarmAgentPos(index, out) {
+  out.x = swarmState.x[index];
+  out.y = swarmState.y[index];
+  out.z = swarmState.z[index];
   if (!swarmRenderState.hasPrev || index < 0 || index >= swarmRenderState.prevX.length) {
-    return { x, y, z };
+    return out;
   }
   const a = getSwarmInterpolationAlpha();
-  return {
-    x: swarmRenderState.prevX[index] + (x - swarmRenderState.prevX[index]) * a,
-    y: swarmRenderState.prevY[index] + (y - swarmRenderState.prevY[index]) * a,
-    z: swarmRenderState.prevZ[index] + (z - swarmRenderState.prevZ[index]) * a,
-  };
+  out.x = swarmRenderState.prevX[index] + (out.x - swarmRenderState.prevX[index]) * a;
+  out.y = swarmRenderState.prevY[index] + (out.y - swarmRenderState.prevY[index]) * a;
+  out.z = swarmRenderState.prevZ[index] + (out.z - swarmRenderState.prevZ[index]) * a;
+  return out;
 }
 
-function getInterpolatedSwarmHawkPos(index) {
+function writeInterpolatedSwarmHawkPos(index, out) {
   const hawk = swarmState.hawks[index];
   if (!hawk) {
-    return { x: 0, y: 0, z: 0 };
+    out.x = 0;
+    out.y = 0;
+    out.z = 0;
+    return out;
   }
-  if (!swarmRenderState.hasPrev || index < 0 || index >= swarmRenderState.prevHawks.length) {
-    return { x: hawk.x, y: hawk.y, z: hawk.z };
+  out.x = hawk.x;
+  out.y = hawk.y;
+  out.z = hawk.z;
+  if (!swarmRenderState.hasPrev || index < 0 || index >= swarmRenderState.prevHawkX.length) {
+    return out;
   }
-  const prev = swarmRenderState.prevHawks[index];
   const a = getSwarmInterpolationAlpha();
-  return {
-    x: prev.x + (hawk.x - prev.x) * a,
-    y: prev.y + (hawk.y - prev.y) * a,
-    z: prev.z + (hawk.z - prev.z) * a,
-  };
+  out.x = swarmRenderState.prevHawkX[index] + (hawk.x - swarmRenderState.prevHawkX[index]) * a;
+  out.y = swarmRenderState.prevHawkY[index] + (hawk.y - swarmRenderState.prevHawkY[index]) * a;
+  out.z = swarmRenderState.prevHawkZ[index] + (hawk.z - swarmRenderState.prevHawkZ[index]) * a;
+  return out;
 }
 
 function updateSwarm(nowMs, dtSec, routedTiming) {
@@ -5268,7 +5287,7 @@ function updateSwarmFollowCamera() {
     }
     if (swarmFollowState.hawkIndex < 0) return;
     const hawk = swarmState.hawks[swarmFollowState.hawkIndex];
-    const hawkPos = getInterpolatedSwarmHawkPos(swarmFollowState.hawkIndex);
+    const hawkPos = writeInterpolatedSwarmHawkPos(swarmFollowState.hawkIndex, swarmFollowHawkScratch);
     const hawkWorld = mapCoordToWorld(hawkPos.x, hawkPos.y);
     panWorld.x = hawkWorld.x;
     panWorld.y = hawkWorld.y;
@@ -5289,7 +5308,7 @@ function updateSwarmFollowCamera() {
   }
   if (swarmFollowState.agentIndex < 0) return;
   const followIndex = swarmFollowState.agentIndex;
-  const agentPos = getInterpolatedSwarmAgentPos(followIndex);
+  const agentPos = writeInterpolatedSwarmAgentPos(followIndex, swarmFollowAgentScratch);
   const world = mapCoordToWorld(agentPos.x, agentPos.y);
   panWorld.x = world.x;
   panWorld.y = world.y;
@@ -5307,10 +5326,11 @@ function updateSwarmFollowCamera() {
 
 function drawSwarmUnlitOverlay(settings) {
   const tintAlpha = settings.showTerrainInSwarm ? 0.55 : 0.95;
+  const agentPos = swarmOverlayAgentScratch;
   for (let i = 0; i < swarmState.count; i++) {
-    const pos = getInterpolatedSwarmAgentPos(i);
-    const mapX = pos.x;
-    const mapY = pos.y;
+    writeInterpolatedSwarmAgentPos(i, agentPos);
+    const mapX = agentPos.x;
+    const mapY = agentPos.y;
     const centerWorld = mapCoordToWorld(mapX, mapY);
     const rightWorld = mapCoordToWorld(mapX + 1, mapY);
     const downWorld = mapCoordToWorld(mapX, mapY + 1);
@@ -5319,14 +5339,14 @@ function drawSwarmUnlitOverlay(settings) {
     const down = worldToScreen(downWorld);
     const texelW = Math.max(0.25, Math.abs(right.x - center.x));
     const texelH = Math.max(0.25, Math.abs(down.y - center.y));
-    const z = clamp(pos.z / SWARM_Z_MAX, 0, 1);
+    const z = clamp(agentPos.z / SWARM_Z_MAX, 0, 1);
     const lum = Math.round((0.28 + z * 0.72) * 255);
     overlayCtx.fillStyle = `rgba(${lum}, ${lum}, ${lum}, ${tintAlpha})`;
     overlayCtx.fillRect(center.x - texelW * 0.5, center.y - texelH * 0.5, texelW, texelH);
   }
 
   if (settings.useHawk && swarmState.hawks.length > 0) {
-    const hawk0 = getInterpolatedSwarmHawkPos(0);
+    const hawk0 = writeInterpolatedSwarmHawkPos(0, swarmOverlayHawkScratch);
     const hawkCenterWorld = mapCoordToWorld(hawk0.x, hawk0.y);
     const hawkRightWorld = mapCoordToWorld(hawk0.x + 1, hawk0.y);
     const hawkDownWorld = mapCoordToWorld(hawk0.x, hawk0.y + 1);
@@ -5339,7 +5359,7 @@ function drawSwarmUnlitOverlay(settings) {
     const hawkAlpha = settings.showTerrainInSwarm ? 0.85 : 1.0;
     overlayCtx.fillStyle = `rgba(${hawkRgb[0]}, ${hawkRgb[1]}, ${hawkRgb[2]}, ${hawkAlpha})`;
     for (let i = 0; i < swarmState.hawks.length; i++) {
-      const hawk = getInterpolatedSwarmHawkPos(i);
+      const hawk = writeInterpolatedSwarmHawkPos(i, swarmOverlayHawkScratch);
       const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
       const center = worldToScreen(centerWorld);
       overlayCtx.fillRect(center.x - w * 0.5, center.y - h * 0.5, w, h);
@@ -5351,7 +5371,7 @@ function drawSwarmGizmos(settings) {
   if (settings.followHawkRangeGizmo && swarmFollowState.enabled && swarmFollowState.targetType === "hawk") {
     const followHawkIndex = swarmFollowState.hawkIndex;
     if (Number.isInteger(followHawkIndex) && followHawkIndex >= 0 && followHawkIndex < swarmState.hawks.length) {
-      const hawk = getInterpolatedSwarmHawkPos(followHawkIndex);
+      const hawk = writeInterpolatedSwarmHawkPos(followHawkIndex, swarmGizmoHawkScratch);
       const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
       const edgeWorld = mapCoordToWorld(hawk.x + settings.hawkTargetRange, hawk.y);
       const centerScreen = worldToScreen(centerWorld);
@@ -5394,11 +5414,12 @@ function renderSwarmLit(params, timeState, settings) {
   const useAgentRayShadows = shadowsToggle.checked;
   const blockedShadowFactor = 1 - clamp(Number(shadowStrengthInput.value), 0, 1);
   let writeIndex = 0;
+  const agentPos = swarmLitAgentScratch;
   for (let i = 0; i < swarmState.count; i++) {
-    const pos = getInterpolatedSwarmAgentPos(i);
-    const mapX = pos.x;
-    const mapY = pos.y;
-    const agentZ = pos.z;
+    writeInterpolatedSwarmAgentPos(i, agentPos);
+    const mapX = agentPos.x;
+    const mapY = agentPos.y;
+    const agentZ = agentPos.z;
     const sunShadow = useAgentRayShadows
       ? computeSwarmDirectionalShadow(mapX, mapY, agentZ, params.sunDir, blockedShadowFactor)
       : 1;
@@ -5413,8 +5434,9 @@ function renderSwarmLit(params, timeState, settings) {
     swarmPointVertexData[writeIndex++] = moonShadow;
   }
   if (settings.useHawk) {
+    const hawkPos = swarmLitHawkScratch;
     for (let i = 0; i < swarmState.hawks.length; i++) {
-      const hawkPos = getInterpolatedSwarmHawkPos(i);
+      writeInterpolatedSwarmHawkPos(i, hawkPos);
       const sunShadow = useAgentRayShadows
         ? computeSwarmDirectionalShadow(hawkPos.x, hawkPos.y, hawkPos.z, params.sunDir, blockedShadowFactor)
         : 1;
@@ -5880,24 +5902,42 @@ function getCurrentPathMetrics() {
 function updateInfoPanel() {
   if (isSwarmEnabled()) {
     const cursorMode = getSwarmCursorMode();
-    playerInfoEl.textContent = `Swarm: ${swarmState.count} agents`;
-    pathInfoEl.textContent = `Swarm Cursor: ${cursorMode}${swarmCursorState.active ? " (active)" : ""}`;
+    const nextPlayerInfo = `Swarm: ${swarmState.count} agents`;
+    const nextPathInfo = `Swarm Cursor: ${cursorMode}${swarmCursorState.active ? " (active)" : ""}`;
+    if (playerInfoEl.textContent !== nextPlayerInfo) {
+      playerInfoEl.textContent = nextPlayerInfo;
+    }
+    if (pathInfoEl.textContent !== nextPathInfo) {
+      pathInfoEl.textContent = nextPathInfo;
+    }
     return;
   }
-  playerInfoEl.textContent = `Player: (${playerState.pixelX}, ${playerState.pixelY})`;
+  const nextPlayerInfo = `Player: (${playerState.pixelX}, ${playerState.pixelY})`;
+  if (playerInfoEl.textContent !== nextPlayerInfo) {
+    playerInfoEl.textContent = nextPlayerInfo;
+  }
   const metrics = getCurrentPathMetrics();
   const movementSnapshot = typeof movementSystem.getSnapshot === "function"
     ? movementSystem.getSnapshot()
     : null;
   if (movementSnapshot && movementSnapshot.active) {
-    pathInfoEl.textContent = `Move: active | q ${movementSnapshot.queueLength} | step ${movementSnapshot.currentStepIndex + 1} | ticks ${movementSnapshot.ticksRemaining} | cost ${movementSnapshot.currentStepCost.toFixed(2)}`;
+    const nextPathInfo = `Move: active | q ${movementSnapshot.queueLength} | step ${movementSnapshot.currentStepIndex + 1} | ticks ${movementSnapshot.ticksRemaining} | cost ${movementSnapshot.currentStepCost.toFixed(2)}`;
+    if (pathInfoEl.textContent !== nextPathInfo) {
+      pathInfoEl.textContent = nextPathInfo;
+    }
     return;
   }
   if (!metrics) {
-    pathInfoEl.textContent = "Path: len -- | cost -- | avg --";
+    const nextPathInfo = "Path: len -- | cost -- | avg --";
+    if (pathInfoEl.textContent !== nextPathInfo) {
+      pathInfoEl.textContent = nextPathInfo;
+    }
     return;
   }
-  pathInfoEl.textContent = `Path: len ${metrics.steps} | cost ${metrics.totalCost.toFixed(2)} | avg ${metrics.avgPerStep.toFixed(2)}`;
+  const nextPathInfo = `Path: len ${metrics.steps} | cost ${metrics.totalCost.toFixed(2)} | avg ${metrics.avgPerStep.toFixed(2)}`;
+  if (pathInfoEl.textContent !== nextPathInfo) {
+    pathInfoEl.textContent = nextPathInfo;
+  }
 }
 
 function syncSwarmStatsPanelVisibility() {
@@ -5909,14 +5949,28 @@ function syncSwarmStatsPanelVisibility() {
 
 function updateSwarmStatsPanel() {
   syncSwarmStatsPanelVisibility();
-  swarmStatsBirdsValue.textContent = String(swarmState.count);
-  swarmStatsHawksValue.textContent = String(swarmState.hawks.length);
-  swarmStatsStepsValue.textContent = Math.round(Math.max(0, swarmState.stepCount)).toLocaleString();
+  const birdsText = String(swarmState.count);
+  const hawksText = String(swarmState.hawks.length);
+  const stepsText = Math.round(Math.max(0, swarmState.stepCount)).toLocaleString();
+  if (swarmStatsBirdsValue.textContent !== birdsText) {
+    swarmStatsBirdsValue.textContent = birdsText;
+  }
+  if (swarmStatsHawksValue.textContent !== hawksText) {
+    swarmStatsHawksValue.textContent = hawksText;
+  }
+  if (swarmStatsStepsValue.textContent !== stepsText) {
+    swarmStatsStepsValue.textContent = stepsText;
+  }
   if (swarmState.hawkKillCount > 0) {
     const avg = swarmState.hawkKillIntervalSum / swarmState.hawkKillCount;
-    swarmStatsAvgHawkKillValue.textContent = `${avg.toFixed(1)} ticks`;
+    const avgText = `${avg.toFixed(1)} ticks`;
+    if (swarmStatsAvgHawkKillValue.textContent !== avgText) {
+      swarmStatsAvgHawkKillValue.textContent = avgText;
+    }
   } else {
-    swarmStatsAvgHawkKillValue.textContent = "--";
+    if (swarmStatsAvgHawkKillValue.textContent !== "--") {
+      swarmStatsAvgHawkKillValue.textContent = "--";
+    }
   }
 }
 
@@ -6081,6 +6135,21 @@ const overlayHooks = createOverlayHooks({
   updateSwarm,
   updateSwarmFollowCamera,
   drawOverlay,
+  shouldAnimateOverlay: () => {
+    if (!isSwarmEnabled()) {
+      return false;
+    }
+    const settings = getSwarmSettings();
+    if (!settings.useLitSwarm) {
+      return true;
+    }
+    return Boolean(
+      (swarmCursorState.active && settings.cursorMode !== "none")
+      || (settings.followHawkRangeGizmo
+        && swarmFollowState.enabled
+        && swarmFollowState.targetType === "hawk")
+    );
+  },
   isOverlayDirty: () => overlayDirty,
   clearOverlayDirty: () => {
     overlayDirty = false;
@@ -6857,7 +6926,10 @@ function render(nowMs) {
   const simTick = normalizeSimTickHours(systemState.time && systemState.time.simTickHours != null
     ? systemState.time.simTickHours
     : simTickHoursInput.value);
-  cycleInfoEl.textContent = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeed.toFixed(2)} h/s | Tick: ${simTick.toFixed(3)}h`;
+  const nextCycleInfo = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeed.toFixed(2)} h/s | Tick: ${simTick.toFixed(3)}h`;
+  if (cycleInfoEl.textContent !== nextCycleInfo) {
+    cycleInfoEl.textContent = nextCycleInfo;
+  }
   updateInfoPanel();
   updateSwarmStatsPanel();
   updateCycleHourLabel();
