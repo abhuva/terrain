@@ -22,6 +22,23 @@ export function applyRuntimeParityFromCoreState(coreState, deps) {
     deps.cycleSpeedInput.value = String(clamp(clock.timeScale, 0, 1));
   }
 
+  const time = coreState && coreState.systems && coreState.systems.time ? coreState.systems.time : null;
+  if (time) {
+    if (Number.isFinite(time.simTickHours) && deps.simTickHoursInput) {
+      deps.simTickHoursInput.value = String(clamp(time.simTickHours, 0.001, 0.1));
+    }
+    const routing = time.routing || {};
+    if (deps.swarmTimeRoutingInput && typeof routing.swarm === "string") {
+      deps.swarmTimeRoutingInput.value = routing.swarm === "detached" ? "detached" : "global";
+    }
+    if (deps.cloudTimeRoutingInput && typeof routing.clouds === "string") {
+      deps.cloudTimeRoutingInput.value = routing.clouds === "detached" ? "detached" : "global";
+    }
+    if (deps.waterTimeRoutingInput && typeof routing.water === "string") {
+      deps.waterTimeRoutingInput.value = routing.water === "global" ? "global" : "detached";
+    }
+  }
+
   if (!gameplay) return;
 
   if (typeof gameplay.interactionMode === "string" && typeof deps.setInteractionMode === "function") {

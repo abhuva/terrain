@@ -69,4 +69,24 @@ export function bindRenderFxControls(deps) {
       dispatchRenderFxChange(binding.section, binding.options || {});
     });
   }
+
+  if (deps.cloudTimeRoutingInput) {
+    deps.cloudTimeRoutingInput.addEventListener("change", () => {
+      deps.dispatchCoreCommand({
+        type: "core/time/setRouting",
+        target: "clouds",
+        mode: deps.cloudTimeRoutingInput.value,
+      });
+    });
+  }
+
+  if (deps.waterTimeRoutingInput) {
+    deps.waterTimeRoutingInput.addEventListener("change", () => {
+      deps.dispatchCoreCommand({
+        type: "core/time/setRouting",
+        target: "water",
+        mode: deps.waterTimeRoutingInput.value,
+      });
+    });
+  }
 }

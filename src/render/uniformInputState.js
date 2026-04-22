@@ -5,6 +5,8 @@ export function buildUniformInputState(deps) {
   const cloud = deps.cloudState || null;
   const water = deps.waterFxState || null;
   const weather = deps.weatherState || null;
+  const cloudTimeSec = Number.isFinite(Number(deps.cloudTimeSec)) ? Number(deps.cloudTimeSec) : 0;
+  const waterTimeSec = Number.isFinite(Number(deps.waterTimeSec)) ? Number(deps.waterTimeSec) : 0;
 
   return {
     shadowBlurPx: deps.clamp(Number(deps.shadowBlurInput.value), 0, 3),
@@ -58,6 +60,8 @@ export function buildUniformInputState(deps) {
     waterReflectivity: water ? water.waterReflectivity : deps.clamp(Number(deps.waterReflectivityInput.value), 0, 1),
     waterTintColor: water ? water.waterTintColor : deps.hexToRgb01(deps.waterTintColorInput.value),
     waterTintStrength: water ? water.waterTintStrength : deps.clamp(Number(deps.waterTintStrengthInput.value), 0, 1),
+    cloudTimeSec,
+    waterTimeSec,
     weatherType: weather ? weather.type : "clear",
     weatherIntensity: weather ? weather.intensity : 0,
     weatherWindDirX: weather ? weather.windDirX : 1,

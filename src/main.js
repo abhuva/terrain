@@ -3,6 +3,14 @@ import { bindPointLightWorker } from "./core/pointLightWorkerBinding.js";
 import { registerMainCommands } from "./core/registerMainCommands.js";
 import { updateCoreFrameSnapshot } from "./core/frameSnapshot.js";
 import { applyRuntimeParityFromCoreState } from "./core/runtimeParityAdapter.js";
+import {
+  SIM_SECONDS_PER_HOUR,
+  buildFrameTimeState,
+  getRoutedSystemTime,
+  normalizeRoutingMode,
+  normalizeSimTickHours,
+  normalizeTimeRouting,
+} from "./core/timeRouter.js";
 import { normalizeRuntimeMode, canUseInteractionMode as canUseModeInteraction, canUseTopic as canUseModeTopic } from "./core/modeCapabilities.js";
 import {
   DEFAULT_LIGHTING_SETTINGS,
@@ -119,6 +127,7 @@ const swarmAgentCountInput = getRequiredElementById("swarmAgentCount");
 const swarmAgentCountValue = getRequiredElementById("swarmAgentCountValue");
 const swarmUpdateIntervalInput = getRequiredElementById("swarmUpdateInterval");
 const swarmUpdateIntervalValue = getRequiredElementById("swarmUpdateIntervalValue");
+const swarmTimeRoutingInput = getRequiredElementById("swarmTimeRouting");
 const swarmMaxSpeedInput = getRequiredElementById("swarmMaxSpeed");
 const swarmMaxSpeedValue = getRequiredElementById("swarmMaxSpeedValue");
 const swarmSteeringMaxInput = getRequiredElementById("swarmSteeringMax");
@@ -170,6 +179,8 @@ const swarmStatsHawksValue = getRequiredElementById("swarmStatsHawksValue");
 const swarmStatsStepsValue = getRequiredElementById("swarmStatsStepsValue");
 const swarmStatsAvgHawkKillValue = getRequiredElementById("swarmStatsAvgHawkKillValue");
 const cycleSpeedInput = getRequiredElementById("cycleSpeed");
+const simTickHoursInput = getRequiredElementById("simTickHours");
+const simTickHoursValue = getRequiredElementById("simTickHoursValue");
 const cycleHourInput = getRequiredElementById("cycleHour");
 const cycleHourValue = getRequiredElementById("cycleHourValue");
 const shadowsToggle = getRequiredElementById("shadowsToggle");
@@ -201,6 +212,7 @@ const cloudSpeed1Input = getRequiredElementById("cloudSpeed1");
 const cloudSpeed1Value = getRequiredElementById("cloudSpeed1Value");
 const cloudSpeed2Input = getRequiredElementById("cloudSpeed2");
 const cloudSpeed2Value = getRequiredElementById("cloudSpeed2Value");
+const cloudTimeRoutingInput = getRequiredElementById("cloudTimeRouting");
 const cloudSunParallaxInput = getRequiredElementById("cloudSunParallax");
 const cloudSunParallaxValue = getRequiredElementById("cloudSunParallaxValue");
 const cloudSunProjectToggle = getRequiredElementById("cloudSunProjectToggle");
@@ -247,6 +259,7 @@ const waterReflectivityValue = getRequiredElementById("waterReflectivityValue");
 const waterTintColorInput = getRequiredElementById("waterTintColor");
 const waterTintStrengthInput = getRequiredElementById("waterTintStrength");
 const waterTintStrengthValue = getRequiredElementById("waterTintStrengthValue");
+const waterTimeRoutingInput = getRequiredElementById("waterTimeRouting");
 const heightScaleInput = getRequiredElementById("heightScale");
 const shadowStrengthInput = getRequiredElementById("shadowStrength");
 const shadowBlurInput = getRequiredElementById("shadowBlur");
@@ -363,6 +376,8 @@ uniform float uMapAspect;
 uniform vec2 uViewHalfExtents;
 uniform vec2 uPanWorld;
 uniform float uTimeSec;
+uniform float uCloudTimeSec;
+uniform float uWaterTimeSec;
 uniform float uPointFlickerEnabled;
 uniform float uPointFlickerStrength;
 uniform float uPointFlickerSpeed;
@@ -669,20 +684,21 @@ void main() {
     }
   }
   vec3 lit = clamp(ambientLit + sunLit + moonLit + pointLit + cursorLit, 0.0, 1.0);
-  float timeSec = max(0.0, uTimeSec);
+  float cloudTimeSec = max(0.0, uCloudTimeSec);
+  float waterTimeSec = max(0.0, uWaterTimeSec);
   float sunVisibility = smoothstep(-0.04, 0.15, uSunDir.z);
 
   if (sunVisibility > 0.0001) {
-    float cloudMask = cloudMaskAtUv(uv, timeSec, uSunDir);
+    float cloudMask = cloudMaskAtUv(uv, cloudTimeSec, uSunDir);
     float cloudShade = 1.0 - (cloudMask * clamp(uCloudOpacity, 0.0, 1.0) * sunVisibility);
     lit *= cloudShade;
   }
 
-  lit = applyWaterFx(uv, lit, n, timeSec, sunVisibility);
+  lit = applyWaterFx(uv, lit, n, waterTimeSec, sunVisibility);
 
   float fogAmount = fogAmountAtUv(uv);
   float fogAlpha = fogAlphaFromAmount(fogAmount);
-  vec3 volumetricScatter = computeVolumetricScattering(uv, timeSec, sunVisibility);
+  vec3 volumetricScatter = computeVolumetricScattering(uv, cloudTimeSec, sunVisibility);
 
   if (uUseFog > 0.5) {
     lit = mix(lit, uFogColor, fogAlpha);
@@ -768,6 +784,7 @@ uniform float uVolumetricSamples;
 uniform float uMapAspect;
 uniform vec2 uMapTexelSize;
 uniform float uTimeSec;
+uniform float uCloudTimeSec;
 uniform float uPointFlickerEnabled;
 uniform float uPointFlickerStrength;
 uniform float uPointFlickerSpeed;
@@ -910,17 +927,17 @@ void main() {
 
   vec3 pointLit = base * (pointLightIntensity * pointFlickerFactor * pointHeightAtten);
   vec3 lit = clamp(ambientLit + sunLit + moonLit + pointLit, 0.0, 1.0);
-  float timeSec = max(0.0, uTimeSec);
+  float cloudTimeSec = max(0.0, uCloudTimeSec);
   float sunVisibility = smoothstep(-0.04, 0.15, uSunDir.z);
   if (sunVisibility > 0.0001) {
-    float cloudMask = cloudMaskAtUv(vUv, timeSec, uSunDir);
+    float cloudMask = cloudMaskAtUv(vUv, cloudTimeSec, uSunDir);
     float cloudShade = 1.0 - (cloudMask * clamp(uCloudOpacity, 0.0, 1.0) * sunVisibility);
     lit *= cloudShade;
   }
 
   float fogAmount = fogAmountAtUv(vUv);
   float fogAlpha = fogAlphaFromAmount(fogAmount);
-  vec3 volumetricScatter = computeVolumetricScattering(vUv, timeSec, sunVisibility);
+  vec3 volumetricScatter = computeVolumetricScattering(vUv, cloudTimeSec, sunVisibility);
   if (uUseFog > 0.5) {
     lit = mix(lit, uFogColor, fogAlpha);
   }
@@ -1398,6 +1415,34 @@ const SWARM_TERRAIN_CLEARANCE = 1;
 const SWARM_Z_NEIGHBOR_SCALE = 1;
 const LIGHTING_SAVE_PRECISION = 2;
 
+function getCurrentTimeRoutingFromInputs() {
+  return normalizeTimeRouting({
+    movement: "global",
+    swarm: swarmTimeRoutingInput.value,
+    clouds: cloudTimeRoutingInput.value,
+    water: waterTimeRoutingInput.value,
+    weather: "global",
+  });
+}
+
+function getConfiguredSimTickHours() {
+  return normalizeSimTickHours(simTickHoursInput.value);
+}
+
+function getInterpolatedRoutedTimeSec(systemTiming) {
+  const baseTime = Number(systemTiming && systemTiming.timeSec);
+  if (!Number.isFinite(baseTime)) {
+    return 0;
+  }
+  const route = String(systemTiming && systemTiming.route ? systemTiming.route : "global");
+  if (route !== "global") {
+    return Math.max(0, baseTime);
+  }
+  const alpha = clamp(Number(systemTiming && systemTiming.interpolationAlpha), 0, 1);
+  const simTickHours = normalizeSimTickHours(systemTiming && systemTiming.simTickHours);
+  return Math.max(0, baseTime + alpha * simTickHours * SIM_SECONDS_PER_HOUR);
+}
+
 function serializeLightingSettingsLegacy() {
   return {
     version: 1,
@@ -1415,6 +1460,7 @@ function serializeLightingSettingsLegacy() {
     volumetricSamples: Math.round(clamp(Number(volumetricSamplesInput.value), 4, 24)),
     cycleHour: clampRound(Number(cycleState.hour), 0, 24),
     cycleSpeed: clampRound(Number(cycleSpeedInput.value), 0, 1),
+    simTickHours: clampRound(getConfiguredSimTickHours(), 0.001, 0.1),
     pointFlickerEnabled: pointFlickerToggle.checked,
     pointFlickerStrength: clampRound(Number(pointFlickerStrengthInput.value), 0, 1),
     pointFlickerSpeed: clampRound(Number(pointFlickerSpeedInput.value), 0.1, 12),
@@ -1466,6 +1512,9 @@ function applyLightingSettingsLegacy(rawData) {
   if (Number.isFinite(Number(data.cycleSpeed))) {
     cycleSpeedInput.value = String(clamp(Number(data.cycleSpeed), 0, 1));
   }
+  if (Number.isFinite(Number(data.simTickHours))) {
+    simTickHoursInput.value = String(normalizeSimTickHours(data.simTickHours));
+  }
   if (typeof data.pointFlickerEnabled === "boolean") {
     pointFlickerToggle.checked = data.pointFlickerEnabled;
   }
@@ -1483,6 +1532,7 @@ function applyLightingSettingsLegacy(rawData) {
   updateShadowBlurLabel();
   updatePointFlickerLabels();
   updatePointFlickerUi();
+  updateSimTickLabel();
   setCycleHourSliderFromState();
   updateCycleHourLabel();
   schedulePointLightBake();
@@ -1522,6 +1572,7 @@ function serializeCloudSettingsLegacy() {
     cloudSpeed2: clamp(Number(cloudSpeed2Input.value), -0.3, 0.3),
     cloudSunParallax: clamp(Number(cloudSunParallaxInput.value), 0, 2),
     cloudUseSunProjection: cloudSunProjectToggle.checked,
+    timeRouting: normalizeRoutingMode(cloudTimeRoutingInput.value, "global"),
   };
 }
 
@@ -1552,6 +1603,7 @@ function serializeWaterSettingsLegacy() {
     waterReflectivity: clamp(Number(waterReflectivityInput.value), 0, 1),
     waterTintColor: waterTintColorInput.value,
     waterTintStrength: clamp(Number(waterTintStrengthInput.value), 0, 1),
+    timeRouting: normalizeRoutingMode(waterTimeRoutingInput.value, "detached"),
   };
 }
 
@@ -1586,6 +1638,7 @@ function serializeNpcState() {
 
 function serializeSwarmDataLegacy() {
   const settings = getSwarmSettings();
+  settings.timeRouting = normalizeRoutingMode(swarmTimeRoutingInput.value, "global");
   return {
     version: 1,
     settings,
@@ -1671,6 +1724,9 @@ function applySwarmSettingsLegacy(rawData) {
   if (Number.isFinite(Number(data.hawkSpeed))) swarmHawkSpeedInput.value = String(clamp(Number(data.hawkSpeed), 30, 420));
   if (Number.isFinite(Number(data.hawkSteering))) swarmHawkSteeringInput.value = String(clamp(Number(data.hawkSteering), 20, 700));
   if (Number.isFinite(Number(data.hawkTargetRange))) swarmHawkTargetRangeInput.value = String(Math.round(clamp(Number(data.hawkTargetRange), 20, 500)));
+  if (typeof data.timeRouting === "string") {
+    swarmTimeRoutingInput.value = normalizeRoutingMode(data.timeRouting, "global");
+  }
   const defaultFollowTarget = swarmFollowTargetInput && swarmFollowTargetInput.options && swarmFollowTargetInput.options.length > 0
     ? swarmFollowTargetInput.options[0].value
     : "agent";
@@ -1775,6 +1831,7 @@ function applySwarmData(rawData) {
   resetSwarmFollowSpeedSmoothing();
   swarmFollowTargetInput.value = swarmFollowState.targetType;
   updateSwarmFollowButtonUi();
+  invalidateSwarmInterpolation();
   requestOverlayDraw();
 }
 
@@ -1849,6 +1906,9 @@ function applyCloudSettingsLegacy(rawData) {
   }
   if (typeof data.cloudUseSunProjection === "boolean") {
     cloudSunProjectToggle.checked = data.cloudUseSunProjection;
+  }
+  if (typeof data.timeRouting === "string") {
+    cloudTimeRoutingInput.value = normalizeRoutingMode(data.timeRouting, "global");
   }
   updateCloudLabels();
   updateCloudUi();
@@ -1927,6 +1987,9 @@ function applyWaterSettingsLegacy(rawData) {
   }
   if (Number.isFinite(Number(data.waterTintStrength))) {
     waterTintStrengthInput.value = String(clamp(Number(data.waterTintStrength), 0, 1));
+  }
+  if (typeof data.timeRouting === "string") {
+    waterTimeRoutingInput.value = normalizeRoutingMode(data.timeRouting, "detached");
   }
   updateWaterLabels();
   updateWaterUi();
@@ -2575,6 +2638,8 @@ const uniforms = {
   uViewHalfExtents: gl.getUniformLocation(program, "uViewHalfExtents"),
   uPanWorld: gl.getUniformLocation(program, "uPanWorld"),
   uTimeSec: gl.getUniformLocation(program, "uTimeSec"),
+  uCloudTimeSec: gl.getUniformLocation(program, "uCloudTimeSec"),
+  uWaterTimeSec: gl.getUniformLocation(program, "uWaterTimeSec"),
   uPointFlickerEnabled: gl.getUniformLocation(program, "uPointFlickerEnabled"),
   uPointFlickerStrength: gl.getUniformLocation(program, "uPointFlickerStrength"),
   uPointFlickerSpeed: gl.getUniformLocation(program, "uPointFlickerSpeed"),
@@ -2654,6 +2719,7 @@ const swarmUniforms = {
   uViewHalfExtents: gl.getUniformLocation(swarmProgram, "uViewHalfExtents"),
   uPanWorld: gl.getUniformLocation(swarmProgram, "uPanWorld"),
   uTimeSec: gl.getUniformLocation(swarmProgram, "uTimeSec"),
+  uCloudTimeSec: gl.getUniformLocation(swarmProgram, "uCloudTimeSec"),
   uPointFlickerEnabled: gl.getUniformLocation(swarmProgram, "uPointFlickerEnabled"),
   uPointFlickerStrength: gl.getUniformLocation(swarmProgram, "uPointFlickerStrength"),
   uPointFlickerSpeed: gl.getUniformLocation(swarmProgram, "uPointFlickerSpeed"),
@@ -2801,6 +2867,19 @@ const swarmState = {
   breedingActive: false,
   hawks: [],
 };
+const swarmRenderState = {
+  prevX: new Float32Array(0),
+  prevY: new Float32Array(0),
+  prevZ: new Float32Array(0),
+  prevHawks: [],
+  alpha: 1,
+  hasPrev: false,
+};
+
+function invalidateSwarmInterpolation() {
+  swarmRenderState.hasPrev = false;
+  swarmRenderState.alpha = 1;
+}
 const swarmCursorState = {
   x: 0,
   y: 0,
@@ -3603,6 +3682,41 @@ let isCycleHourScrubbing = false;
 const runtimeCore = createRuntimeCore();
 const dispatchCoreCommand = createCoreCommandDispatch(runtimeCore);
 const entityStore = createEntityStore();
+const movementSystem = createMovementSystem({
+  entityStore,
+  playerState,
+  getMapWidth: () => splatSize.width,
+  getMapHeight: () => splatSize.height,
+  computeMoveStepCost,
+  rebuildMovementField,
+  requestOverlayDraw,
+  setStatus,
+  setPlayerSnapshot: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      gameplay: {
+        ...prev.gameplay,
+        player: {
+          ...prev.gameplay.player,
+          pixelX: value.pixelX,
+          pixelY: value.pixelY,
+        },
+      },
+    }));
+  },
+  setMovementSnapshot: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      gameplay: {
+        ...prev.gameplay,
+        movement: {
+          ...(prev.gameplay && prev.gameplay.movement ? prev.gameplay.movement : {}),
+          ...value,
+        },
+      },
+    }));
+  },
+});
 registerMainSettingsContracts(runtimeCore.settingsRegistry, {
   serializeLighting: serializeLightingSettingsLegacy,
   applyLighting: applyLightingSettingsLegacy,
@@ -3690,6 +3804,16 @@ registerMainCommands(runtimeCore.commandBus, {
   createPointLight,
   extractPathTo,
   setPlayerPosition,
+  replaceMovementQueue: (pathPixels) => {
+    const simTickHours = normalizeSimTickHours(
+      runtimeCore.store.getState().systems.time.simTickHours ?? getConfiguredSimTickHours(),
+    );
+    return movementSystem.replaceQueue(pathPixels, simTickHours);
+  },
+  cancelMovementQueue: () => {
+    movementSystem.cancelQueue();
+  },
+  getMovementStateSnapshot: () => movementSystem.getSnapshot(),
   rebuildMovementField,
   getPathfindingStateSnapshot,
   updatePathfindingRangeLabel,
@@ -3737,6 +3861,11 @@ registerMainCommands(runtimeCore.commandBus, {
   updateSwarmFollowButtonUi,
   chooseRandomFollowHawkIndex,
   chooseRandomFollowAgentIndex,
+  simTickHoursInput,
+  updateSimTickLabel,
+  swarmTimeRoutingInput,
+  cloudTimeRoutingInput,
+  waterTimeRoutingInput,
 });
 let previousMode = normalizeRuntimeMode(runtimeCore.store.getState().mode);
 runtimeCore.store.subscribe((nextState) => {
@@ -3917,28 +4046,7 @@ runtimeCore.scheduler.addSystem(
   }),
 );
 
-runtimeCore.scheduler.addSystem(
-  createMovementSystem({
-    entityStore,
-    getPlayerState: () => ({
-      pixelX: playerState.pixelX,
-      pixelY: playerState.pixelY,
-    }),
-    setPlayerSnapshot: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          player: {
-            ...prev.gameplay.player,
-            pixelX: value.pixelX,
-            pixelY: value.pixelY,
-          },
-        },
-      }));
-    },
-  }),
-);
+runtimeCore.scheduler.addSystem(movementSystem);
 
 runtimeCore.scheduler.initAll({ nowMs: 0, dtSec: 0 }, runtimeCore.store.getState());
 
@@ -4007,6 +4115,7 @@ function getSwarmSettings() {
     hawkSpeed: clamp(Number(swarmHawkSpeedInput.value), 30, 420),
     hawkSteering: clamp(Number(swarmHawkSteeringInput.value), 20, 700),
     hawkTargetRange: Math.round(clamp(Number(swarmHawkTargetRangeInput.value), 20, 500)),
+    timeRouting: normalizeRoutingMode(swarmTimeRoutingInput.value, "global"),
   };
 }
 
@@ -4086,7 +4195,7 @@ function getSimulationKnobsSnapshot() {
     return cachedSimulationKnobs;
   }
   if (
-    && !simulationKnobDirty.parallax
+    !simulationKnobDirty.parallax
     && !simulationKnobDirty.clouds
     && !simulationKnobDirty.waterFx
   ) {
@@ -4252,6 +4361,7 @@ function updateSwarmUi() {
 
 function ensureSwarmBuffers(count) {
   if (swarmState.count === count) return;
+  invalidateSwarmInterpolation();
   swarmState.count = count;
   swarmState.x = new Float32Array(count);
   swarmState.y = new Float32Array(count);
@@ -4270,6 +4380,7 @@ function ensureSwarmBuffers(count) {
 
 function removeSwarmAgentAtIndex(removeIndex) {
   if (!Number.isInteger(removeIndex) || removeIndex < 0 || removeIndex >= swarmState.count) return false;
+  invalidateSwarmInterpolation();
   const oldCount = swarmState.count;
   const newCount = oldCount - 1;
   if (newCount <= 0) {
@@ -4362,6 +4473,7 @@ function removeSwarmAgentAtIndex(removeIndex) {
 }
 
 function appendSwarmAgentState(agent) {
+  invalidateSwarmInterpolation();
   const oldCount = swarmState.count;
   const newCount = oldCount + 1;
   const nextX = new Float32Array(newCount);
@@ -4567,6 +4679,7 @@ function isSwarmCoordFlyable(mapX, mapY, maxFlight) {
 }
 
 function reseedSwarmAgents(count = getSwarmSettings().agentCount) {
+  invalidateSwarmInterpolation();
   ensureSwarmBuffers(count);
   const settings = getSwarmSettings();
   const maxSpeed = settings.maxSpeed;
@@ -5046,24 +5159,79 @@ function stepSwarm(settings, dt, nowMs) {
   }
 }
 
-function updateSwarm(nowMs) {
+function captureSwarmRenderPreviousState() {
+  const count = Math.max(0, swarmState.count | 0);
+  if (swarmRenderState.prevX.length !== count) {
+    swarmRenderState.prevX = new Float32Array(count);
+    swarmRenderState.prevY = new Float32Array(count);
+    swarmRenderState.prevZ = new Float32Array(count);
+  }
+  if (count > 0) {
+    swarmRenderState.prevX.set(swarmState.x);
+    swarmRenderState.prevY.set(swarmState.y);
+    swarmRenderState.prevZ.set(swarmState.z);
+  }
+  swarmRenderState.prevHawks = swarmState.hawks.map((hawk) => ({
+    x: hawk.x,
+    y: hawk.y,
+    z: hawk.z,
+  }));
+  swarmRenderState.hasPrev = true;
+}
+
+function getSwarmInterpolationAlpha() {
+  return clamp(Number(swarmRenderState.alpha), 0, 1);
+}
+
+function getInterpolatedSwarmAgentPos(index) {
+  const x = swarmState.x[index];
+  const y = swarmState.y[index];
+  const z = swarmState.z[index];
+  if (!swarmRenderState.hasPrev || index < 0 || index >= swarmRenderState.prevX.length) {
+    return { x, y, z };
+  }
+  const a = getSwarmInterpolationAlpha();
+  return {
+    x: swarmRenderState.prevX[index] + (x - swarmRenderState.prevX[index]) * a,
+    y: swarmRenderState.prevY[index] + (y - swarmRenderState.prevY[index]) * a,
+    z: swarmRenderState.prevZ[index] + (z - swarmRenderState.prevZ[index]) * a,
+  };
+}
+
+function getInterpolatedSwarmHawkPos(index) {
+  const hawk = swarmState.hawks[index];
+  if (!hawk) {
+    return { x: 0, y: 0, z: 0 };
+  }
+  if (!swarmRenderState.hasPrev || index < 0 || index >= swarmRenderState.prevHawks.length) {
+    return { x: hawk.x, y: hawk.y, z: hawk.z };
+  }
+  const prev = swarmRenderState.prevHawks[index];
+  const a = getSwarmInterpolationAlpha();
+  return {
+    x: prev.x + (hawk.x - prev.x) * a,
+    y: prev.y + (hawk.y - prev.y) * a,
+    z: prev.z + (hawk.z - prev.z) * a,
+  };
+}
+
+function updateSwarm(nowMs, dtSec, routedTiming) {
+  swarmRenderState.alpha = routedTiming && Number.isFinite(Number(routedTiming.interpolationAlpha))
+    ? clamp(Number(routedTiming.interpolationAlpha), 0, 1)
+    : 1;
   if (!isSwarmEnabled()) {
-    swarmState.lastUpdateMs = nowMs;
     return;
   }
   const settings = getSwarmSettings();
   if (swarmState.count <= 0 && (!settings.useHawk || swarmState.hawks.length <= 0)) {
-    swarmState.lastUpdateMs = nowMs;
     return;
   }
-  if (swarmState.lastUpdateMs === null) {
-    swarmState.lastUpdateMs = nowMs;
-    return;
-  }
-  const elapsedSec = Math.min(0.25, Math.max(0, (nowMs - swarmState.lastUpdateMs) * 0.001));
-  swarmState.lastUpdateMs = nowMs;
-  const scaledDt = elapsedSec * settings.simulationSpeed;
+  const baseDt = routedTiming && Number.isFinite(Number(routedTiming.dtSec))
+    ? Number(routedTiming.dtSec)
+    : Math.min(0.25, Math.max(0, Number(dtSec) || 0));
+  const scaledDt = baseDt * settings.simulationSpeed;
   if (scaledDt <= 0) return;
+  captureSwarmRenderPreviousState();
   let remaining = scaledDt;
   const maxStep = 0.05;
   let guard = 0;
@@ -5100,7 +5268,8 @@ function updateSwarmFollowCamera() {
     }
     if (swarmFollowState.hawkIndex < 0) return;
     const hawk = swarmState.hawks[swarmFollowState.hawkIndex];
-    const hawkWorld = mapCoordToWorld(hawk.x, hawk.y);
+    const hawkPos = getInterpolatedSwarmHawkPos(swarmFollowState.hawkIndex);
+    const hawkWorld = mapCoordToWorld(hawkPos.x, hawkPos.y);
     panWorld.x = hawkWorld.x;
     panWorld.y = hawkWorld.y;
     if (settings.followZoomBySpeed) {
@@ -5120,7 +5289,8 @@ function updateSwarmFollowCamera() {
   }
   if (swarmFollowState.agentIndex < 0) return;
   const followIndex = swarmFollowState.agentIndex;
-  const world = mapCoordToWorld(swarmState.x[followIndex], swarmState.y[followIndex]);
+  const agentPos = getInterpolatedSwarmAgentPos(followIndex);
+  const world = mapCoordToWorld(agentPos.x, agentPos.y);
   panWorld.x = world.x;
   panWorld.y = world.y;
   if (settings.followZoomBySpeed) {
@@ -5138,8 +5308,9 @@ function updateSwarmFollowCamera() {
 function drawSwarmUnlitOverlay(settings) {
   const tintAlpha = settings.showTerrainInSwarm ? 0.55 : 0.95;
   for (let i = 0; i < swarmState.count; i++) {
-    const mapX = swarmState.x[i];
-    const mapY = swarmState.y[i];
+    const pos = getInterpolatedSwarmAgentPos(i);
+    const mapX = pos.x;
+    const mapY = pos.y;
     const centerWorld = mapCoordToWorld(mapX, mapY);
     const rightWorld = mapCoordToWorld(mapX + 1, mapY);
     const downWorld = mapCoordToWorld(mapX, mapY + 1);
@@ -5148,16 +5319,17 @@ function drawSwarmUnlitOverlay(settings) {
     const down = worldToScreen(downWorld);
     const texelW = Math.max(0.25, Math.abs(right.x - center.x));
     const texelH = Math.max(0.25, Math.abs(down.y - center.y));
-    const z = clamp(swarmState.z[i] / SWARM_Z_MAX, 0, 1);
+    const z = clamp(pos.z / SWARM_Z_MAX, 0, 1);
     const lum = Math.round((0.28 + z * 0.72) * 255);
     overlayCtx.fillStyle = `rgba(${lum}, ${lum}, ${lum}, ${tintAlpha})`;
     overlayCtx.fillRect(center.x - texelW * 0.5, center.y - texelH * 0.5, texelW, texelH);
   }
 
   if (settings.useHawk && swarmState.hawks.length > 0) {
-    const hawkCenterWorld = mapCoordToWorld(swarmState.hawks[0].x, swarmState.hawks[0].y);
-    const hawkRightWorld = mapCoordToWorld(swarmState.hawks[0].x + 1, swarmState.hawks[0].y);
-    const hawkDownWorld = mapCoordToWorld(swarmState.hawks[0].x, swarmState.hawks[0].y + 1);
+    const hawk0 = getInterpolatedSwarmHawkPos(0);
+    const hawkCenterWorld = mapCoordToWorld(hawk0.x, hawk0.y);
+    const hawkRightWorld = mapCoordToWorld(hawk0.x + 1, hawk0.y);
+    const hawkDownWorld = mapCoordToWorld(hawk0.x, hawk0.y + 1);
     const hawkCenter = worldToScreen(hawkCenterWorld);
     const hawkRight = worldToScreen(hawkRightWorld);
     const hawkDown = worldToScreen(hawkDownWorld);
@@ -5166,7 +5338,8 @@ function drawSwarmUnlitOverlay(settings) {
     const hawkRgb = hexToRgb01(settings.hawkColor).map((v) => Math.round(clamp(v, 0, 1) * 255));
     const hawkAlpha = settings.showTerrainInSwarm ? 0.85 : 1.0;
     overlayCtx.fillStyle = `rgba(${hawkRgb[0]}, ${hawkRgb[1]}, ${hawkRgb[2]}, ${hawkAlpha})`;
-    for (const hawk of swarmState.hawks) {
+    for (let i = 0; i < swarmState.hawks.length; i++) {
+      const hawk = getInterpolatedSwarmHawkPos(i);
       const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
       const center = worldToScreen(centerWorld);
       overlayCtx.fillRect(center.x - w * 0.5, center.y - h * 0.5, w, h);
@@ -5178,7 +5351,7 @@ function drawSwarmGizmos(settings) {
   if (settings.followHawkRangeGizmo && swarmFollowState.enabled && swarmFollowState.targetType === "hawk") {
     const followHawkIndex = swarmFollowState.hawkIndex;
     if (Number.isInteger(followHawkIndex) && followHawkIndex >= 0 && followHawkIndex < swarmState.hawks.length) {
-      const hawk = swarmState.hawks[followHawkIndex];
+      const hawk = getInterpolatedSwarmHawkPos(followHawkIndex);
       const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
       const edgeWorld = mapCoordToWorld(hawk.x + settings.hawkTargetRange, hawk.y);
       const centerScreen = worldToScreen(centerWorld);
@@ -5212,7 +5385,7 @@ function ensureSwarmPointVertexCapacity(vertexCount) {
   swarmPointVertexData = new Float32Array(required);
 }
 
-function renderSwarmLit(params, nowSec, settings) {
+function renderSwarmLit(params, timeState, settings) {
   const hawkCount = settings.useHawk ? swarmState.hawks.length : 0;
   const totalCount = swarmState.count + hawkCount;
   if (totalCount <= 0) return;
@@ -5222,9 +5395,10 @@ function renderSwarmLit(params, nowSec, settings) {
   const blockedShadowFactor = 1 - clamp(Number(shadowStrengthInput.value), 0, 1);
   let writeIndex = 0;
   for (let i = 0; i < swarmState.count; i++) {
-    const mapX = swarmState.x[i];
-    const mapY = swarmState.y[i];
-    const agentZ = swarmState.z[i];
+    const pos = getInterpolatedSwarmAgentPos(i);
+    const mapX = pos.x;
+    const mapY = pos.y;
+    const agentZ = pos.z;
     const sunShadow = useAgentRayShadows
       ? computeSwarmDirectionalShadow(mapX, mapY, agentZ, params.sunDir, blockedShadowFactor)
       : 1;
@@ -5239,16 +5413,17 @@ function renderSwarmLit(params, nowSec, settings) {
     swarmPointVertexData[writeIndex++] = moonShadow;
   }
   if (settings.useHawk) {
-    for (const hawk of swarmState.hawks) {
+    for (let i = 0; i < swarmState.hawks.length; i++) {
+      const hawkPos = getInterpolatedSwarmHawkPos(i);
       const sunShadow = useAgentRayShadows
-        ? computeSwarmDirectionalShadow(hawk.x, hawk.y, hawk.z, params.sunDir, blockedShadowFactor)
+        ? computeSwarmDirectionalShadow(hawkPos.x, hawkPos.y, hawkPos.z, params.sunDir, blockedShadowFactor)
         : 1;
       const moonShadow = useAgentRayShadows
-        ? computeSwarmDirectionalShadow(hawk.x, hawk.y, hawk.z, params.moonDir, blockedShadowFactor)
+        ? computeSwarmDirectionalShadow(hawkPos.x, hawkPos.y, hawkPos.z, params.moonDir, blockedShadowFactor)
         : 1;
-      swarmPointVertexData[writeIndex++] = hawk.x;
-      swarmPointVertexData[writeIndex++] = hawk.y;
-      swarmPointVertexData[writeIndex++] = hawk.z;
+      swarmPointVertexData[writeIndex++] = hawkPos.x;
+      swarmPointVertexData[writeIndex++] = hawkPos.y;
+      swarmPointVertexData[writeIndex++] = hawkPos.z;
       swarmPointVertexData[writeIndex++] = 1;
       swarmPointVertexData[writeIndex++] = sunShadow;
       swarmPointVertexData[writeIndex++] = moonShadow;
@@ -5303,7 +5478,8 @@ function renderSwarmLit(params, nowSec, settings) {
   gl.uniform2f(swarmUniforms.uResolution, canvas.width, canvas.height);
   gl.uniform2f(swarmUniforms.uViewHalfExtents, viewHalf.x, viewHalf.y);
   gl.uniform2f(swarmUniforms.uPanWorld, panWorld.x, panWorld.y);
-  gl.uniform1f(swarmUniforms.uTimeSec, Math.max(0, Number(nowSec) || 0));
+  gl.uniform1f(swarmUniforms.uTimeSec, Math.max(0, Number(timeState && timeState.nowSec) || 0));
+  gl.uniform1f(swarmUniforms.uCloudTimeSec, Math.max(0, Number(timeState && timeState.cloudTimeSec) || 0));
   gl.uniform1f(swarmUniforms.uPointFlickerEnabled, pointFlickerToggle.checked ? 1 : 0);
   gl.uniform1f(swarmUniforms.uPointFlickerStrength, clamp(Number(pointFlickerStrengthInput.value), 0, 1));
   gl.uniform1f(swarmUniforms.uPointFlickerSpeed, clamp(Number(pointFlickerSpeedInput.value), 0.1, 12));
@@ -5710,6 +5886,13 @@ function updateInfoPanel() {
   }
   playerInfoEl.textContent = `Player: (${playerState.pixelX}, ${playerState.pixelY})`;
   const metrics = getCurrentPathMetrics();
+  const movementSnapshot = typeof movementSystem.getSnapshot === "function"
+    ? movementSystem.getSnapshot()
+    : null;
+  if (movementSnapshot && movementSnapshot.active) {
+    pathInfoEl.textContent = `Move: active | q ${movementSnapshot.queueLength} | step ${movementSnapshot.currentStepIndex + 1} | ticks ${movementSnapshot.ticksRemaining} | cost ${movementSnapshot.currentStepCost.toFixed(2)}`;
+    return;
+  }
   if (!metrics) {
     pathInfoEl.textContent = "Path: len -- | cost -- | avg --";
     return;
@@ -5750,6 +5933,11 @@ function updateParallaxBandsLabel() {
 function updateShadowBlurLabel() {
   const value = clamp(Number(shadowBlurInput.value), 0, 3);
   shadowBlurValue.textContent = `${value.toFixed(2)} px`;
+}
+
+function updateSimTickLabel() {
+  const value = normalizeSimTickHours(simTickHoursInput.value);
+  simTickHoursValue.textContent = value.toFixed(3);
 }
 
 function updateFogAlphaLabels() {
@@ -6072,6 +6260,7 @@ bindSwarmPanelControls({
   swarmHawkSpeedInput,
   swarmHawkSteeringInput,
   swarmHawkTargetRangeInput,
+  swarmTimeRoutingInput,
   swarmEnabledToggle,
   dispatchCoreCommand,
   swarmState,
@@ -6110,6 +6299,7 @@ bindInteractionAndCycleControls({
   dockLightingModeToggle,
   dockPathfindingModeToggle,
   cycleHourInput,
+  simTickHoursInput,
   dispatchCoreCommand,
   getInteractionMode: () => interactionMode,
   canUseInteractionMode: canUseInteractionInCurrentMode,
@@ -6230,6 +6420,7 @@ bindRenderFxControls({
   cloudSpeed2Input,
   cloudSunParallaxInput,
   cloudToggle,
+  cloudTimeRoutingInput,
   waterFlowDirectionInput,
   waterLocalFlowMixInput,
   waterDownhillBoostInput,
@@ -6252,6 +6443,7 @@ bindRenderFxControls({
   waterFxToggle,
   waterFlowDownhillToggle,
   waterFlowInvertDownhillToggle,
+  waterTimeRoutingInput,
   dispatchCoreCommand,
   updateParallaxStrengthLabel,
   updateParallaxBandsLabel,
@@ -6411,7 +6603,7 @@ function computeLightingParams() {
   };
 }
 
-function uploadUniforms(params, nowSec, input) {
+function uploadUniforms(params, frameTime, input) {
   gl.useProgram(program);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, splatTex);
@@ -6492,7 +6684,10 @@ function uploadUniforms(params, nowSec, input) {
   gl.uniform2f(uniforms.uCursorLightMapSize, splatSize.width, splatSize.height);
   gl.uniform2f(uniforms.uViewHalfExtents, viewHalf.x, viewHalf.y);
   gl.uniform2f(uniforms.uPanWorld, panWorld.x, panWorld.y);
-  gl.uniform1f(uniforms.uTimeSec, Math.max(0, Number(nowSec) || 0));
+  const nowSec = Math.max(0, Number(frameTime && frameTime.nowSec) || 0);
+  gl.uniform1f(uniforms.uTimeSec, nowSec);
+  gl.uniform1f(uniforms.uCloudTimeSec, Math.max(0, Number(input.cloudTimeSec) || 0));
+  gl.uniform1f(uniforms.uWaterTimeSec, Math.max(0, Number(input.waterTimeSec) || 0));
   gl.uniform1f(uniforms.uUseClouds, input.useClouds ? 1 : 0);
   gl.uniform1f(uniforms.uCloudCoverage, input.cloudCoverage);
   gl.uniform1f(uniforms.uCloudSoftness, input.cloudSoftness);
@@ -6541,16 +6736,41 @@ function render(nowMs) {
     getPlayerState: () => playerState,
     getPathfindingState: getPathfindingStateSnapshot,
     getSwarmRuntimeState: getSwarmRuntimeStateSnapshot,
+    getMovementState: () => movementSystem.getSnapshot(),
     getWeatherInput: getWeatherInputSnapshot,
     getSimulationKnobs: getSimulationKnobsSnapshot,
     getCursorLightState: getCursorLightSnapshot,
   });
-  runtimeCore.scheduler.updateAll({ nowMs, dtSec }, runtimeCore.store.getState());
+  const preUpdateState = runtimeCore.store.getState();
+  const prevTimeState = preUpdateState.systems && preUpdateState.systems.time
+    ? preUpdateState.systems.time
+    : null;
+  const cycleSpeedHoursPerSec = clamp(Number(cycleSpeedInput.value), 0, 1);
+  const frameTimeState = buildFrameTimeState({
+    prevTimeState,
+    dtSec,
+    cycleSpeedHoursPerSec,
+    simTickHours: getConfiguredSimTickHours(),
+    routing: getCurrentTimeRoutingFromInputs(),
+  });
+  const routedTime = {
+    movement: getRoutedSystemTime(frameTimeState, "movement", dtSec),
+    swarm: getRoutedSystemTime(frameTimeState, "swarm", dtSec),
+    clouds: getRoutedSystemTime(frameTimeState, "clouds", dtSec),
+    water: getRoutedSystemTime(frameTimeState, "water", dtSec),
+    weather: getRoutedSystemTime(frameTimeState, "weather", dtSec),
+  };
+  const smoothCloudTimeSec = getInterpolatedRoutedTimeSec(routedTime.clouds);
+  runtimeCore.scheduler.updateAll({ nowMs, dtSec, time: { ...frameTimeState, systems: routedTime } }, preUpdateState);
   const coreState = runtimeCore.store.getState();
   applyRuntimeParityFromCoreState(coreState, {
     clamp,
     panWorld,
     cycleSpeedInput,
+    simTickHoursInput,
+    swarmTimeRoutingInput,
+    cloudTimeRoutingInput,
+    waterTimeRoutingInput,
     setZoom: (value) => {
       zoom = value;
     },
@@ -6564,7 +6784,7 @@ function render(nowMs) {
   });
 
   resize();
-  overlayHooks.updateGameplay(nowMs);
+  overlayHooks.updateGameplay(nowMs, dtSec, routedTime.swarm);
   const systemState = coreState.systems || {};
   const simulationState = coreState.simulation || {};
   const simulationWeather = simulationState.weather || null;
@@ -6630,9 +6850,14 @@ function render(nowMs) {
     cloudState: systemState.clouds || null,
     waterFxState: systemState.waterFx || null,
     weatherState: simulationWeather,
+    cloudTimeSec: smoothCloudTimeSec,
+    waterTimeSec: routedTime.water.timeSec,
   });
   const cycleSpeed = Number(systemState.time && systemState.time.cycleSpeedHoursPerSec) || 0;
-  cycleInfoEl.textContent = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeed.toFixed(2)} h/s`;
+  const simTick = normalizeSimTickHours(systemState.time && systemState.time.simTickHours != null
+    ? systemState.time.simTickHours
+    : simTickHoursInput.value);
+  cycleInfoEl.textContent = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeed.toFixed(2)} h/s | Tick: ${simTick.toFixed(3)}h`;
   updateInfoPanel();
   updateSwarmStatsPanel();
   updateCycleHourLabel();
@@ -6654,6 +6879,7 @@ function render(nowMs) {
     dtSec,
     cycleHour: cycleState.hour,
     cycleSpeedHoursPerSec: cycleSpeed,
+    cloudTimeSec: smoothCloudTimeSec,
     panWorld,
     zoom,
     currentMapFolderPath,
@@ -6667,7 +6893,7 @@ function render(nowMs) {
   });
   renderer.renderTerrainFrame(frameState);
   if (frameState.swarm.enabled && frameState.swarm.litEnabled) {
-    renderSwarmLit(frameState.lightingParams, frameState.time.nowSec, swarmSettings);
+    renderSwarmLit(frameState.lightingParams, frameState.time, swarmSettings);
   }
 
   overlayHooks.renderOverlayIfNeeded(frameState);
@@ -6701,6 +6927,7 @@ updateParallaxBandsLabel();
 updateShadowBlurLabel();
 updateVolumetricLabels();
 updatePointFlickerLabels();
+updateSimTickLabel();
 updateFogAlphaLabels();
 updateFogFalloffLabel();
 updateFogStartOffsetLabel();

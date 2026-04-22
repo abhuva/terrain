@@ -1,6 +1,6 @@
 export function createOverlayHooks(deps) {
-  function updateGameplay(nowMs) {
-    deps.updateSwarm(nowMs);
+  function updateGameplay(nowMs, dtSec, swarmTiming) {
+    deps.updateSwarm(nowMs, dtSec, swarmTiming);
     deps.updateSwarmFollowCamera();
   }
 

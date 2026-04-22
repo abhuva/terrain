@@ -26,8 +26,8 @@ export function createCloudSystem(deps) {
         cloudSoftness: deps.clamp(finite(deps.cloudSoftnessInput.value, 0.12), 0.01, 0.35),
         cloudOpacity: deps.clamp(finite(deps.cloudOpacityInput.value, 0.35), 0, 1),
         cloudScale: deps.clamp(finite(deps.cloudScaleInput.value, 2.2), 0.5, 8),
-        cloudSpeed1: deps.clamp(finite(deps.cloudSpeed1Input.value, 0.045), -0.3, 0.3),
-        cloudSpeed2: deps.clamp(finite(deps.cloudSpeed2Input.value, -0.028), -0.3, 0.3),
+        cloudSpeed1: deps.clamp(finite(deps.cloudSpeed1Input.value, 0.018), -0.3, 0.3),
+        cloudSpeed2: deps.clamp(finite(deps.cloudSpeed2Input.value, -0.012), -0.3, 0.3),
         cloudSunParallax: deps.clamp(finite(deps.cloudSunParallaxInput.value, 0.45), 0, 2),
         cloudUseSunProjection: deps.cloudSunProjectToggle.checked,
       };

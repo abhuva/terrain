@@ -102,4 +102,14 @@ export function bindSwarmPanelControls(deps) {
   deps.swarmEnabledToggle.addEventListener("change", () => {
     dispatchSwarmSettingChange("enabledToggleChanged");
   });
+
+  if (deps.swarmTimeRoutingInput) {
+    deps.swarmTimeRoutingInput.addEventListener("change", () => {
+      deps.dispatchCoreCommand({
+        type: "core/time/setRouting",
+        target: "swarm",
+        mode: deps.swarmTimeRoutingInput.value,
+      });
+    });
+  }
 }

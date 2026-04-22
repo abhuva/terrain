@@ -1,5 +1,6 @@
 import {
   DEFAULT_GAMEPLAY_CURSOR_LIGHT,
+  DEFAULT_GAMEPLAY_MOVEMENT,
   DEFAULT_GAMEPLAY_PATHFINDING,
   DEFAULT_GAMEPLAY_SWARM,
 } from "./state.js";
@@ -47,6 +48,7 @@ export function updateCoreFrameSnapshot(store, nowMs, deps) {
   const weatherInput = typeof deps.getWeatherInput === "function" ? deps.getWeatherInput() : null;
   const simulationKnobs = typeof deps.getSimulationKnobs === "function" ? deps.getSimulationKnobs() : null;
   const cursorLight = typeof deps.getCursorLightState === "function" ? deps.getCursorLightState() : null;
+  const movement = typeof deps.getMovementState === "function" ? deps.getMovementState() : null;
   const zoom = typeof deps.getZoom === "function" ? deps.getZoom() : 1;
   const panX = deps.panWorld && Number.isFinite(deps.panWorld.x) ? deps.panWorld.x : 0;
   const panY = deps.panWorld && Number.isFinite(deps.panWorld.y) ? deps.panWorld.y : 0;
@@ -103,6 +105,12 @@ export function updateCoreFrameSnapshot(store, nowMs, deps) {
           ...swarm,
         }
         : { ...DEFAULT_GAMEPLAY_SWARM },
+      movement: movement
+        ? {
+          ...prev.gameplay.movement,
+          ...movement,
+        }
+        : { ...DEFAULT_GAMEPLAY_MOVEMENT },
       cursorLight: cursorLight
         ? {
           ...prev.gameplay.cursorLight,

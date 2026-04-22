@@ -307,6 +307,55 @@ export function registerMainCommands(commandBus, deps) {
     deps.updateCycleHourLabel();
   });
 
+  commandBus.register("core/time/setSimTickHours", (command, ctx) => {
+    const nextTick = deps.clamp(Number(command.simTickHours), 0.001, 0.1);
+    if (deps.simTickHoursInput) {
+      deps.simTickHoursInput.value = String(nextTick);
+    }
+    ctx.store.update((prev) => ({
+      ...prev,
+      systems: {
+        ...prev.systems,
+        time: {
+          ...prev.systems.time,
+          simTickHours: nextTick,
+        },
+      },
+    }));
+    if (typeof deps.updateSimTickLabel === "function") {
+      deps.updateSimTickLabel();
+    }
+  });
+
+  commandBus.register("core/time/setRouting", (command, ctx) => {
+    const target = String(command.target || "");
+    const mode = command.mode === "detached" ? "detached" : "global";
+    const allowedTargets = new Set(["movement", "swarm", "clouds", "water", "weather"]);
+    if (!allowedTargets.has(target)) return;
+    if (target === "swarm" && deps.swarmTimeRoutingInput) {
+      deps.swarmTimeRoutingInput.value = mode;
+    }
+    if (target === "clouds" && deps.cloudTimeRoutingInput) {
+      deps.cloudTimeRoutingInput.value = mode;
+    }
+    if (target === "water" && deps.waterTimeRoutingInput) {
+      deps.waterTimeRoutingInput.value = mode;
+    }
+    ctx.store.update((prev) => ({
+      ...prev,
+      systems: {
+        ...prev.systems,
+        time: {
+          ...prev.systems.time,
+          routing: {
+            ...(prev.systems.time && prev.systems.time.routing ? prev.systems.time.routing : {}),
+            [target]: mode,
+          },
+        },
+      },
+    }));
+  });
+
   commandBus.register("core/cursorLight/setEnabled", (command, ctx) => {
     deps.cursorLightState.active = Boolean(command.enabled);
     syncCursorLightToStore(ctx);
