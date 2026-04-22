@@ -52,6 +52,18 @@ const cursorLightHeightOffsetValue = getRequiredElementById("cursorLightHeightOf
 const cursorLightGizmoToggle = getRequiredElementById("cursorLightGizmoToggle");
 const swarmEnabledToggle = getRequiredElementById("swarmEnabledToggle");
 const swarmFollowToggleBtn = getRequiredElementById("swarmFollowToggle");
+const swarmFollowTargetInput = getRequiredElementById("swarmFollowTarget");
+const swarmFollowZoomToggle = getRequiredElementById("swarmFollowZoomToggle");
+const swarmFollowZoomInInput = getRequiredElementById("swarmFollowZoomIn");
+const swarmFollowZoomInValue = getRequiredElementById("swarmFollowZoomInValue");
+const swarmFollowZoomOutInput = getRequiredElementById("swarmFollowZoomOut");
+const swarmFollowZoomOutValue = getRequiredElementById("swarmFollowZoomOutValue");
+const swarmFollowHawkRangeGizmoToggle = getRequiredElementById("swarmFollowHawkRangeGizmoToggle");
+const swarmFollowAgentSpeedSmoothingInput = getRequiredElementById("swarmFollowAgentSpeedSmoothing");
+const swarmFollowAgentSpeedSmoothingValue = getRequiredElementById("swarmFollowAgentSpeedSmoothingValue");
+const swarmFollowAgentZoomSmoothingInput = getRequiredElementById("swarmFollowAgentZoomSmoothing");
+const swarmFollowAgentZoomSmoothingValue = getRequiredElementById("swarmFollowAgentZoomSmoothingValue");
+const swarmStatsPanelToggle = getRequiredElementById("swarmStatsPanelToggle");
 const swarmShowTerrainToggle = getRequiredElementById("swarmShowTerrainToggle");
 const swarmBackgroundColorInput = getRequiredElementById("swarmBackgroundColor");
 const swarmAgentCountInput = getRequiredElementById("swarmAgentCount");
@@ -84,6 +96,10 @@ const swarmRestChanceInput = getRequiredElementById("swarmRestChance");
 const swarmRestChanceValue = getRequiredElementById("swarmRestChanceValue");
 const swarmRestTicksInput = getRequiredElementById("swarmRestTicks");
 const swarmRestTicksValue = getRequiredElementById("swarmRestTicksValue");
+const swarmBreedingThresholdInput = getRequiredElementById("swarmBreedingThreshold");
+const swarmBreedingThresholdValue = getRequiredElementById("swarmBreedingThresholdValue");
+const swarmBreedingSpawnChanceInput = getRequiredElementById("swarmBreedingSpawnChance");
+const swarmBreedingSpawnChanceValue = getRequiredElementById("swarmBreedingSpawnChanceValue");
 const swarmCursorModeInput = getRequiredElementById("swarmCursorMode");
 const swarmCursorStrengthInput = getRequiredElementById("swarmCursorStrength");
 const swarmCursorStrengthValue = getRequiredElementById("swarmCursorStrengthValue");
@@ -97,6 +113,13 @@ const swarmHawkSpeedInput = getRequiredElementById("swarmHawkSpeed");
 const swarmHawkSpeedValue = getRequiredElementById("swarmHawkSpeedValue");
 const swarmHawkSteeringInput = getRequiredElementById("swarmHawkSteering");
 const swarmHawkSteeringValue = getRequiredElementById("swarmHawkSteeringValue");
+const swarmHawkTargetRangeInput = getRequiredElementById("swarmHawkTargetRange");
+const swarmHawkTargetRangeValue = getRequiredElementById("swarmHawkTargetRangeValue");
+const swarmStatsPanelEl = getRequiredElementById("swarmStatsPanel");
+const swarmStatsBirdsValue = getRequiredElementById("swarmStatsBirdsValue");
+const swarmStatsHawksValue = getRequiredElementById("swarmStatsHawksValue");
+const swarmStatsStepsValue = getRequiredElementById("swarmStatsStepsValue");
+const swarmStatsAvgHawkKillValue = getRequiredElementById("swarmStatsAvgHawkKillValue");
 const cycleSpeedInput = getRequiredElementById("cycleSpeed");
 const cycleHourInput = getRequiredElementById("cycleHour");
 const cycleHourValue = getRequiredElementById("cycleHourValue");
@@ -1259,6 +1282,13 @@ const DEFAULT_INTERACTION_SETTINGS = {
 
 const DEFAULT_SWARM_SETTINGS = {
   useAgentSwarm: false,
+  followZoomBySpeed: false,
+  followZoomIn: 2.2,
+  followZoomOut: 0.8,
+  followHawkRangeGizmo: false,
+  followAgentSpeedSmoothing: 0.04,
+  followAgentZoomSmoothing: 0.07,
+  showStatsPanel: false,
   showTerrainInSwarm: false,
   backgroundColor: "#1c2b44",
   agentCount: 300,
@@ -1276,6 +1306,8 @@ const DEFAULT_SWARM_SETTINGS = {
   wanderWeight: 0.22,
   restChancePct: 0,
   restTicks: 1000,
+  breedingThreshold: 180,
+  breedingSpawnChance: 0.35,
   cursorMode: "none",
   cursorStrength: 2.5,
   cursorRadius: 130,
@@ -1284,6 +1316,7 @@ const DEFAULT_SWARM_SETTINGS = {
   hawkColor: "#ff7c5c",
   hawkSpeed: 180,
   hawkSteering: 240,
+  hawkTargetRange: 180,
 };
 const SWARM_Z_MAX = 256;
 const SWARM_TERRAIN_CLEARANCE = 1;
@@ -1483,10 +1516,16 @@ function serializeSwarmData() {
     settings,
     follow: {
       enabled: swarmFollowState.enabled,
+      targetType: swarmFollowState.targetType,
       agentIndex: swarmFollowState.agentIndex,
+      hawkIndex: swarmFollowState.hawkIndex,
     },
     state: {
       count: swarmState.count,
+      stepCount: Math.round(Math.max(0, swarmState.stepCount)),
+      hawkKillIntervalSum: Math.max(0, Number(swarmState.hawkKillIntervalSum) || 0),
+      hawkKillCount: Math.max(0, Math.round(Number(swarmState.hawkKillCount) || 0)),
+      breedingActive: Boolean(swarmState.breedingActive),
       x: Array.from(swarmState.x),
       y: Array.from(swarmState.y),
       z: Array.from(swarmState.z),
@@ -1508,6 +1547,7 @@ function serializeSwarmData() {
         ay: hawk.ay,
         az: hawk.az,
         targetIndex: hawk.targetIndex,
+        lastKillTick: Math.round(Math.max(0, Number(hawk.lastKillTick) || 0)),
       })),
     },
   };
@@ -1516,6 +1556,13 @@ function serializeSwarmData() {
 function applySwarmSettings(rawData) {
   const data = rawData && typeof rawData === "object" ? rawData : {};
   if (typeof data.useAgentSwarm === "boolean") swarmEnabledToggle.checked = data.useAgentSwarm;
+  if (typeof data.followZoomBySpeed === "boolean") swarmFollowZoomToggle.checked = data.followZoomBySpeed;
+  if (Number.isFinite(Number(data.followZoomIn))) swarmFollowZoomInInput.value = String(clamp(Number(data.followZoomIn), zoomMin, zoomMax));
+  if (Number.isFinite(Number(data.followZoomOut))) swarmFollowZoomOutInput.value = String(clamp(Number(data.followZoomOut), zoomMin, zoomMax));
+  if (typeof data.followHawkRangeGizmo === "boolean") swarmFollowHawkRangeGizmoToggle.checked = data.followHawkRangeGizmo;
+  if (Number.isFinite(Number(data.followAgentSpeedSmoothing))) swarmFollowAgentSpeedSmoothingInput.value = String(clamp(Number(data.followAgentSpeedSmoothing), 0.01, 0.25));
+  if (Number.isFinite(Number(data.followAgentZoomSmoothing))) swarmFollowAgentZoomSmoothingInput.value = String(clamp(Number(data.followAgentZoomSmoothing), 0.01, 0.25));
+  if (typeof data.showStatsPanel === "boolean") swarmStatsPanelToggle.checked = data.showStatsPanel;
   if (typeof data.showTerrainInSwarm === "boolean") swarmShowTerrainToggle.checked = data.showTerrainInSwarm;
   if (typeof data.backgroundColor === "string" && /^#?[0-9a-fA-F]{6}$/.test(data.backgroundColor)) {
     swarmBackgroundColorInput.value = data.backgroundColor.startsWith("#") ? data.backgroundColor : `#${data.backgroundColor}`;
@@ -1535,6 +1582,8 @@ function applySwarmSettings(rawData) {
   if (Number.isFinite(Number(data.wanderWeight))) swarmWanderWeightInput.value = String(clamp(Number(data.wanderWeight), 0, 2));
   if (Number.isFinite(Number(data.restChancePct))) swarmRestChanceInput.value = String(clamp(Number(data.restChancePct), 0, 0.002));
   if (Number.isFinite(Number(data.restTicks))) swarmRestTicksInput.value = String(Math.round(clamp(Number(data.restTicks), 100, 10000)));
+  if (Number.isFinite(Number(data.breedingThreshold))) swarmBreedingThresholdInput.value = String(Math.round(clamp(Number(data.breedingThreshold), 0, 1000)));
+  if (Number.isFinite(Number(data.breedingSpawnChance))) swarmBreedingSpawnChanceInput.value = String(clamp(Number(data.breedingSpawnChance), 0, 1));
   if (typeof data.cursorMode === "string") swarmCursorModeInput.value = ["none", "attract", "repel"].includes(data.cursorMode) ? data.cursorMode : "none";
   if (Number.isFinite(Number(data.cursorStrength))) swarmCursorStrengthInput.value = String(clamp(Number(data.cursorStrength), 0, 8));
   if (Number.isFinite(Number(data.cursorRadius))) swarmCursorRadiusInput.value = String(clamp(Number(data.cursorRadius), 20, 260));
@@ -1545,8 +1594,12 @@ function applySwarmSettings(rawData) {
   }
   if (Number.isFinite(Number(data.hawkSpeed))) swarmHawkSpeedInput.value = String(clamp(Number(data.hawkSpeed), 30, 420));
   if (Number.isFinite(Number(data.hawkSteering))) swarmHawkSteeringInput.value = String(clamp(Number(data.hawkSteering), 20, 700));
+  if (Number.isFinite(Number(data.hawkTargetRange))) swarmHawkTargetRangeInput.value = String(Math.round(clamp(Number(data.hawkTargetRange), 20, 500)));
   swarmFollowState.enabled = false;
   swarmFollowState.agentIndex = -1;
+  swarmState.breedingActive = false;
+  resetSwarmFollowSpeedSmoothing();
+  normalizeSwarmFollowZoomInputs("out");
   normalizeSwarmHeightRangeInputs("min");
   updateSwarmLabels();
   updateSwarmUi();
@@ -1559,6 +1612,10 @@ function applySwarmData(rawData) {
   const settings = getSwarmSettings();
   const state = data.state && typeof data.state === "object" ? data.state : null;
   let loadedState = false;
+  swarmState.stepCount = 0;
+  swarmState.hawkKillIntervalSum = 0;
+  swarmState.hawkKillCount = 0;
+  swarmState.breedingActive = false;
 
   if (state && Number.isFinite(Number(state.count))) {
     const count = Math.round(clamp(Number(state.count), 0, 2000));
@@ -1590,6 +1647,10 @@ function applySwarmData(rawData) {
       }
       if (loadedState) {
         swarmState.count = count;
+        swarmState.stepCount = Math.max(0, Math.round(Number(state.stepCount) || 0));
+        swarmState.hawkKillIntervalSum = Math.max(0, Number(state.hawkKillIntervalSum) || 0);
+        swarmState.hawkKillCount = Math.max(0, Math.round(Number(state.hawkKillCount) || 0));
+        swarmState.breedingActive = Boolean(state.breedingActive);
         swarmState.hawks = [];
         const hawks = Array.isArray(state.hawks) ? state.hawks : [];
         if (settings.useHawk) {
@@ -1609,7 +1670,10 @@ function applySwarmData(rawData) {
               ax: Number.isFinite(Number(rawHawk.ax)) ? Number(rawHawk.ax) : 0,
               ay: Number.isFinite(Number(rawHawk.ay)) ? Number(rawHawk.ay) : 0,
               az: Number.isFinite(Number(rawHawk.az)) ? Number(rawHawk.az) : 0,
-              targetIndex: Number.isFinite(Number(rawHawk.targetIndex)) ? Math.round(clamp(Number(rawHawk.targetIndex), 0, Math.max(0, count - 1))) : chooseRandomSwarmTargetIndex(),
+              targetIndex: Number.isFinite(Number(rawHawk.targetIndex))
+                ? Math.round(clamp(Number(rawHawk.targetIndex), 0, Math.max(0, count - 1)))
+                : chooseRandomSwarmTargetIndexNear(hx, hy, settings.hawkTargetRange),
+              lastKillTick: Math.max(0, Math.round(Number(rawHawk.lastKillTick) || 0)),
             });
           }
         }
@@ -1623,7 +1687,11 @@ function applySwarmData(rawData) {
 
   const follow = data.follow && typeof data.follow === "object" ? data.follow : {};
   swarmFollowState.enabled = settings.useAgentSwarm && Boolean(follow.enabled);
+  swarmFollowState.targetType = follow.targetType === "hawk" ? "hawk" : "agent";
   swarmFollowState.agentIndex = Number.isFinite(Number(follow.agentIndex)) ? Math.round(Number(follow.agentIndex)) : -1;
+  swarmFollowState.hawkIndex = Number.isFinite(Number(follow.hawkIndex)) ? Math.round(Number(follow.hawkIndex)) : -1;
+  resetSwarmFollowSpeedSmoothing();
+  swarmFollowTargetInput.value = swarmFollowState.targetType;
   updateSwarmFollowButtonUi();
   requestOverlayDraw();
 }
@@ -2483,6 +2551,10 @@ const swarmState = {
   count: 0,
   lastUpdateMs: null,
   stepSec: 1 / 60,
+  stepCount: 0,
+  hawkKillIntervalSum: 0,
+  hawkKillCount: 0,
+  breedingActive: false,
   hawks: [],
 };
 const swarmCursorState = {
@@ -2492,7 +2564,10 @@ const swarmCursorState = {
 };
 const swarmFollowState = {
   enabled: false,
+  targetType: "agent",
   agentIndex: -1,
+  hawkIndex: -1,
+  speedNormFiltered: null,
 };
 let movementField = null;
 const pointLightBakeTempCanvas = document.createElement("canvas");
@@ -3253,8 +3328,20 @@ function getSwarmSettings() {
   const minHeight = Math.round(clamp(Number(swarmMinHeightInput.value), 0, SWARM_Z_MAX));
   const rawMaxHeight = Math.round(clamp(Number(swarmMaxHeightInput.value), 0, SWARM_Z_MAX));
   const maxHeight = Math.max(minHeight, rawMaxHeight);
+  const followZoomOut = clamp(Number(swarmFollowZoomOutInput.value), zoomMin, zoomMax);
+  const rawFollowZoomIn = clamp(Number(swarmFollowZoomInInput.value), zoomMin, zoomMax);
+  const followZoomIn = Math.max(followZoomOut, rawFollowZoomIn);
+  const followAgentSpeedSmoothing = clamp(Number(swarmFollowAgentSpeedSmoothingInput.value), 0.01, 0.25);
+  const followAgentZoomSmoothing = clamp(Number(swarmFollowAgentZoomSmoothingInput.value), 0.01, 0.25);
   return {
     useAgentSwarm: swarmEnabledToggle.checked,
+    followZoomBySpeed: swarmFollowZoomToggle.checked,
+    followZoomIn,
+    followZoomOut,
+    followHawkRangeGizmo: swarmFollowHawkRangeGizmoToggle.checked,
+    followAgentSpeedSmoothing,
+    followAgentZoomSmoothing,
+    showStatsPanel: swarmStatsPanelToggle.checked,
     showTerrainInSwarm: swarmShowTerrainToggle.checked,
     backgroundColor: swarmBackgroundColorInput.value,
     agentCount: Math.round(clamp(Number(swarmAgentCountInput.value), 100, 1000)),
@@ -3272,6 +3359,8 @@ function getSwarmSettings() {
     wanderWeight: clamp(Number(swarmWanderWeightInput.value), 0, 2),
     restChancePct: clamp(Number(swarmRestChanceInput.value), 0, 0.002),
     restTicks: Math.round(clamp(Number(swarmRestTicksInput.value), 100, 10000)),
+    breedingThreshold: Math.round(clamp(Number(swarmBreedingThresholdInput.value), 0, 1000)),
+    breedingSpawnChance: clamp(Number(swarmBreedingSpawnChanceInput.value), 0, 1),
     cursorMode: getSwarmCursorMode(),
     cursorStrength: clamp(Number(swarmCursorStrengthInput.value), 0, 8),
     cursorRadius: clamp(Number(swarmCursorRadiusInput.value), 20, 260),
@@ -3280,11 +3369,19 @@ function getSwarmSettings() {
     hawkColor: swarmHawkColorInput.value,
     hawkSpeed: clamp(Number(swarmHawkSpeedInput.value), 30, 420),
     hawkSteering: clamp(Number(swarmHawkSteeringInput.value), 20, 700),
+    hawkTargetRange: Math.round(clamp(Number(swarmHawkTargetRangeInput.value), 20, 500)),
   };
 }
 
 function setSwarmDefaults() {
   swarmEnabledToggle.checked = DEFAULT_SWARM_SETTINGS.useAgentSwarm;
+  swarmFollowZoomToggle.checked = DEFAULT_SWARM_SETTINGS.followZoomBySpeed;
+  swarmFollowZoomInInput.value = String(DEFAULT_SWARM_SETTINGS.followZoomIn);
+  swarmFollowZoomOutInput.value = String(DEFAULT_SWARM_SETTINGS.followZoomOut);
+  swarmFollowHawkRangeGizmoToggle.checked = DEFAULT_SWARM_SETTINGS.followHawkRangeGizmo;
+  swarmFollowAgentSpeedSmoothingInput.value = String(DEFAULT_SWARM_SETTINGS.followAgentSpeedSmoothing);
+  swarmFollowAgentZoomSmoothingInput.value = String(DEFAULT_SWARM_SETTINGS.followAgentZoomSmoothing);
+  swarmStatsPanelToggle.checked = DEFAULT_SWARM_SETTINGS.showStatsPanel;
   swarmShowTerrainToggle.checked = DEFAULT_SWARM_SETTINGS.showTerrainInSwarm;
   swarmBackgroundColorInput.value = DEFAULT_SWARM_SETTINGS.backgroundColor;
   swarmAgentCountInput.value = String(DEFAULT_SWARM_SETTINGS.agentCount);
@@ -3302,6 +3399,8 @@ function setSwarmDefaults() {
   swarmWanderWeightInput.value = String(DEFAULT_SWARM_SETTINGS.wanderWeight);
   swarmRestChanceInput.value = String(DEFAULT_SWARM_SETTINGS.restChancePct);
   swarmRestTicksInput.value = String(DEFAULT_SWARM_SETTINGS.restTicks);
+  swarmBreedingThresholdInput.value = String(DEFAULT_SWARM_SETTINGS.breedingThreshold);
+  swarmBreedingSpawnChanceInput.value = String(DEFAULT_SWARM_SETTINGS.breedingSpawnChance);
   swarmCursorModeInput.value = DEFAULT_SWARM_SETTINGS.cursorMode;
   swarmCursorStrengthInput.value = String(DEFAULT_SWARM_SETTINGS.cursorStrength);
   swarmCursorRadiusInput.value = String(DEFAULT_SWARM_SETTINGS.cursorRadius);
@@ -3310,8 +3409,14 @@ function setSwarmDefaults() {
   swarmHawkColorInput.value = DEFAULT_SWARM_SETTINGS.hawkColor;
   swarmHawkSpeedInput.value = String(DEFAULT_SWARM_SETTINGS.hawkSpeed);
   swarmHawkSteeringInput.value = String(DEFAULT_SWARM_SETTINGS.hawkSteering);
+  swarmHawkTargetRangeInput.value = String(DEFAULT_SWARM_SETTINGS.hawkTargetRange);
+  swarmFollowTargetInput.value = "agent";
   swarmFollowState.enabled = false;
+  swarmFollowState.targetType = "agent";
   swarmFollowState.agentIndex = -1;
+  swarmFollowState.hawkIndex = -1;
+  swarmState.breedingActive = false;
+  resetSwarmFollowSpeedSmoothing();
 }
 
 function isSwarmEnabled() {
@@ -3321,6 +3426,10 @@ function isSwarmEnabled() {
 function updateSwarmLabels() {
   const settings = getSwarmSettings();
   swarmAgentCountValue.textContent = String(settings.agentCount);
+  swarmFollowZoomInValue.textContent = `${settings.followZoomIn.toFixed(1)}x`;
+  swarmFollowZoomOutValue.textContent = `${settings.followZoomOut.toFixed(1)}x`;
+  swarmFollowAgentSpeedSmoothingValue.textContent = settings.followAgentSpeedSmoothing.toFixed(2);
+  swarmFollowAgentZoomSmoothingValue.textContent = settings.followAgentZoomSmoothing.toFixed(2);
   swarmUpdateIntervalValue.textContent = `${settings.simulationSpeed.toFixed(1)}x`;
   swarmMaxSpeedValue.textContent = `${Math.round(settings.maxSpeed)} px/s`;
   swarmSteeringMaxValue.textContent = `${Math.round(settings.maxSteering)} px/s^2`;
@@ -3335,19 +3444,32 @@ function updateSwarmLabels() {
   swarmWanderWeightValue.textContent = settings.wanderWeight.toFixed(2);
   swarmRestChanceValue.textContent = settings.restChancePct.toFixed(4);
   swarmRestTicksValue.textContent = `${Math.round(settings.restTicks)}`;
+  swarmBreedingThresholdValue.textContent = `${Math.round(settings.breedingThreshold)}`;
+  swarmBreedingSpawnChanceValue.textContent = `${Math.round(settings.breedingSpawnChance * 100)}%`;
   swarmCursorStrengthValue.textContent = settings.cursorStrength.toFixed(1);
   swarmCursorRadiusValue.textContent = `${Math.round(settings.cursorRadius)} px`;
   swarmHawkCountValue.textContent = String(settings.hawkCount);
   swarmHawkSpeedValue.textContent = `${Math.round(settings.hawkSpeed)} px/s`;
   swarmHawkSteeringValue.textContent = `${Math.round(settings.hawkSteering)} px/s^2`;
+  swarmHawkTargetRangeValue.textContent = `${Math.round(settings.hawkTargetRange)} px`;
 }
 
 function updateSwarmUi() {
   const swarmEnabled = isSwarmEnabled();
   const cursorMode = getSwarmCursorMode();
   const cursorControlsEnabled = swarmEnabled && cursorMode !== "none";
+  const followZoomControlsEnabled = swarmEnabled && swarmFollowZoomToggle.checked;
+  syncSwarmStatsPanelVisibility();
   swarmShowTerrainToggle.disabled = !swarmEnabled;
   swarmFollowToggleBtn.disabled = !swarmEnabled;
+  swarmFollowTargetInput.disabled = !swarmEnabled;
+  swarmFollowZoomToggle.disabled = !swarmEnabled;
+  swarmFollowZoomInInput.disabled = !followZoomControlsEnabled;
+  swarmFollowZoomOutInput.disabled = !followZoomControlsEnabled;
+  swarmFollowHawkRangeGizmoToggle.disabled = !swarmEnabled;
+  swarmFollowAgentSpeedSmoothingInput.disabled = !followZoomControlsEnabled;
+  swarmFollowAgentZoomSmoothingInput.disabled = !followZoomControlsEnabled;
+  swarmStatsPanelToggle.disabled = false;
   swarmBackgroundColorInput.disabled = !swarmEnabled;
   swarmAgentCountInput.disabled = !swarmEnabled;
   swarmUpdateIntervalInput.disabled = !swarmEnabled;
@@ -3364,6 +3486,8 @@ function updateSwarmUi() {
   swarmWanderWeightInput.disabled = !swarmEnabled;
   swarmRestChanceInput.disabled = !swarmEnabled;
   swarmRestTicksInput.disabled = !swarmEnabled;
+  swarmBreedingThresholdInput.disabled = !swarmEnabled;
+  swarmBreedingSpawnChanceInput.disabled = !swarmEnabled;
   swarmCursorModeInput.disabled = !swarmEnabled;
   swarmCursorStrengthInput.disabled = !cursorControlsEnabled;
   swarmCursorRadiusInput.disabled = !cursorControlsEnabled;
@@ -3372,6 +3496,7 @@ function updateSwarmUi() {
   swarmHawkColorInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
   swarmHawkSpeedInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
   swarmHawkSteeringInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
+  swarmHawkTargetRangeInput.disabled = !swarmEnabled || !swarmHawkEnabledToggle.checked;
 }
 
 function ensureSwarmBuffers(count) {
@@ -3392,6 +3517,200 @@ function ensureSwarmBuffers(count) {
   swarmState.az = new Float32Array(count);
 }
 
+function removeSwarmAgentAtIndex(removeIndex) {
+  if (!Number.isInteger(removeIndex) || removeIndex < 0 || removeIndex >= swarmState.count) return false;
+  const oldCount = swarmState.count;
+  const newCount = oldCount - 1;
+  if (newCount <= 0) {
+    ensureSwarmBuffers(0);
+    for (const hawk of swarmState.hawks) {
+      hawk.targetIndex = -1;
+    }
+    swarmFollowState.agentIndex = -1;
+    if (swarmFollowState.targetType === "agent") {
+      swarmFollowState.enabled = false;
+      resetSwarmFollowSpeedSmoothing();
+    }
+    return true;
+  }
+
+  const nextX = new Float32Array(newCount);
+  const nextY = new Float32Array(newCount);
+  const nextZ = new Float32Array(newCount);
+  const nextVx = new Float32Array(newCount);
+  const nextVy = new Float32Array(newCount);
+  const nextVz = new Float32Array(newCount);
+  const nextSpeedScale = new Float32Array(newCount);
+  const nextSteerScale = new Float32Array(newCount);
+  const nextIsResting = new Uint8Array(newCount);
+  const nextRestTicksLeft = new Uint16Array(newCount);
+  const nextAx = new Float32Array(newCount);
+  const nextAy = new Float32Array(newCount);
+  const nextAz = new Float32Array(newCount);
+
+  let w = 0;
+  for (let i = 0; i < oldCount; i++) {
+    if (i === removeIndex) continue;
+    nextX[w] = swarmState.x[i];
+    nextY[w] = swarmState.y[i];
+    nextZ[w] = swarmState.z[i];
+    nextVx[w] = swarmState.vx[i];
+    nextVy[w] = swarmState.vy[i];
+    nextVz[w] = swarmState.vz[i];
+    nextSpeedScale[w] = swarmState.speedScale[i];
+    nextSteerScale[w] = swarmState.steerScale[i];
+    nextIsResting[w] = swarmState.isResting[i];
+    nextRestTicksLeft[w] = swarmState.restTicksLeft[i];
+    nextAx[w] = swarmState.ax[i];
+    nextAy[w] = swarmState.ay[i];
+    nextAz[w] = swarmState.az[i];
+    w++;
+  }
+
+  swarmState.count = newCount;
+  swarmState.x = nextX;
+  swarmState.y = nextY;
+  swarmState.z = nextZ;
+  swarmState.vx = nextVx;
+  swarmState.vy = nextVy;
+  swarmState.vz = nextVz;
+  swarmState.speedScale = nextSpeedScale;
+  swarmState.steerScale = nextSteerScale;
+  swarmState.isResting = nextIsResting;
+  swarmState.restTicksLeft = nextRestTicksLeft;
+  swarmState.ax = nextAx;
+  swarmState.ay = nextAy;
+  swarmState.az = nextAz;
+
+  const hawkTargetRange = getSwarmSettings().hawkTargetRange;
+  for (const hawk of swarmState.hawks) {
+    if (!Number.isInteger(hawk.targetIndex)) {
+      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, hawkTargetRange);
+      continue;
+    }
+    if (hawk.targetIndex === removeIndex) {
+      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, hawkTargetRange);
+    } else if (hawk.targetIndex > removeIndex) {
+      hawk.targetIndex -= 1;
+    }
+  }
+
+  if (swarmFollowState.targetType === "agent") {
+    if (swarmFollowState.agentIndex === removeIndex) {
+      swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
+      if (swarmFollowState.agentIndex < 0) {
+        swarmFollowState.enabled = false;
+        resetSwarmFollowSpeedSmoothing();
+      }
+    } else if (swarmFollowState.agentIndex > removeIndex) {
+      swarmFollowState.agentIndex -= 1;
+    }
+  }
+
+  return true;
+}
+
+function appendSwarmAgentState(agent) {
+  const oldCount = swarmState.count;
+  const newCount = oldCount + 1;
+  const nextX = new Float32Array(newCount);
+  const nextY = new Float32Array(newCount);
+  const nextZ = new Float32Array(newCount);
+  const nextVx = new Float32Array(newCount);
+  const nextVy = new Float32Array(newCount);
+  const nextVz = new Float32Array(newCount);
+  const nextSpeedScale = new Float32Array(newCount);
+  const nextSteerScale = new Float32Array(newCount);
+  const nextIsResting = new Uint8Array(newCount);
+  const nextRestTicksLeft = new Uint16Array(newCount);
+  const nextAx = new Float32Array(newCount);
+  const nextAy = new Float32Array(newCount);
+  const nextAz = new Float32Array(newCount);
+  if (oldCount > 0) {
+    nextX.set(swarmState.x);
+    nextY.set(swarmState.y);
+    nextZ.set(swarmState.z);
+    nextVx.set(swarmState.vx);
+    nextVy.set(swarmState.vy);
+    nextVz.set(swarmState.vz);
+    nextSpeedScale.set(swarmState.speedScale);
+    nextSteerScale.set(swarmState.steerScale);
+    nextIsResting.set(swarmState.isResting);
+    nextRestTicksLeft.set(swarmState.restTicksLeft);
+    nextAx.set(swarmState.ax);
+    nextAy.set(swarmState.ay);
+    nextAz.set(swarmState.az);
+  }
+  nextX[oldCount] = Number(agent.x) || 0;
+  nextY[oldCount] = Number(agent.y) || 0;
+  nextZ[oldCount] = Number(agent.z) || 0;
+  nextVx[oldCount] = Number(agent.vx) || 0;
+  nextVy[oldCount] = Number(agent.vy) || 0;
+  nextVz[oldCount] = Number(agent.vz) || 0;
+  nextSpeedScale[oldCount] = Number.isFinite(Number(agent.speedScale)) ? Number(agent.speedScale) : 1;
+  nextSteerScale[oldCount] = Number.isFinite(Number(agent.steerScale)) ? Number(agent.steerScale) : 1;
+  nextIsResting[oldCount] = Number(agent.isResting) ? 1 : 0;
+  nextRestTicksLeft[oldCount] = Math.round(Math.max(0, Number(agent.restTicksLeft) || 0));
+  nextAx[oldCount] = Number(agent.ax) || 0;
+  nextAy[oldCount] = Number(agent.ay) || 0;
+  nextAz[oldCount] = Number(agent.az) || 0;
+  swarmState.count = newCount;
+  swarmState.x = nextX;
+  swarmState.y = nextY;
+  swarmState.z = nextZ;
+  swarmState.vx = nextVx;
+  swarmState.vy = nextVy;
+  swarmState.vz = nextVz;
+  swarmState.speedScale = nextSpeedScale;
+  swarmState.steerScale = nextSteerScale;
+  swarmState.isResting = nextIsResting;
+  swarmState.restTicksLeft = nextRestTicksLeft;
+  swarmState.ax = nextAx;
+  swarmState.ay = nextAy;
+  swarmState.az = nextAz;
+}
+
+function spawnRestingBirdNear(parentX, parentY, settings) {
+  const maxFlight = settings.maxHeight;
+  const minFlight = settings.minHeight;
+  const variation = settings.variationStrengthPct * 0.01;
+  let spawnX = clamp(parentX + (Math.random() * 2 - 1) * 2, 0, Math.max(0, splatSize.width - 1));
+  let spawnY = clamp(parentY + (Math.random() * 2 - 1) * 2, 0, Math.max(0, splatSize.height - 1));
+  let found = false;
+  for (let tries = 0; tries < 12; tries++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 0.8 + Math.random() * 2.2;
+    const tx = clamp(parentX + Math.cos(angle) * radius, 0, Math.max(0, splatSize.width - 1));
+    const ty = clamp(parentY + Math.sin(angle) * radius, 0, Math.max(0, splatSize.height - 1));
+    if (!isSwarmCoordFlyable(tx, ty, maxFlight)) continue;
+    if (isWaterAtSwarmCoord(tx, ty)) continue;
+    spawnX = tx;
+    spawnY = ty;
+    found = true;
+    break;
+  }
+  if (!found && (!isSwarmCoordFlyable(spawnX, spawnY, maxFlight) || isWaterAtSwarmCoord(spawnX, spawnY))) {
+    return false;
+  }
+  const floorZ = Math.max(minFlight, terrainFloorAtSwarmCoord(spawnX, spawnY));
+  appendSwarmAgentState({
+    x: spawnX,
+    y: spawnY,
+    z: clamp(floorZ, minFlight, maxFlight),
+    vx: 0,
+    vy: 0,
+    vz: 0,
+    speedScale: 1 + (Math.random() * 2 - 1) * variation,
+    steerScale: 1 + (Math.random() * 2 - 1) * variation,
+    isResting: 1,
+    restTicksLeft: Math.round(clamp(Number(settings.restTicks), 100, 10000)),
+    ax: 0,
+    ay: 0,
+    az: 0,
+  });
+  return true;
+}
+
 function normalizeSwarmHeightRangeInputs(changed = "min") {
   let minHeight = Math.round(clamp(Number(swarmMinHeightInput.value), 0, SWARM_Z_MAX));
   let maxHeight = Math.round(clamp(Number(swarmMaxHeightInput.value), 0, SWARM_Z_MAX));
@@ -3406,20 +3725,63 @@ function normalizeSwarmHeightRangeInputs(changed = "min") {
   swarmMaxHeightInput.value = String(maxHeight);
 }
 
+function normalizeSwarmFollowZoomInputs(changed = "out") {
+  let zoomOut = clamp(Number(swarmFollowZoomOutInput.value), zoomMin, zoomMax);
+  let zoomIn = clamp(Number(swarmFollowZoomInInput.value), zoomMin, zoomMax);
+  if (zoomOut > zoomIn) {
+    if (changed === "out") {
+      zoomIn = zoomOut;
+    } else {
+      zoomOut = zoomIn;
+    }
+  }
+  swarmFollowZoomOutInput.value = zoomOut.toFixed(1);
+  swarmFollowZoomInInput.value = zoomIn.toFixed(1);
+}
+
 function chooseRandomSwarmTargetIndex() {
   if (swarmState.count <= 0) return -1;
   return Math.floor(Math.random() * swarmState.count);
+}
+
+function chooseRandomSwarmTargetIndexNear(centerX, centerY, rangePx) {
+  if (swarmState.count <= 0) return -1;
+  const radius = Math.max(0, Number(rangePx) || 0);
+  if (radius <= 0) return chooseRandomSwarmTargetIndex();
+  const radiusSq = radius * radius;
+  let selected = -1;
+  let matches = 0;
+  for (let i = 0; i < swarmState.count; i++) {
+    const dx = swarmState.x[i] - centerX;
+    const dy = swarmState.y[i] - centerY;
+    if (dx * dx + dy * dy > radiusSq) continue;
+    matches += 1;
+    if (Math.random() < 1 / matches) {
+      selected = i;
+    }
+  }
+  return selected >= 0 ? selected : chooseRandomSwarmTargetIndex();
 }
 
 function chooseRandomFollowAgentIndex() {
   return chooseRandomSwarmTargetIndex();
 }
 
-function updateSwarmFollowButtonUi() {
-  swarmFollowToggleBtn.textContent = swarmFollowState.enabled ? "Stop Follow" : "Follow Agent Mode";
+function chooseRandomFollowHawkIndex() {
+  if (swarmState.hawks.length <= 0) return -1;
+  return Math.floor(Math.random() * swarmState.hawks.length);
 }
 
-function createSpawnedHawk(minFlight, maxFlight) {
+function updateSwarmFollowButtonUi() {
+  const noun = swarmFollowState.targetType === "hawk" ? "Hawk" : "Agent";
+  swarmFollowToggleBtn.textContent = swarmFollowState.enabled ? "Stop Follow" : `Follow ${noun} Mode`;
+}
+
+function resetSwarmFollowSpeedSmoothing() {
+  swarmFollowState.speedNormFiltered = null;
+}
+
+function createSpawnedHawk(minFlight, maxFlight, targetRangePx) {
   const width = Math.max(1, splatSize.width);
   const height = Math.max(1, splatSize.height);
   const x = Math.random() * Math.max(1, width - 1);
@@ -3435,7 +3797,8 @@ function createSpawnedHawk(minFlight, maxFlight) {
     ax: 0,
     ay: 0,
     az: 0,
-    targetIndex: chooseRandomSwarmTargetIndex(),
+    targetIndex: chooseRandomSwarmTargetIndexNear(x, y, targetRangePx),
+    lastKillTick: Math.max(0, Math.round(swarmState.stepCount)),
   };
 }
 
@@ -3494,10 +3857,14 @@ function reseedSwarmAgents(count = getSwarmSettings().agentCount) {
     swarmState.restTicksLeft[i] = 0;
   }
   swarmState.lastUpdateMs = null;
+  swarmState.stepCount = 0;
+  swarmState.hawkKillIntervalSum = 0;
+  swarmState.hawkKillCount = 0;
+  swarmState.breedingActive = false;
   swarmState.hawks = [];
   if (settings.useHawk) {
     for (let i = 0; i < settings.hawkCount; i++) {
-      swarmState.hawks.push(createSpawnedHawk(minFlight, maxFlight));
+      swarmState.hawks.push(createSpawnedHawk(minFlight, maxFlight, settings.hawkTargetRange));
     }
   }
   swarmFollowState.agentIndex = swarmFollowState.enabled ? chooseRandomFollowAgentIndex() : -1;
@@ -3547,6 +3914,16 @@ function stepSwarm(settings, dt, nowMs) {
   const restChancePerTick = clamp(settings.restChancePct, 0, 0.002);
   const restTicks = Math.round(clamp(settings.restTicks, 100, 10000));
   const hawkThreatRadiusSq = cursorRadiusSq;
+  const maxBirds = Math.max(0, Math.round(settings.agentCount));
+  const breedingThreshold = Math.round(clamp(Number(settings.breedingThreshold), 0, maxBirds));
+  const breedingSpawnChance = clamp(Number(settings.breedingSpawnChance), 0, 1);
+  const pendingRestBirths = [];
+
+  if (!swarmState.breedingActive && swarmState.count < breedingThreshold) {
+    swarmState.breedingActive = true;
+  } else if (swarmState.breedingActive && swarmState.count >= maxBirds) {
+    swarmState.breedingActive = false;
+  }
 
   for (let i = 0; i < swarmState.count; i++) {
     const px = swarmState.x[i];
@@ -3736,6 +4113,14 @@ function stepSwarm(settings, dt, nowMs) {
       swarmState.ax[i] = 0;
       swarmState.ay[i] = 0;
       swarmState.az[i] = 0;
+      if (
+        swarmState.breedingActive
+        && breedingSpawnChance > 0
+        && swarmState.count + pendingRestBirths.length < maxBirds
+        && Math.random() < breedingSpawnChance
+      ) {
+        pendingRestBirths.push({ x: px, y: py });
+      }
       continue;
     }
 
@@ -3818,12 +4203,27 @@ function stepSwarm(settings, dt, nowMs) {
     swarmState.z[i] = clamp(nz, minFlight, maxFlight);
   }
 
-  if (!settings.useHawk || swarmState.count <= 0 || hawks.length === 0) return;
-
-  for (const hawk of hawks) {
-    if (!Number.isInteger(hawk.targetIndex) || hawk.targetIndex < 0 || hawk.targetIndex >= swarmState.count) {
-      hawk.targetIndex = chooseRandomSwarmTargetIndex();
+  if (swarmState.breedingActive && pendingRestBirths.length > 0) {
+    for (const birth of pendingRestBirths) {
+      if (swarmState.count >= maxBirds) break;
+      spawnRestingBirdNear(birth.x, birth.y, settings);
     }
+  }
+  if (!swarmState.breedingActive && swarmState.count < breedingThreshold) {
+    swarmState.breedingActive = true;
+  } else if (swarmState.breedingActive && swarmState.count >= maxBirds) {
+    swarmState.breedingActive = false;
+  }
+
+  if (!settings.useHawk || hawks.length === 0) return;
+
+  const currentTick = Math.max(0, Math.round(swarmState.stepCount));
+  for (let hawkIndex = hawks.length - 1; hawkIndex >= 0; hawkIndex--) {
+    const hawk = hawks[hawkIndex];
+    if (!Number.isInteger(hawk.targetIndex) || hawk.targetIndex < 0 || hawk.targetIndex >= swarmState.count) {
+      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, settings.hawkTargetRange);
+    }
+    if (swarmState.count <= 0 || hawk.targetIndex < 0) continue;
     const targetX = swarmState.x[hawk.targetIndex];
     const targetY = swarmState.y[hawk.targetIndex];
     const targetZ = swarmState.z[hawk.targetIndex];
@@ -3832,7 +4232,13 @@ function stepSwarm(settings, dt, nowMs) {
     const toTargetZ = (targetZ - hawk.z) * SWARM_Z_NEIGHBOR_SCALE;
     const toTargetLen = Math.hypot(toTargetX, toTargetY, toTargetZ);
     if (toTargetLen <= 2) {
-      hawk.targetIndex = chooseRandomSwarmTargetIndex();
+      const killInterval = Math.max(0, currentTick - Math.max(0, Math.round(Number(hawk.lastKillTick) || 0)));
+      swarmState.hawkKillIntervalSum += killInterval;
+      swarmState.hawkKillCount += 1;
+      removeSwarmAgentAtIndex(hawk.targetIndex);
+      hawk.lastKillTick = currentTick;
+      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, settings.hawkTargetRange);
+      continue;
     }
     const aimX = swarmState.x[hawk.targetIndex] - hawk.x;
     const aimY = swarmState.y[hawk.targetIndex] - hawk.y;
@@ -3879,7 +4285,7 @@ function stepSwarm(settings, dt, nowMs) {
       hy = hawk.y;
       hawk.vx = -hawk.vx * 0.6;
       hawk.vy = -hawk.vy * 0.6;
-      hawk.targetIndex = chooseRandomSwarmTargetIndex();
+      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, settings.hawkTargetRange);
     }
     const hawkMinZ = Math.max(minFlight, terrainFloorAtSwarmCoord(hx, hy));
     hz = clamp(hz, hawkMinZ, maxFlight);
@@ -3890,7 +4296,12 @@ function stepSwarm(settings, dt, nowMs) {
 }
 
 function updateSwarm(nowMs) {
-  if (!isSwarmEnabled() || swarmState.count <= 0) {
+  if (!isSwarmEnabled()) {
+    swarmState.lastUpdateMs = nowMs;
+    return;
+  }
+  const settings = getSwarmSettings();
+  if (swarmState.count <= 0 && (!settings.useHawk || swarmState.hawks.length <= 0)) {
     swarmState.lastUpdateMs = nowMs;
     return;
   }
@@ -3898,7 +4309,6 @@ function updateSwarm(nowMs) {
     swarmState.lastUpdateMs = nowMs;
     return;
   }
-  const settings = getSwarmSettings();
   const elapsedSec = Math.min(0.25, Math.max(0, (nowMs - swarmState.lastUpdateMs) * 0.001));
   swarmState.lastUpdateMs = nowMs;
   const scaledDt = elapsedSec * settings.simulationSpeed;
@@ -3909,6 +4319,7 @@ function updateSwarm(nowMs) {
   while (remaining > 0.000001 && guard < 8) {
     const dt = Math.min(maxStep, remaining);
     stepSwarm(settings, dt, nowMs);
+    swarmState.stepCount += 1;
     remaining -= dt;
     guard++;
   }
@@ -3918,17 +4329,59 @@ function updateSwarmFollowCamera() {
   if (!swarmFollowState.enabled) return;
   if (!isSwarmEnabled() || swarmState.count <= 0) {
     swarmFollowState.enabled = false;
+    swarmFollowState.hawkIndex = -1;
     swarmFollowState.agentIndex = -1;
+    resetSwarmFollowSpeedSmoothing();
     updateSwarmFollowButtonUi();
+    return;
+  }
+  const settings = getSwarmSettings();
+  if (swarmFollowState.targetType === "hawk") {
+    if (!settings.useHawk || swarmState.hawks.length <= 0) {
+      swarmFollowState.enabled = false;
+      swarmFollowState.hawkIndex = -1;
+      resetSwarmFollowSpeedSmoothing();
+      updateSwarmFollowButtonUi();
+      return;
+    }
+    if (!Number.isInteger(swarmFollowState.hawkIndex) || swarmFollowState.hawkIndex < 0 || swarmFollowState.hawkIndex >= swarmState.hawks.length) {
+      swarmFollowState.hawkIndex = chooseRandomFollowHawkIndex();
+    }
+    if (swarmFollowState.hawkIndex < 0) return;
+    const hawk = swarmState.hawks[swarmFollowState.hawkIndex];
+    const hawkWorld = mapCoordToWorld(hawk.x, hawk.y);
+    panWorld.x = hawkWorld.x;
+    panWorld.y = hawkWorld.y;
+    if (settings.followZoomBySpeed) {
+      const speedNormRaw = clamp(Math.hypot(hawk.vx, hawk.vy) / Math.max(1, settings.hawkSpeed), 0, 1);
+      if (!Number.isFinite(swarmFollowState.speedNormFiltered)) {
+        swarmFollowState.speedNormFiltered = speedNormRaw;
+      } else {
+        swarmFollowState.speedNormFiltered += (speedNormRaw - swarmFollowState.speedNormFiltered) * 0.18;
+      }
+      const targetZoom = settings.followZoomIn + (settings.followZoomOut - settings.followZoomIn) * swarmFollowState.speedNormFiltered;
+      zoom = clamp(zoom + (targetZoom - zoom) * 0.14, zoomMin, zoomMax);
+    }
     return;
   }
   if (!Number.isInteger(swarmFollowState.agentIndex) || swarmFollowState.agentIndex < 0 || swarmFollowState.agentIndex >= swarmState.count) {
     swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
   }
   if (swarmFollowState.agentIndex < 0) return;
-  const world = mapCoordToWorld(swarmState.x[swarmFollowState.agentIndex], swarmState.y[swarmFollowState.agentIndex]);
+  const followIndex = swarmFollowState.agentIndex;
+  const world = mapCoordToWorld(swarmState.x[followIndex], swarmState.y[followIndex]);
   panWorld.x = world.x;
   panWorld.y = world.y;
+  if (settings.followZoomBySpeed) {
+    const speedNormRaw = clamp(Math.hypot(swarmState.vx[followIndex], swarmState.vy[followIndex]) / Math.max(1, settings.maxSpeed), 0, 1);
+    if (!Number.isFinite(swarmFollowState.speedNormFiltered)) {
+      swarmFollowState.speedNormFiltered = speedNormRaw;
+    } else {
+      swarmFollowState.speedNormFiltered += (speedNormRaw - swarmFollowState.speedNormFiltered) * settings.followAgentSpeedSmoothing;
+    }
+    const targetZoom = settings.followZoomIn + (settings.followZoomOut - settings.followZoomIn) * swarmFollowState.speedNormFiltered;
+    zoom = clamp(zoom + (targetZoom - zoom) * settings.followAgentZoomSmoothing, zoomMin, zoomMax);
+  }
 }
 
 function drawSwarmOverlay() {
@@ -3965,6 +4418,23 @@ function drawSwarmOverlay() {
       const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
       const center = worldToScreen(centerWorld);
       overlayCtx.fillRect(center.x - w * 0.5, center.y - h * 0.5, w, h);
+    }
+  }
+
+  if (settings.followHawkRangeGizmo && swarmFollowState.enabled && swarmFollowState.targetType === "hawk") {
+    const followHawkIndex = swarmFollowState.hawkIndex;
+    if (Number.isInteger(followHawkIndex) && followHawkIndex >= 0 && followHawkIndex < swarmState.hawks.length) {
+      const hawk = swarmState.hawks[followHawkIndex];
+      const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
+      const edgeWorld = mapCoordToWorld(hawk.x + settings.hawkTargetRange, hawk.y);
+      const centerScreen = worldToScreen(centerWorld);
+      const edgeScreen = worldToScreen(edgeWorld);
+      const radiusScreen = Math.max(1, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
+      overlayCtx.beginPath();
+      overlayCtx.arc(centerScreen.x, centerScreen.y, radiusScreen, 0, Math.PI * 2);
+      overlayCtx.lineWidth = 1.5;
+      overlayCtx.strokeStyle = "rgba(255, 124, 92, 0.85)";
+      overlayCtx.stroke();
     }
   }
 
@@ -4369,6 +4839,26 @@ function updateInfoPanel() {
   pathInfoEl.textContent = `Path: len ${metrics.steps} | cost ${metrics.totalCost.toFixed(2)} | avg ${metrics.avgPerStep.toFixed(2)}`;
 }
 
+function syncSwarmStatsPanelVisibility() {
+  const showStatsPanel = swarmStatsPanelToggle.checked;
+  swarmStatsPanelEl.hidden = !showStatsPanel;
+  swarmStatsPanelEl.classList.toggle("hidden", !showStatsPanel);
+  swarmStatsPanelEl.style.display = showStatsPanel ? "block" : "none";
+}
+
+function updateSwarmStatsPanel() {
+  syncSwarmStatsPanelVisibility();
+  swarmStatsBirdsValue.textContent = String(swarmState.count);
+  swarmStatsHawksValue.textContent = String(swarmState.hawks.length);
+  swarmStatsStepsValue.textContent = Math.round(Math.max(0, swarmState.stepCount)).toLocaleString();
+  if (swarmState.hawkKillCount > 0) {
+    const avg = swarmState.hawkKillIntervalSum / swarmState.hawkKillCount;
+    swarmStatsAvgHawkKillValue.textContent = `${avg.toFixed(1)} ticks`;
+  } else {
+    swarmStatsAvgHawkKillValue.textContent = "--";
+  }
+}
+
 function updateParallaxStrengthLabel() {
   const value = clamp(Number(parallaxStrengthInput.value), 0, 1);
   parallaxStrengthValue.textContent = value.toFixed(2);
@@ -4764,6 +5254,28 @@ pathBaseCostInput.addEventListener("input", () => {
 swarmShowTerrainToggle.addEventListener("change", () => {
   requestOverlayDraw();
 });
+swarmFollowZoomToggle.addEventListener("change", () => {
+  updateSwarmUi();
+  updateSwarmLabels();
+});
+swarmFollowZoomInInput.addEventListener("input", () => {
+  normalizeSwarmFollowZoomInputs("in");
+  updateSwarmLabels();
+});
+swarmFollowZoomOutInput.addEventListener("input", () => {
+  normalizeSwarmFollowZoomInputs("out");
+  updateSwarmLabels();
+});
+swarmFollowHawkRangeGizmoToggle.addEventListener("change", () => {
+  updateSwarmUi();
+  requestOverlayDraw();
+});
+swarmFollowAgentSpeedSmoothingInput.addEventListener("input", updateSwarmLabels);
+swarmFollowAgentZoomSmoothingInput.addEventListener("input", updateSwarmLabels);
+swarmStatsPanelToggle.addEventListener("change", () => {
+  updateSwarmUi();
+  updateSwarmStatsPanel();
+});
 swarmFollowToggleBtn.addEventListener("click", () => {
   if (!isSwarmEnabled()) {
     setStatus("Enable Agent Swarm first.");
@@ -4772,18 +5284,33 @@ swarmFollowToggleBtn.addEventListener("click", () => {
   if (swarmFollowState.enabled) {
     swarmFollowState.enabled = false;
     swarmFollowState.agentIndex = -1;
+    swarmFollowState.hawkIndex = -1;
+    resetSwarmFollowSpeedSmoothing();
     updateSwarmFollowButtonUi();
     setStatus("Swarm follow stopped.");
     return;
   }
-  if (swarmState.count <= 0) {
-    setStatus("No swarm agents available to follow.");
-    return;
+  const targetType = swarmFollowTargetInput.value === "hawk" ? "hawk" : "agent";
+  swarmFollowState.targetType = targetType;
+  if (targetType === "hawk") {
+    if (!getSwarmSettings().useHawk || swarmState.hawks.length <= 0) {
+      setStatus("No hawks available to follow.");
+      return;
+    }
+    swarmFollowState.hawkIndex = chooseRandomFollowHawkIndex();
+    swarmFollowState.agentIndex = -1;
+  } else {
+    if (swarmState.count <= 0) {
+      setStatus("No swarm agents available to follow.");
+      return;
+    }
+    swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
+    swarmFollowState.hawkIndex = -1;
   }
   swarmFollowState.enabled = true;
-  swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
+  resetSwarmFollowSpeedSmoothing();
   updateSwarmFollowButtonUi();
-  setStatus("Swarm follow enabled.");
+  setStatus(`Swarm follow enabled (${targetType}).`);
 });
 swarmBackgroundColorInput.addEventListener("input", () => {
   requestOverlayDraw();
@@ -4823,6 +5350,8 @@ swarmSeparationWeightInput.addEventListener("input", updateSwarmLabels);
 swarmWanderWeightInput.addEventListener("input", updateSwarmLabels);
 swarmRestChanceInput.addEventListener("input", updateSwarmLabels);
 swarmRestTicksInput.addEventListener("input", updateSwarmLabels);
+swarmBreedingThresholdInput.addEventListener("input", updateSwarmLabels);
+swarmBreedingSpawnChanceInput.addEventListener("input", updateSwarmLabels);
 swarmCursorModeInput.addEventListener("change", () => {
   updateSwarmUi();
   requestOverlayDraw();
@@ -4841,6 +5370,18 @@ swarmHawkCountInput.addEventListener("input", () => {
 swarmHawkColorInput.addEventListener("input", requestOverlayDraw);
 swarmHawkSpeedInput.addEventListener("input", updateSwarmLabels);
 swarmHawkSteeringInput.addEventListener("input", updateSwarmLabels);
+swarmHawkTargetRangeInput.addEventListener("input", updateSwarmLabels);
+swarmFollowTargetInput.addEventListener("change", () => {
+  swarmFollowState.targetType = swarmFollowTargetInput.value === "hawk" ? "hawk" : "agent";
+  updateSwarmFollowButtonUi();
+  if (swarmFollowState.enabled) {
+    swarmFollowState.enabled = false;
+    swarmFollowState.agentIndex = -1;
+    swarmFollowState.hawkIndex = -1;
+    resetSwarmFollowSpeedSmoothing();
+    setStatus("Swarm follow stopped. Start follow again to apply new target type.");
+  }
+});
 heightScaleInput.addEventListener("input", schedulePointLightBake);
 
 for (const btn of topicButtons) {
@@ -5447,6 +5988,7 @@ function render(nowMs) {
   const lightingParams = computeLightingParams();
   cycleInfoEl.textContent = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeedHoursPerSec.toFixed(2)} h/s`;
   updateInfoPanel();
+  updateSwarmStatsPanel();
   updateCycleHourLabel();
 
   const swarmEnabled = isSwarmEnabled();
@@ -5487,6 +6029,7 @@ updatePathSlopeCutoffLabel();
 updatePathBaseCostLabel();
 updateSwarmLabels();
 updateSwarmUi();
+updateSwarmStatsPanel();
 updateSwarmFollowButtonUi();
 updateParallaxStrengthLabel();
 updateParallaxBandsLabel();
@@ -5531,6 +6074,8 @@ swarmEnabledToggle.addEventListener("change", () => {
   } else {
     swarmFollowState.enabled = false;
     swarmFollowState.agentIndex = -1;
+    swarmFollowState.hawkIndex = -1;
+    resetSwarmFollowSpeedSmoothing();
     updateSwarmFollowButtonUi();
     requestOverlayDraw();
     setStatus("Agent swarm disabled.");

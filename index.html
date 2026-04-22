@@ -132,6 +132,53 @@
             <button id="swarmFollowToggle" class="row-action-btn" type="button">Follow Agent Mode</button>
           </div>
           <div class="row">
+            <label for="swarmFollowTarget">Follow Target</label>
+            <select id="swarmFollowTarget">
+              <option value="agent">Agent</option>
+              <option value="hawk">Hawk</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="swarmFollowZoomToggle">Speed Zoom</label>
+            <input id="swarmFollowZoomToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmFollowZoomIn">Max Zoom In</label>
+            <div class="inline-control">
+              <input id="swarmFollowZoomIn" type="range" min="0.5" max="32" step="0.1" value="2.2" />
+              <span id="swarmFollowZoomInValue">2.2x</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmFollowZoomOut">Max Zoom Out</label>
+            <div class="inline-control">
+              <input id="swarmFollowZoomOut" type="range" min="0.5" max="32" step="0.1" value="0.8" />
+              <span id="swarmFollowZoomOutValue">0.8x</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmFollowHawkRangeGizmoToggle">Hawk Range Gizmo</label>
+            <input id="swarmFollowHawkRangeGizmoToggle" type="checkbox" />
+          </div>
+          <div class="row">
+            <label for="swarmFollowAgentSpeedSmoothing">Bird Speed Smooth</label>
+            <div class="inline-control">
+              <input id="swarmFollowAgentSpeedSmoothing" type="range" min="0.01" max="0.25" step="0.01" value="0.04" />
+              <span id="swarmFollowAgentSpeedSmoothingValue">0.04</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmFollowAgentZoomSmoothing">Bird Zoom Smooth</label>
+            <div class="inline-control">
+              <input id="swarmFollowAgentZoomSmoothing" type="range" min="0.01" max="0.25" step="0.01" value="0.07" />
+              <span id="swarmFollowAgentZoomSmoothingValue">0.07</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmStatsPanelToggle">Stats Panel</label>
+            <input id="swarmStatsPanelToggle" type="checkbox" />
+          </div>
+          <div class="row">
             <label for="swarmShowTerrainToggle">Show Terrain</label>
             <input id="swarmShowTerrainToggle" type="checkbox" />
           </div>
@@ -245,6 +292,20 @@
             </div>
           </div>
           <div class="row">
+            <label for="swarmBreedingThreshold">Breeding Threshold</label>
+            <div class="inline-control">
+              <input id="swarmBreedingThreshold" type="range" min="0" max="1000" step="1" value="180" />
+              <span id="swarmBreedingThresholdValue">180</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmBreedingSpawnChance">Breed Spawn Chance</label>
+            <div class="inline-control">
+              <input id="swarmBreedingSpawnChance" type="range" min="0" max="1" step="0.01" value="0.35" />
+              <span id="swarmBreedingSpawnChanceValue">35%</span>
+            </div>
+          </div>
+          <div class="row">
             <label for="swarmCursorMode">Cursor Force</label>
             <select id="swarmCursorMode">
               <option value="none">None</option>
@@ -293,6 +354,13 @@
             <div class="inline-control">
               <input id="swarmHawkSteering" type="range" min="20" max="700" step="1" value="240" />
               <span id="swarmHawkSteeringValue">240 px/s^2</span>
+            </div>
+          </div>
+          <div class="row">
+            <label for="swarmHawkTargetRange">Hawk Target Range</label>
+            <div class="inline-control">
+              <input id="swarmHawkTargetRange" type="range" min="20" max="500" step="1" value="180" />
+              <span id="swarmHawkTargetRangeValue">180 px</span>
             </div>
           </div>
         </section>
@@ -747,6 +815,13 @@
       </div>
     </aside>
 
+    <aside id="swarmStatsPanel" class="swarm-stats-panel hidden" aria-live="polite">
+      <h2>Swarm Stats</h2>
+      <p><span>Birds Alive</span><strong id="swarmStatsBirdsValue">0</strong></p>
+      <p><span>Hawks Alive</span><strong id="swarmStatsHawksValue">0</strong></p>
+      <p><span>Time Running (steps)</span><strong id="swarmStatsStepsValue">0</strong></p>
+      <p><span>Avg Hawk Kill Time</span><strong id="swarmStatsAvgHawkKillValue">--</strong></p>
+    </aside>
     <canvas id="glCanvas"></canvas>
     <canvas id="overlayCanvas"></canvas>
     <script type="module" src="./src/main.js"></script>

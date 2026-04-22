@@ -139,6 +139,19 @@ No game engine is used.
 - `PF` dock toggle enables `pathfinding` interaction mode.
 - `Agent Swarm` panel has a `Use Agent Swarm` toggle for enabling/disabling swarm simulation.
 - `Agent Swarm` panel has a `Follow Agent Mode` button that tracks camera pan to a random selected swarm agent while keeping zoom/other controls available.
+- Follow mode now has optional speed-driven zoom:
+  - `Speed Zoom` toggle enables dynamic camera zoom while follow mode is active.
+  - low XY movement zooms in toward `Max Zoom In`.
+  - high XY movement zooms out toward `Max Zoom Out`.
+  - both bounds are user-adjustable in swarm controls and persisted in `swarm.json`.
+  - optional `Hawk Range Gizmo` can draw the followed hawk target-range ring while follow target is `hawk`.
+  - normal-agent follow smoothing is user-tunable via `Bird Speed Smooth` and `Bird Zoom Smooth` sliders.
+  - hawk follow keeps separate fixed smoothing values.
+- `Agent Swarm` panel also has a `Stats Panel` toggle that opens a right-side overlay showing:
+  - birds alive
+  - hawks alive
+  - simulation time running in integration steps
+  - average hawk kill interval (ticks), computed from accumulated hawk kill events
 - Mode behavior:
   - `lighting`: left click adds/selects point lights.
   - `pathfinding`: hover shows live path preview from player; left click moves player instantly to clicked cell.
@@ -153,10 +166,16 @@ No game engine is used.
     - `Rest Ticks` (`100..10000`) controls how long resting lasts
     - resting agents stay landed/immobile at terrain floor and wake immediately on nearby hawk threat
     - resting is forbidden on water pixels from `water.png`
-  - Optional hawk predator:
-    - has independent count/color/speed/turnability controls
-    - chases a random agent and switches target on reach
-    - flock agents apply hawk-repulsion using the same radius/strength controls as cursor repulsion
+- Optional hawk predator:
+  - has independent count/color/speed/turnability controls
+  - target selection is range-based via `Hawk Target Range`: hawk retarget picks randomly among agents within that radius (fallback to global random if none are in range)
+  - hawks do not starve/despawn; they are persistent while swarm is enabled
+  - chases a random agent and switches target on reach
+  - flock agents apply hawk-repulsion using the same radius/strength controls as cursor repulsion
+- Swarm breeding bounce-back:
+  - when bird count drops below `Breeding Threshold`, breeding mode becomes active
+  - while breeding mode is active, each new rest event has `Breed Spawn Chance` to create one adjacent resting bird
+  - breeding mode auto-disables when bird count returns to configured `Agent Count`
   - `none`: left click is no-op.
 - Lighting mode on:
   - Left click adds a point light unless one already exists at that map pixel
