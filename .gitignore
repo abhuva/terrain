@@ -1,2 +1,6 @@
 Thumbs.db
 .DS_Store
+.tauri-dist/
+src-tauri/gen/
+src-tauri/target/
+.obsidian/
