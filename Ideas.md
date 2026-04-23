@@ -45,10 +45,14 @@
 
 ## Interesting Links
 
-[Reddit thread](https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/)
+growth based simulation [Reddit thread](https://www.reddit.com/r/proceduralgeneration/comments/1sp85sl/)
 
 [Prebaked particle effects
 (YouTube)](https://www.youtube.com/watch?v=39A0n24PX8g)
+
+Dual Grid System (Sprites / Textures) : https://www.youtube.com/watch?v=jEWFSv3ivTg&t=332s
+Flow Field https://www.youtube.com/watch?v=sZBfLgfsvSk
+
 
 ## Weather System Brainstorm (2026-04-21)
 
@@ -333,3 +337,24 @@
   - Versioned schema.
   - Central validation/defaulting.
   - Backward compatibility when adding parameters later.
+
+
+# Gameplay
+
+- **use animals to scout** like with a shaman or drugs or similar, you connect your mind with an animal and view the world through them --> particle system follow hawk, follow birds etc...
+  this should be coupled with a sort of "fog of war". Can be saved in a texture. One channel is wether we see the terrain or not, other channel is for wether we get updated info from systems (like predator prey, vegetation etc)
+  When we use animals, we have a far greater range.
+  
+  This can be extended. At the start we can only "posess" like a bird (slow) near us (this range can be extended through progression). First only for a couple seconds.
+  Later we might be able to use a hawk endlessly or even control it...  
+  
+- **resources change and make scouting a constant action** to tie the animal posessing thing even more in, beyond just a visual gimmick - resources on a whole scale will vary (wildlife, plants etc.). The variation comes through the player, natural fluctutation etc. 
+  The trick is: the longer it is away that we visited or watched a place, the more inaccurate this information gets. 
+  Time is stored basically in the fog-of-war map, in a channel. freshly discovered is 255 and then it decreases (or the other way around). once a day this gets recalculated (everything goes doewn).
+  When we now check on a resource (out of memory so to say) that is not nearby - we get not the true value, but a distorted one - depending on how long away it is (this needs to be finetuned of course)
+  Resources might also pop up (large concentrations).
+  
+  Overall the goal is that you have to plan where to go, as movement is time and resource intensiv. So you want to be sure that you get good resources - this helps to tie the animal posessing/scouting mechanic in more.
+
+- **gory killings** - if a hawk kills a bird for example, there should be a blood-splatter on the ground
+  - these splatters are like decals, they work as sprites and live in the sprite plane so to say (not yet implemented, see detailed map sprite stuff ). they would be timed (could be even with decay or something... see Stoneshard as inspiration)
