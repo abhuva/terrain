@@ -1318,3 +1318,10 @@ Recommended next sequence:
     - `node --check src/gameplay/mapRuntimeStateBinding.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued map-bootstrap binding extraction:
+    - extracted map-bootstrap binding composition (`createMapBootstrapRuntime` deps composition) from `src/main.js` into `src/gameplay/mapBootstrapBindingRuntime.js`
+    - `main.js` now delegates map bootstrap runtime creation through `createMapBootstrapBindingRuntime(...)`
+  - Validation:
+    - `node --check src/gameplay/mapBootstrapBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

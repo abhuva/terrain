@@ -91,7 +91,7 @@ import { createMapLoadingRuntime } from "./gameplay/mapLoadingRuntime.js";
 import { createMapImageRuntime } from "./gameplay/mapImageRuntime.js";
 import { createMapSampling } from "./gameplay/mapSampling.js";
 import { createMapRuntimeStateBinding } from "./gameplay/mapRuntimeStateBinding.js";
-import { createMapBootstrapRuntime } from "./gameplay/mapBootstrapRuntime.js";
+import { createMapBootstrapBindingRuntime } from "./gameplay/mapBootstrapBindingRuntime.js";
 import { createShadowOcclusion } from "./gameplay/shadowOcclusion.js";
 import {
   normalizeMapFolderPath as normalizeMapFolderPathUtil,
@@ -4415,7 +4415,7 @@ bindRenderFxRuntime({
   rebuildFlowMapTexture,
 });
 
-const mapBootstrapRuntime = createMapBootstrapRuntime({
+const mapBootstrapRuntime = createMapBootstrapBindingRuntime({
   defaultMapFolderCandidates: DEFAULT_MAP_FOLDER_CANDIDATES,
   loadMapFromPath,
   setStatus,
