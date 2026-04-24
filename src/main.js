@@ -52,9 +52,9 @@ import { createMainTerrainPass } from "./render/passes/mainTerrainPass.js";
 import { createBlurPass } from "./render/passes/blurPass.js";
 import { applyPointLightUsagePass } from "./render/passes/pointLightUsagePass.js";
 import { rebuildFlowMapTexture as rebuildFlowMapTexturePrecompute } from "./render/precompute/flowMap.js";
-import { createPointLightBakeOrchestrator } from "./render/precompute/pointLightBake.js";
 import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvasRuntime.js";
 import { createPointLightBakeSync } from "./render/pointLightBakeSync.js";
+import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
 import { createTimeSystem } from "./sim/timeSystem.js";
 import { createLightingSystem } from "./sim/lightingSystem.js";
 import { createFogSystem } from "./sim/fogSystem.js";
@@ -1407,6 +1407,7 @@ async function validateMapFolderViaTauri(folderPath) {
 }
 
 let mapImageRuntime = null;
+let pointLightBakeWorker = null;
 function getMapImageRuntime() {
   if (mapImageRuntime) return mapImageRuntime;
   mapImageRuntime = createMapImageRuntime({
@@ -2337,20 +2338,17 @@ const pointLightBakeCanvasRuntime = createPointLightBakeCanvasRuntime({
   uploadImageToTexture,
   requestOverlayDraw,
 });
-let pointLightBakeWorker = null;
-try {
-  pointLightBakeWorker = new Worker(new URL("./pointLightBakeWorker.js", import.meta.url), { type: "module" });
-} catch (err) {
-  console.warn("Point-light bake worker unavailable; falling back to main-thread baking.", err);
-}
-
-const pointLightBakeOrchestrator = createPointLightBakeOrchestrator({
+const pointLightBakeRuntime = createPointLightBakeRuntime({
   windowEl: window,
   requestAnimationFrame: (cb) => requestAnimationFrame(cb),
+  createWorker: () => {
+    pointLightBakeWorker = new Worker(new URL("./pointLightBakeWorker.js", import.meta.url), { type: "module" });
+    return pointLightBakeWorker;
+  },
+  bindPointLightWorker,
   debounceMs: POINT_LIGHT_BAKE_DEBOUNCE_MS,
   liveScale: POINT_LIGHT_BAKE_LIVE_SCALE,
   blendExposure: POINT_LIGHT_BLEND_EXPOSURE,
-  getWorker: () => pointLightBakeWorker,
   isLiveUpdateEnabled: () => isPointLightLiveUpdateEnabled(),
   ensureBakeSize: ensurePointLightBakeSize,
   hasBakeInputs: () => Boolean(normalsImageData && heightImageData),
@@ -2361,16 +2359,9 @@ const pointLightBakeOrchestrator = createPointLightBakeOrchestrator({
     const lightingSettings = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
     return Math.max(1, Number(lightingSettings.heightScale) || 1);
   },
+  bakePointLightsTextureSync,
+  applyPointLightBakeRgba,
 });
-
-if (pointLightBakeWorker) {
-  bindPointLightWorker(pointLightBakeWorker, {
-    getPendingRequestId: () => pointLightBakeOrchestrator.getPendingRequestId(),
-    setPendingRequestId: (value) => pointLightBakeOrchestrator.setPendingRequestId(value),
-    bakePointLightsTextureSync,
-    applyPointLightBakeRgba,
-  });
-}
 
 function createFlatNormalImage(size = 2) {
   return createFlatNormalImageRender(size);
@@ -2545,11 +2536,11 @@ function applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight) {
 }
 
 function schedulePointLightBake() {
-  pointLightBakeOrchestrator.scheduleBake();
+  pointLightBakeRuntime.scheduleBake();
 }
 
 function bakePointLightsTexture() {
-  pointLightBakeOrchestrator.bakeNow();
+  pointLightBakeRuntime.bakeNow();
 }
 
 let pointLightBakeSyncRuntime = null;

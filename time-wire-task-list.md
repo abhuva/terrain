@@ -901,3 +901,10 @@ Recommended next sequence:
     - `node --check src/core/modeStateAccess.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued point-light bake-runtime extraction:
+    - extracted point-light worker + bake-orchestrator runtime wiring from `src/main.js` into `src/render/pointLightBakeRuntime.js`
+    - `main.js` now keeps `schedulePointLightBake(...)` and `bakePointLightsTexture(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/render/pointLightBakeRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
