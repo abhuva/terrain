@@ -24,6 +24,7 @@ No game engine is used.
 - Interaction command routing is now extracted to `src/gameplay/interactionCommands.js` and composed into main command registration.
 - Point-light editor orchestration is now extracted to `src/gameplay/pointLightEditorController.js`, with draft state isolated in `src/gameplay/pointLightEditorState.js`.
 - Point-light selection wrappers (`getSelectedPointLight`, `clearLightEditSelection`, `setLightEditSelection`) are now extracted to `src/gameplay/pointLightSelectionRuntime.js`.
+- Point-light editor runtime bindings (`beginLightEdit`, `applyDraftToSelectedPointLight`, `rebakeIfPointLightLiveUpdateEnabled`, `findPointLightAtPixel`, `createPointLight`) are now extracted to `src/gameplay/pointLightEditorRuntime.js`.
 - Point-light save/load/confirmation I/O orchestration is now extracted to `src/gameplay/pointLightIoController.js`.
 - Point-light I/O runtime binding (controller composition + wrapper methods) is now extracted to `src/gameplay/pointLightIoRuntime.js`.
 - Map-level JSON "Save All" file-generation/save orchestration is now extracted to `src/gameplay/mapDataSaveController.js`.

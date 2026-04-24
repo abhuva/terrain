@@ -83,6 +83,7 @@ import { createCursorLightRuntimeState } from "./gameplay/cursorLightState.js";
 import { createMovementSystem } from "./gameplay/movementSystem.js";
 import { createPointLightEditorState } from "./gameplay/pointLightEditorState.js";
 import { createPointLightEditorController } from "./gameplay/pointLightEditorController.js";
+import { createPointLightEditorRuntime } from "./gameplay/pointLightEditorRuntime.js";
 import { createPointLightIoRuntime } from "./gameplay/pointLightIoRuntime.js";
 import { createMapDataSaveController } from "./gameplay/mapDataSaveController.js";
 import { createMapSidecarLoader } from "./gameplay/mapSidecarLoader.js";
@@ -1969,6 +1970,9 @@ const pointLightEditorController = createPointLightEditorController({
   onSelectionChanged: updateLightEditorUi,
   setStatus,
 });
+const pointLightEditorRuntime = createPointLightEditorRuntime({
+  pointLightEditorController,
+});
 const overlayDirtyRuntime = createOverlayDirtyRuntime(true);
 const DEFAULT_MAP_FOLDER = "assets/Map 1/";
 let currentMapFolderPath = DEFAULT_MAP_FOLDER;
@@ -2529,23 +2533,23 @@ function updateLightEditorUi() {
 }
 
 function beginLightEdit(light) {
-  pointLightEditorController.beginLightEdit(light);
+  pointLightEditorRuntime.beginLightEdit(light);
 }
 
 function applyDraftToSelectedPointLight() {
-  return pointLightEditorController.applyDraftToSelectedPointLight();
+  return pointLightEditorRuntime.applyDraftToSelectedPointLight();
 }
 
 function rebakeIfPointLightLiveUpdateEnabled() {
-  pointLightEditorController.rebakeIfPointLightLiveUpdateEnabled();
+  pointLightEditorRuntime.rebakeIfPointLightLiveUpdateEnabled();
 }
 
 function findPointLightAtPixel(pixelX, pixelY, radiusPx = POINT_LIGHT_SELECT_RADIUS) {
-  return pointLightEditorController.findPointLightAtPixel(pixelX, pixelY, radiusPx);
+  return pointLightEditorRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx);
 }
 
 function createPointLight(pixelX, pixelY) {
-  pointLightEditorController.createPointLight(pixelX, pixelY);
+  pointLightEditorRuntime.createPointLight(pixelX, pixelY);
 }
 
 function applyMapSizeChangeIfNeeded(changed) {

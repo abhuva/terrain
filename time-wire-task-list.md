@@ -1176,3 +1176,10 @@ Recommended next sequence:
     - `node --check src/gameplay/pointLightIoRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued point-light editor runtime binding extraction:
+    - extracted point-light editor runtime bindings (`beginLightEdit`, `applyDraftToSelectedPointLight`, `rebakeIfPointLightLiveUpdateEnabled`, `findPointLightAtPixel`, `createPointLight`) from `src/main.js` into `src/gameplay/pointLightEditorRuntime.js`
+    - `main.js` now keeps these helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/pointLightEditorRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
