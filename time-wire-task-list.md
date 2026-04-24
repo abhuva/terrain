@@ -1041,3 +1041,10 @@ Recommended next sequence:
     - `node --check src/ui/overlays/overlayAnimationRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued simulation-knob state-access extraction:
+    - extracted simulation-knob section state-access helper (`getSimulationKnobSectionFromStore`) from `src/main.js` into `src/core/simulationKnobAccess.js`
+    - `main.js` now keeps `getSimulationKnobSectionFromStore(...)` as a thin pass-through wrapper
+  - Validation:
+    - `node --check src/core/simulationKnobAccess.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

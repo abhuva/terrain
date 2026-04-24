@@ -11,6 +11,7 @@ import {
 } from "./core/timeRouter.js";
 import { createTimeStateAccess } from "./core/timeStateAccess.js";
 import { createAppliedSettingsStoreSync } from "./core/appliedSettingsStoreSync.js";
+import { createSimulationKnobAccess } from "./core/simulationKnobAccess.js";
 import { rgbToHex as rgbToHexUtil, hexToRgb01 as hexToRgb01Util } from "./core/colorUtils.js";
 import { createModeStateAccess } from "./core/modeStateAccess.js";
 import {
@@ -1440,6 +1441,9 @@ const appliedSettingsStoreSync = createAppliedSettingsStoreSync({
   normalizeSimTickHours,
   normalizeRoutingMode,
 });
+const simulationKnobAccess = createSimulationKnobAccess({
+  getCoreState: () => runtimeCore.store.getState(),
+});
 
 let frameUiRuntime = null;
 function getFrameUiRuntime() {
@@ -2593,8 +2597,7 @@ function getTimeUiRuntime() {
 }
 
 function getSimulationKnobSectionFromStore(key) {
-  const knobs = runtimeCore.store.getState().simulation.knobs || {};
-  return knobs && key in knobs ? knobs[key] : null;
+  return simulationKnobAccess.getSimulationKnobSectionFromStore(key);
 }
 
 function syncSwarmFollowToStore() {
