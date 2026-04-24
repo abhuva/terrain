@@ -144,6 +144,7 @@ import { createLightingSettingsApplier } from "./ui/lightingSettingsApplier.js";
 import { createRenderFxSettingsApplier } from "./ui/renderFxSettingsApplier.js";
 import { createInfoPanelRuntime } from "./ui/infoPanelRuntime.js";
 import { createModeCapabilitiesUi } from "./ui/modeCapabilitiesUi.js";
+import { createLightLabelRuntime } from "./ui/lightLabelRuntime.js";
 import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
 import * as pathfindingLabelUi from "./ui/pathfindingLabelUi.js";
 
@@ -2706,39 +2707,49 @@ function bakePointLightsTextureSync(useReducedResolution = false) {
   applyPointLightBakeRgba(rgba, w, h);
 }
 
+const lightLabelRuntime = createLightLabelRuntime({
+  clamp,
+  pointLightStrengthInput,
+  pointLightStrengthValue,
+  pointLightIntensityInput,
+  pointLightIntensityValue,
+  pointLightHeightOffsetInput,
+  pointLightHeightOffsetValue,
+  pointLightFlickerInput,
+  pointLightFlickerValue,
+  pointLightFlickerSpeedInput,
+  pointLightFlickerSpeedValue,
+  getCursorLightSnapshot,
+  cursorLightStrengthValue,
+  cursorLightHeightOffsetValue,
+});
+
 function updatePointLightStrengthLabel() {
-  const value = Math.round(clamp(Number(pointLightStrengthInput.value), 1, 200));
-  pointLightStrengthValue.textContent = `${value} px`;
+  lightLabelRuntime.updatePointLightStrengthLabel();
 }
 
 function updatePointLightIntensityLabel() {
-  const value = clamp(Number(pointLightIntensityInput.value), 0, 4);
-  pointLightIntensityValue.textContent = `${value.toFixed(2)}x`;
+  lightLabelRuntime.updatePointLightIntensityLabel();
 }
 
 function updatePointLightHeightOffsetLabel() {
-  const value = Math.round(clamp(Number(pointLightHeightOffsetInput.value), -120, 240));
-  pointLightHeightOffsetValue.textContent = `${value} px`;
+  lightLabelRuntime.updatePointLightHeightOffsetLabel();
 }
 
 function updatePointLightFlickerLabel() {
-  const value = clamp(Number(pointLightFlickerInput.value), 0, 1);
-  pointLightFlickerValue.textContent = value.toFixed(2);
+  lightLabelRuntime.updatePointLightFlickerLabel();
 }
 
 function updatePointLightFlickerSpeedLabel() {
-  const value = clamp(Number(pointLightFlickerSpeedInput.value), 0, 1);
-  pointLightFlickerSpeedValue.textContent = value.toFixed(2);
+  lightLabelRuntime.updatePointLightFlickerSpeedLabel();
 }
 
 function updateCursorLightStrengthLabel() {
-  const value = getCursorLightSnapshot().strength;
-  cursorLightStrengthValue.textContent = `${value} px`;
+  lightLabelRuntime.updateCursorLightStrengthLabel();
 }
 
 function updateCursorLightHeightOffsetLabel() {
-  const value = getCursorLightSnapshot().heightOffset;
-  cursorLightHeightOffsetValue.textContent = `${value}`;
+  lightLabelRuntime.updateCursorLightHeightOffsetLabel();
 }
 
 function updateCursorLightModeUi() {

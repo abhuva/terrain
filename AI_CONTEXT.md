@@ -60,6 +60,7 @@ No game engine is used.
 - Shared clamp/interpolation/hour-format helpers are now extracted to `src/core/mathUtils.js`.
 - Fallback map-image generation and image-data extraction helpers are now extracted to `src/render/fallbackMapImages.js`.
 - Map-image apply/runtime-size/point-light-worker sync helpers are now extracted to `src/gameplay/mapImageRuntime.js`.
+- Point-light/cursor-light label update helpers are now extracted to `src/ui/lightLabelRuntime.js`.
 - Pathfinding preview runtime helpers (movement-field rebuild, preview/path extraction, pointer preview update, path metrics) are now extracted to `src/gameplay/pathfindingPreviewRuntime.js`.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.

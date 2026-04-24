@@ -841,3 +841,10 @@ Recommended next sequence:
     - `node --check src/core/mathUtils.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued light-label UI extraction:
+    - extracted point-light/cursor-light label update helpers from `src/main.js` into `src/ui/lightLabelRuntime.js`
+    - `main.js` now composes this module and keeps `updatePointLightStrengthLabel(...)`, `updatePointLightIntensityLabel(...)`, `updatePointLightHeightOffsetLabel(...)`, `updatePointLightFlickerLabel(...)`, `updatePointLightFlickerSpeedLabel(...)`, `updateCursorLightStrengthLabel(...)`, and `updateCursorLightHeightOffsetLabel(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/ui/lightLabelRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
