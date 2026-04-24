@@ -125,7 +125,7 @@ import {
 import { createPathfindingPreviewRuntime } from "./gameplay/pathfindingPreviewRuntime.js";
 import { createCursorLightPointerBindingRuntime } from "./gameplay/cursorLightPointerBindingRuntime.js";
 import { createCursorLightPointerStateRuntime } from "./gameplay/cursorLightPointerStateRuntime.js";
-import { createSwarmCursorPointerRuntime } from "./gameplay/swarmCursorPointerRuntime.js";
+import { createSwarmCursorPointerBindingRuntime } from "./gameplay/swarmCursorPointerBindingRuntime.js";
 import { createPointLightSelectionRuntime } from "./gameplay/pointLightSelectionRuntime.js";
 import { createPointLightDraftRuntime } from "./gameplay/pointLightDraftRuntime.js";
 import { createInteractionModeSnapshotBindingRuntime } from "./gameplay/interactionModeSnapshotBindingRuntime.js";
@@ -3570,13 +3570,13 @@ const stepSwarm = createSwarmStepFunction({
 });
 
 function updateSwarmCursorFromPointer(clientX, clientY) {
-  getSwarmCursorPointerRuntime().updateSwarmCursorFromPointer(clientX, clientY);
+  getSwarmCursorPointerBindingRuntime().updateSwarmCursorFromPointer(clientX, clientY);
 }
 
-let swarmCursorPointerRuntime = null;
-function getSwarmCursorPointerRuntime() {
-  if (swarmCursorPointerRuntime) return swarmCursorPointerRuntime;
-  swarmCursorPointerRuntime = createSwarmCursorPointerRuntime({
+let swarmCursorPointerBindingRuntime = null;
+function getSwarmCursorPointerBindingRuntime() {
+  if (swarmCursorPointerBindingRuntime) return swarmCursorPointerBindingRuntime;
+  swarmCursorPointerBindingRuntime = createSwarmCursorPointerBindingRuntime({
     isSwarmEnabled,
     swarmCursorState,
     clientToNdc,
@@ -3585,7 +3585,7 @@ function getSwarmCursorPointerRuntime() {
     clamp,
     splatSize,
   });
-  return swarmCursorPointerRuntime;
+  return swarmCursorPointerBindingRuntime;
 }
 
 const swarmInterpolation = createSwarmInterpolation({

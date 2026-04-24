@@ -1423,3 +1423,10 @@ Recommended next sequence:
     - `node --check src/gameplay/cursorLightPointerBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm-cursor pointer binding runtime extraction:
+    - extracted swarm-cursor pointer binding runtime composition (`createSwarmCursorPointerRuntime` deps composition + wrapper) from `src/main.js` into `src/gameplay/swarmCursorPointerBindingRuntime.js`
+    - `main.js` now delegates `updateSwarmCursorFromPointer(...)` through this binding runtime
+  - Validation:
+    - `node --check src/gameplay/swarmCursorPointerBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
