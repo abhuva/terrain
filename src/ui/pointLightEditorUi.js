@@ -17,9 +17,9 @@ export function updatePointLightEditorUi(deps) {
   deps.pointLightHeightOffsetInput.value = String(Math.round(draft.heightOffset));
   deps.pointLightFlickerInput.value = String(deps.clamp(draft.flicker, 0, 1));
   deps.pointLightFlickerSpeedInput.value = String(deps.clamp(draft.flickerSpeed, 0, 1));
-  deps.updatePointLightStrengthLabel();
-  deps.updatePointLightIntensityLabel();
-  deps.updatePointLightHeightOffsetLabel();
-  deps.updatePointLightFlickerLabel();
-  deps.updatePointLightFlickerSpeedLabel();
+  deps.updatePointLightStrengthLabel(draft.strength);
+  deps.updatePointLightIntensityLabel(draft.intensity);
+  deps.updatePointLightHeightOffsetLabel(draft.heightOffset);
+  deps.updatePointLightFlickerLabel(draft.flicker);
+  deps.updatePointLightFlickerSpeedLabel(draft.flickerSpeed);
 }

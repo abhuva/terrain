@@ -2411,24 +2411,24 @@ const lightLabelBindingRuntime = createLightLabelBindingRuntime({
   cursorLightHeightOffsetValue,
 });
 
-function updatePointLightStrengthLabel() {
-  lightLabelBindingRuntime.updatePointLightStrengthLabel();
+function updatePointLightStrengthLabel(value = null) {
+  lightLabelBindingRuntime.updatePointLightStrengthLabel(value);
 }
 
-function updatePointLightIntensityLabel() {
-  lightLabelBindingRuntime.updatePointLightIntensityLabel();
+function updatePointLightIntensityLabel(value = null) {
+  lightLabelBindingRuntime.updatePointLightIntensityLabel(value);
 }
 
-function updatePointLightHeightOffsetLabel() {
-  lightLabelBindingRuntime.updatePointLightHeightOffsetLabel();
+function updatePointLightHeightOffsetLabel(value = null) {
+  lightLabelBindingRuntime.updatePointLightHeightOffsetLabel(value);
 }
 
-function updatePointLightFlickerLabel() {
-  lightLabelBindingRuntime.updatePointLightFlickerLabel();
+function updatePointLightFlickerLabel(value = null) {
+  lightLabelBindingRuntime.updatePointLightFlickerLabel(value);
 }
 
-function updatePointLightFlickerSpeedLabel() {
-  lightLabelBindingRuntime.updatePointLightFlickerSpeedLabel();
+function updatePointLightFlickerSpeedLabel(value = null) {
+  lightLabelBindingRuntime.updatePointLightFlickerSpeedLabel(value);
 }
 
 function updateCursorLightStrengthLabel() {

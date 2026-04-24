@@ -18,11 +18,11 @@ export function createLightLabelBindingRuntime(deps) {
     cursorLightHeightOffsetValue: deps.cursorLightHeightOffsetValue,
   });
   return {
-    updatePointLightStrengthLabel: () => lightLabelRuntime.updatePointLightStrengthLabel(),
-    updatePointLightIntensityLabel: () => lightLabelRuntime.updatePointLightIntensityLabel(),
-    updatePointLightHeightOffsetLabel: () => lightLabelRuntime.updatePointLightHeightOffsetLabel(),
-    updatePointLightFlickerLabel: () => lightLabelRuntime.updatePointLightFlickerLabel(),
-    updatePointLightFlickerSpeedLabel: () => lightLabelRuntime.updatePointLightFlickerSpeedLabel(),
+    updatePointLightStrengthLabel: (value) => lightLabelRuntime.updatePointLightStrengthLabel(value),
+    updatePointLightIntensityLabel: (value) => lightLabelRuntime.updatePointLightIntensityLabel(value),
+    updatePointLightHeightOffsetLabel: (value) => lightLabelRuntime.updatePointLightHeightOffsetLabel(value),
+    updatePointLightFlickerLabel: (value) => lightLabelRuntime.updatePointLightFlickerLabel(value),
+    updatePointLightFlickerSpeedLabel: (value) => lightLabelRuntime.updatePointLightFlickerSpeedLabel(value),
     updateCursorLightStrengthLabel: () => lightLabelRuntime.updateCursorLightStrengthLabel(),
     updateCursorLightHeightOffsetLabel: () => lightLabelRuntime.updateCursorLightHeightOffsetLabel(),
   };
