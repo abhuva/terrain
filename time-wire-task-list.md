@@ -953,3 +953,10 @@ Recommended next sequence:
     - `node --check src/render/frameUiRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued weather-field render helper extraction:
+    - extracted weather-field render metadata update helper from `src/main.js` into `src/render/weatherFieldRuntime.js`
+    - render loop now delegates weather-field metadata update through this helper
+  - Validation:
+    - `node --check src/render/weatherFieldRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

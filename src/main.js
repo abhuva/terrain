@@ -56,6 +56,7 @@ import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvas
 import { createPointLightBakeSync } from "./render/pointLightBakeSync.js";
 import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
 import { createFrameUiRuntime } from "./render/frameUiRuntime.js";
+import { updateWeatherFieldMeta } from "./render/weatherFieldRuntime.js";
 import { createTimeSystem } from "./sim/timeSystem.js";
 import { createLightingSystem } from "./sim/lightingSystem.js";
 import { createFogSystem } from "./sim/fogSystem.js";
@@ -4712,13 +4713,11 @@ function render(nowMs) {
   const swarmSettings = getSwarmSettings();
   const swarmEnabled = swarmSettings.useAgentSwarm;
   const showTerrain = !swarmEnabled || swarmSettings.showTerrainInSwarm;
-  renderResources.setWeatherFieldMeta({
-    width: Math.max(1, Math.floor(splatSize.width * 0.25)),
-    height: Math.max(1, Math.floor(splatSize.height * 0.25)),
-    updatedAtSec:
-      simulationWeather != null && simulationWeather.timeSec != null
-        ? Number(simulationWeather.timeSec)
-        : nowMs * 0.001,
+  updateWeatherFieldMeta({
+    renderResources,
+    splatSize,
+    simulationWeather,
+    nowMs,
   });
   const frameState = buildFrameRenderState({
     coreState,
