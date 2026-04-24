@@ -1332,3 +1332,10 @@ Recommended next sequence:
     - `node --check src/core/timeStateBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued frame-UI binding runtime extraction:
+    - extracted frame-UI binding runtime composition (`createFrameUiRuntime` deps composition) from `src/main.js` into `src/render/frameUiBindingRuntime.js`
+    - `main.js` now delegates `getFrameUiRuntime` construction through `createFrameUiBindingRuntime(...)`
+  - Validation:
+    - `node --check src/render/frameUiBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

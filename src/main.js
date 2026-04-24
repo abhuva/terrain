@@ -62,7 +62,7 @@ import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvas
 import { createPointLightBakeSyncBindingRuntime } from "./render/pointLightBakeSyncBindingRuntime.js";
 import { createPointLightBakeBindingRuntime } from "./render/pointLightBakeBindingRuntime.js";
 import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
-import { createFrameUiRuntime } from "./render/frameUiRuntime.js";
+import { createFrameUiBindingRuntime } from "./render/frameUiBindingRuntime.js";
 import { updateWeatherFieldMeta } from "./render/weatherFieldRuntime.js";
 import { renderFrameSwarmLayers } from "./render/frameSwarmRenderRuntime.js";
 import { computeFrameTiming } from "./render/frameTimeRuntime.js";
@@ -1459,7 +1459,7 @@ const settingsDefaultsAccess = createSettingsDefaultsAccess({
 let frameUiRuntime = null;
 function getFrameUiRuntime() {
   if (frameUiRuntime) return frameUiRuntime;
-  frameUiRuntime = createFrameUiRuntime({
+  frameUiRuntime = createFrameUiBindingRuntime({
     fogColorInput,
     cycleInfoEl,
     normalizeSimTickHours,
