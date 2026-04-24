@@ -939,3 +939,10 @@ Recommended next sequence:
     - `node --check src/gameplay/mapBootstrap.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm-overlay runtime extraction:
+    - extracted swarm unlit-overlay and gizmo drawing helpers from `src/main.js` into `src/ui/swarmOverlayRuntime.js`
+    - `main.js` now keeps `drawSwarmUnlitOverlay(...)` and `drawSwarmGizmos(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/ui/swarmOverlayRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

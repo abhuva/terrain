@@ -156,6 +156,7 @@ import { createModeCapabilitiesUi } from "./ui/modeCapabilitiesUi.js";
 import { createLightLabelRuntime } from "./ui/lightLabelRuntime.js";
 import { createTimeUiRuntime } from "./ui/timeUiRuntime.js";
 import { runStartupUiSync } from "./ui/startupUiSync.js";
+import { createSwarmOverlayRuntime } from "./ui/swarmOverlayRuntime.js";
 import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
 import * as pathfindingLabelUi from "./ui/pathfindingLabelUi.js";
 
@@ -3817,79 +3818,29 @@ const updateSwarmFollowCamera = createSwarmFollowCameraUpdater({
 });
 
 function drawSwarmUnlitOverlay(settings) {
-  const tintAlpha = settings.showTerrainInSwarm ? 0.55 : 0.95;
-  const agentPos = swarmOverlayAgentScratch;
-  for (let i = 0; i < swarmState.count; i++) {
-    writeInterpolatedSwarmAgentPos(i, agentPos);
-    const mapX = agentPos.x;
-    const mapY = agentPos.y;
-    const centerWorld = mapCoordToWorld(mapX, mapY);
-    const rightWorld = mapCoordToWorld(mapX + 1, mapY);
-    const downWorld = mapCoordToWorld(mapX, mapY + 1);
-    const center = worldToScreen(centerWorld);
-    const right = worldToScreen(rightWorld);
-    const down = worldToScreen(downWorld);
-    const texelW = Math.max(0.25, Math.abs(right.x - center.x));
-    const texelH = Math.max(0.25, Math.abs(down.y - center.y));
-    const z = clamp(agentPos.z / SWARM_Z_MAX, 0, 1);
-    const lum = Math.round((0.28 + z * 0.72) * 255);
-    overlayCtx.fillStyle = `rgba(${lum}, ${lum}, ${lum}, ${tintAlpha})`;
-    overlayCtx.fillRect(center.x - texelW * 0.5, center.y - texelH * 0.5, texelW, texelH);
-  }
-
-  if (settings.useHawk && swarmState.hawks.length > 0) {
-    const hawk0 = writeInterpolatedSwarmHawkPos(0, swarmOverlayHawkScratch);
-    const hawkCenterWorld = mapCoordToWorld(hawk0.x, hawk0.y);
-    const hawkRightWorld = mapCoordToWorld(hawk0.x + 1, hawk0.y);
-    const hawkDownWorld = mapCoordToWorld(hawk0.x, hawk0.y + 1);
-    const hawkCenter = worldToScreen(hawkCenterWorld);
-    const hawkRight = worldToScreen(hawkRightWorld);
-    const hawkDown = worldToScreen(hawkDownWorld);
-    const w = Math.max(0.25, Math.abs(hawkRight.x - hawkCenter.x));
-    const h = Math.max(0.25, Math.abs(hawkDown.y - hawkCenter.y));
-    const hawkRgb = hexToRgb01(settings.hawkColor).map((v) => Math.round(clamp(v, 0, 1) * 255));
-    const hawkAlpha = settings.showTerrainInSwarm ? 0.85 : 1.0;
-    overlayCtx.fillStyle = `rgba(${hawkRgb[0]}, ${hawkRgb[1]}, ${hawkRgb[2]}, ${hawkAlpha})`;
-    for (let i = 0; i < swarmState.hawks.length; i++) {
-      const hawk = writeInterpolatedSwarmHawkPos(i, swarmOverlayHawkScratch);
-      const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
-      const center = worldToScreen(centerWorld);
-      overlayCtx.fillRect(center.x - w * 0.5, center.y - h * 0.5, w, h);
-    }
-  }
+  swarmOverlayRuntime.drawSwarmUnlitOverlay(settings);
 }
 
 function drawSwarmGizmos(settings) {
-  if (settings.followHawkRangeGizmo && swarmFollowState.enabled && swarmFollowState.targetType === "hawk") {
-    const followHawkIndex = swarmFollowState.hawkIndex;
-    if (Number.isInteger(followHawkIndex) && followHawkIndex >= 0 && followHawkIndex < swarmState.hawks.length) {
-      const hawk = writeInterpolatedSwarmHawkPos(followHawkIndex, swarmGizmoHawkScratch);
-      const centerWorld = mapCoordToWorld(hawk.x, hawk.y);
-      const edgeWorld = mapCoordToWorld(hawk.x + settings.hawkTargetRange, hawk.y);
-      const centerScreen = worldToScreen(centerWorld);
-      const edgeScreen = worldToScreen(edgeWorld);
-      const radiusScreen = Math.max(1, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
-      overlayCtx.beginPath();
-      overlayCtx.arc(centerScreen.x, centerScreen.y, radiusScreen, 0, Math.PI * 2);
-      overlayCtx.lineWidth = 1.5;
-      overlayCtx.strokeStyle = "rgba(255, 124, 92, 0.85)";
-      overlayCtx.stroke();
-    }
-  }
-
-  if (swarmCursorState.active && settings.cursorMode !== "none") {
-    const centerWorld = mapCoordToWorld(swarmCursorState.x, swarmCursorState.y);
-    const edgeWorld = mapCoordToWorld(swarmCursorState.x + settings.cursorRadius, swarmCursorState.y);
-    const centerScreen = worldToScreen(centerWorld);
-    const edgeScreen = worldToScreen(edgeWorld);
-    const radiusScreen = Math.max(1, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
-    overlayCtx.beginPath();
-    overlayCtx.arc(centerScreen.x, centerScreen.y, radiusScreen, 0, Math.PI * 2);
-    overlayCtx.lineWidth = 1.5;
-    overlayCtx.strokeStyle = settings.cursorMode === "attract" ? "rgba(110, 255, 170, 0.75)" : "rgba(255, 128, 128, 0.75)";
-    overlayCtx.stroke();
-  }
+  swarmOverlayRuntime.drawSwarmGizmos(settings);
 }
+
+const swarmOverlayRuntime = createSwarmOverlayRuntime({
+  swarmState,
+  swarmOverlayAgentScratch,
+  swarmOverlayHawkScratch,
+  swarmGizmoHawkScratch,
+  swarmCursorState,
+  swarmFollowState,
+  writeInterpolatedSwarmAgentPos,
+  writeInterpolatedSwarmHawkPos,
+  mapCoordToWorld,
+  worldToScreen,
+  overlayCtx,
+  hexToRgb01,
+  clamp,
+  swarmZMax: SWARM_Z_MAX,
+});
 
 const renderSwarmLit = createSwarmLitRenderer({
   swarmState,
