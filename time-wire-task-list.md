@@ -325,6 +325,8 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Reduced `main.js` further by extracting point-light editor/selection/draft/io composition into `src/gameplay/pointLightRuntime.js`.
   - Reduced another DOM-primary settings path by making swarm follow-zoom and min/max-height command normalization resolve paired values from canonical swarm settings instead of sibling DOM inputs in panel bindings.
   - Reduced `main.js` further by extracting map runtime-state/load/save/bootstrap composition into `src/gameplay/mapLifecycleRuntime.js`.
+  - Reduced another DOM-primary settings path by making render-FX bindings dispatch field-level patches while `core/renderFx/changed` normalizes the full section from canonical store state.
+  - Reduced `main.js` further by extracting point-light bake composition into `src/render/pointLightBakeRuntimeBinding.js`, including worker access reused by map-image runtime sync.
   - Current recommended next sequence remains:
     - close remaining Phase 2 command-surface/state-contract work
     - close Phase 4 ownership boundaries for swarm/player/point-light runtime

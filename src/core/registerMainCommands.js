@@ -2,6 +2,17 @@ import { normalizeRuntimeMode } from "./modeCapabilities.js";
 import { registerInteractionCommands } from "../gameplay/interactionCommands.js";
 
 export function registerMainCommands(commandBus, deps) {
+  function clampRound(value, min, max) {
+    return Math.round(deps.clamp(Number(value), min, max));
+  }
+
+  function normalizeHexColor(value, fallback) {
+    if (typeof value === "string" && /^#?[0-9a-fA-F]{6}$/.test(value)) {
+      return value.startsWith("#") ? value : `#${value}`;
+    }
+    return fallback;
+  }
+
   function getFallbackCameraPose() {
     return {
       panX: 0,
@@ -78,49 +89,116 @@ export function registerMainCommands(commandBus, deps) {
   commandBus.register("core/renderFx/changed", (command, ctx) => {
     const section = String(command.section || "");
     const patch = command.patch && typeof command.patch === "object" ? command.patch : null;
-    if (section === "parallax") {
-      deps.updateParallaxStrengthLabel();
-      deps.updateParallaxBandsLabel();
-      deps.updateParallaxUi();
+
+    function updateSimulationSection(key, nextSection) {
       ctx.store.update((prev) => ({
         ...prev,
         simulation: {
           ...prev.simulation,
           knobs: {
             ...prev.simulation.knobs,
-            parallax: {
-              ...(prev.simulation.knobs && prev.simulation.knobs.parallax ? prev.simulation.knobs.parallax : {}),
-              ...(patch || {}),
-            },
+            [key]: nextSection,
           },
         },
       }));
+    }
+
+    function getLightingSettings() {
+      const current = deps.serializeLightingSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getParallaxSettings() {
+      const current = deps.serializeParallaxSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getFogSettings() {
+      const current = deps.serializeFogSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getCloudSettings() {
+      const current = deps.serializeCloudSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getWaterSettings() {
+      const current = deps.serializeWaterSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    if (section === "parallax") {
+      const nextParallax = getParallaxSettings();
+      updateSimulationSection("parallax", {
+        useParallax: Boolean(nextParallax.useParallax),
+        parallaxStrength: deps.clamp(Number(nextParallax.parallaxStrength), 0, 1),
+        parallaxBands: clampRound(nextParallax.parallaxBands, 2, 256),
+      });
+      deps.updateParallaxStrengthLabel();
+      deps.updateParallaxBandsLabel();
+      deps.updateParallaxUi();
       return;
     }
 
     if (section === "lighting") {
+      const nextLighting = getLightingSettings();
+      updateSimulationSection("lighting", {
+        ...deps.serializeLightingSettings(),
+        useShadows: Boolean(nextLighting.useShadows),
+        heightScale: clampRound(nextLighting.heightScale, 1, 300),
+        shadowStrength: deps.clamp(Number(nextLighting.shadowStrength), 0, 1),
+        shadowBlur: deps.clamp(Number(nextLighting.shadowBlur), 0, 3),
+        ambient: deps.clamp(Number(nextLighting.ambient), 0, 1),
+        diffuse: deps.clamp(Number(nextLighting.diffuse), 0, 2),
+        useVolumetric: Boolean(nextLighting.useVolumetric),
+        volumetricStrength: deps.clamp(Number(nextLighting.volumetricStrength), 0, 1),
+        volumetricDensity: deps.clamp(Number(nextLighting.volumetricDensity), 0, 2),
+        volumetricAnisotropy: deps.clamp(Number(nextLighting.volumetricAnisotropy), 0, 0.95),
+        volumetricLength: clampRound(nextLighting.volumetricLength, 8, 160),
+        volumetricSamples: clampRound(nextLighting.volumetricSamples, 4, 24),
+        pointFlickerEnabled: Boolean(nextLighting.pointFlickerEnabled),
+        pointFlickerStrength: deps.clamp(Number(nextLighting.pointFlickerStrength), 0, 1),
+        pointFlickerSpeed: deps.clamp(Number(nextLighting.pointFlickerSpeed), 0.1, 12),
+        pointFlickerSpatial: deps.clamp(Number(nextLighting.pointFlickerSpatial), 0, 4),
+      });
       deps.updateShadowBlurLabel();
       deps.updateVolumetricLabels();
       deps.updateVolumetricUi();
       deps.updatePointFlickerLabels();
       deps.updatePointFlickerUi();
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            lighting: {
-              ...(prev.simulation.knobs && prev.simulation.knobs.lighting ? prev.simulation.knobs.lighting : {}),
-              ...(patch || {}),
-            },
-          },
-        },
-      }));
+      if (typeof deps.schedulePointLightBake === "function" && patch && Object.prototype.hasOwnProperty.call(patch, "heightScale")) {
+        deps.schedulePointLightBake();
+      }
       return;
     }
 
     if (section === "fog") {
+      const nextFog = getFogSettings();
+      updateSimulationSection("fog", {
+        useFog: Boolean(nextFog.useFog),
+        fogColor: normalizeHexColor(nextFog.fogColor, deps.serializeFogSettings().fogColor),
+        fogColorManual: command.markFogColorManual ? true : Boolean(nextFog.fogColorManual),
+        fogMinAlpha: deps.clamp(Number(nextFog.fogMinAlpha), 0, 1),
+        fogMaxAlpha: deps.clamp(Number(nextFog.fogMaxAlpha), 0, 1),
+        fogFalloff: deps.clamp(Number(nextFog.fogFalloff), 0.2, 4),
+        fogStartOffset: deps.clamp(Number(nextFog.fogStartOffset), 0, 1),
+      });
       if (command.markFogColorManual) {
         deps.markFogColorManual();
       }
@@ -128,60 +206,62 @@ export function registerMainCommands(commandBus, deps) {
       deps.updateFogFalloffLabel();
       deps.updateFogStartOffsetLabel();
       deps.updateFogUi();
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            fog: {
-              ...(prev.simulation.knobs && prev.simulation.knobs.fog ? prev.simulation.knobs.fog : {}),
-              ...(patch || {}),
-            },
-          },
-        },
-      }));
       return;
     }
 
     if (section === "clouds") {
+      const nextClouds = getCloudSettings();
+      updateSimulationSection("clouds", {
+        ...deps.serializeCloudSettings(),
+        useClouds: Boolean(nextClouds.useClouds),
+        cloudCoverage: deps.clamp(Number(nextClouds.cloudCoverage), 0, 1),
+        cloudSoftness: deps.clamp(Number(nextClouds.cloudSoftness), 0.01, 0.35),
+        cloudOpacity: deps.clamp(Number(nextClouds.cloudOpacity), 0, 1),
+        cloudScale: deps.clamp(Number(nextClouds.cloudScale), 0.5, 8),
+        cloudSpeed1: deps.clamp(Number(nextClouds.cloudSpeed1), -0.3, 0.3),
+        cloudSpeed2: deps.clamp(Number(nextClouds.cloudSpeed2), -0.3, 0.3),
+        cloudSunParallax: deps.clamp(Number(nextClouds.cloudSunParallax), 0, 2),
+        cloudUseSunProjection: Boolean(nextClouds.cloudUseSunProjection),
+      });
       deps.updateCloudLabels();
       deps.updateCloudUi();
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            clouds: {
-              ...(prev.simulation.knobs && prev.simulation.knobs.clouds ? prev.simulation.knobs.clouds : {}),
-              ...(patch || {}),
-            },
-          },
-        },
-      }));
       return;
     }
 
     if (section === "waterfx") {
+      const nextWater = getWaterSettings();
+      updateSimulationSection("waterFx", {
+        ...deps.serializeWaterSettings(),
+        useWaterFx: Boolean(nextWater.useWaterFx),
+        waterFlowDownhill: Boolean(nextWater.waterFlowDownhill),
+        waterFlowInvertDownhill: Boolean(nextWater.waterFlowInvertDownhill),
+        waterFlowDebug: Boolean(nextWater.waterFlowDebug),
+        waterFlowDirectionDeg: clampRound(nextWater.waterFlowDirectionDeg, 0, 360),
+        waterLocalFlowMix: deps.clamp(Number(nextWater.waterLocalFlowMix), 0, 1),
+        waterDownhillBoost: deps.clamp(Number(nextWater.waterDownhillBoost), 0, 4),
+        waterFlowRadius1: clampRound(nextWater.waterFlowRadius1, 1, 12),
+        waterFlowRadius2: clampRound(nextWater.waterFlowRadius2, 1, 24),
+        waterFlowRadius3: clampRound(nextWater.waterFlowRadius3, 1, 40),
+        waterFlowWeight1: deps.clamp(Number(nextWater.waterFlowWeight1), 0, 1),
+        waterFlowWeight2: deps.clamp(Number(nextWater.waterFlowWeight2), 0, 1),
+        waterFlowWeight3: deps.clamp(Number(nextWater.waterFlowWeight3), 0, 1),
+        waterFlowStrength: deps.clamp(Number(nextWater.waterFlowStrength), 0, 0.15),
+        waterFlowSpeed: deps.clamp(Number(nextWater.waterFlowSpeed), 0, 2.5),
+        waterFlowScale: deps.clamp(Number(nextWater.waterFlowScale), 0.5, 14),
+        waterShimmerStrength: deps.clamp(Number(nextWater.waterShimmerStrength), 0, 0.2),
+        waterGlintStrength: deps.clamp(Number(nextWater.waterGlintStrength), 0, 1.5),
+        waterGlintSharpness: deps.clamp(Number(nextWater.waterGlintSharpness), 0, 1),
+        waterShoreFoamStrength: deps.clamp(Number(nextWater.waterShoreFoamStrength), 0, 0.5),
+        waterShoreWidth: deps.clamp(Number(nextWater.waterShoreWidth), 0.4, 6),
+        waterReflectivity: deps.clamp(Number(nextWater.waterReflectivity), 0, 1),
+        waterTintColor: normalizeHexColor(nextWater.waterTintColor, deps.serializeWaterSettings().waterTintColor),
+        waterTintStrength: deps.clamp(Number(nextWater.waterTintStrength), 0, 1),
+      });
       deps.updateWaterLabels();
       deps.updateWaterUi();
       if (command.rebuildFlowMap) {
         deps.rebuildFlowMapTexture();
       }
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            waterFx: {
-              ...(prev.simulation.knobs && prev.simulation.knobs.waterFx ? prev.simulation.knobs.waterFx : {}),
-              ...(patch || {}),
-            },
-          },
-        },
-      }));
     }
   });
 
@@ -197,13 +277,6 @@ export function registerMainCommands(commandBus, deps) {
           },
         },
       }));
-    }
-
-    function normalizeHexColor(value, fallback) {
-      if (typeof value === "string" && /^#?[0-9a-fA-F]{6}$/.test(value)) {
-        return value.startsWith("#") ? value : `#${value}`;
-      }
-      return fallback;
     }
 
     const action = String(command.action || "");

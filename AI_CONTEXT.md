@@ -98,6 +98,7 @@ No game engine is used.
 - Point-light bake-sync lazy runtime composition/binding is now extracted to `src/render/pointLightBakeSyncBindingRuntime.js`.
 - Point-light worker + bake-orchestrator runtime wiring is now extracted to `src/render/pointLightBakeRuntime.js`.
 - Point-light bake operation bindings (`ensurePointLightBakeSize`, `applyPointLightBakeRgba`, `schedulePointLightBake`, `bakePointLightsTexture`) are now extracted to `src/render/pointLightBakeBindingRuntime.js`.
+- Point-light bake runtime composition (worker access, sync-bake binding, canvas apply/upload, and public bake operations) is now extracted to `src/render/pointLightBakeRuntimeBinding.js`.
 - Cycle-hour slider/label UI helpers are now extracted to `src/ui/timeUiRuntime.js`.
 - Runtime mode state-access helpers (`getRuntimeMode`, capability checks) are now extracted to `src/core/modeStateAccess.js`.
 - Runtime mode state runtime binding (`getRuntimeMode`, `canUseTopicInCurrentMode`, `canUseInteractionInCurrentMode`) is now extracted to `src/core/modeStateRuntimeBinding.js`.
@@ -121,6 +122,7 @@ No game engine is used.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.
 - Render-FX binding orchestration (`bindRenderFxControls` deps composition) is now extracted to `src/ui/renderFxBindingRuntime.js`.
+- Render-FX command handling now normalizes field-level command patches from canonical store-backed section state instead of rebuilding full section snapshots from sibling DOM inputs on every event.
 - Swarm-follow binding orchestration (`bindSwarmFollowControls` deps composition) is now extracted to `src/ui/swarmFollowBindingRuntime.js`.
 - Swarm-panel binding orchestration (`bindSwarmPanelControls` deps composition) is now extracted to `src/ui/swarmPanelBindingRuntime.js`.
 - Canvas binding orchestration (`bindCanvasControls` deps composition) is now extracted to `src/ui/canvasBindingRuntime.js`.

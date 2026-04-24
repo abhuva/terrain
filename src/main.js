@@ -1,5 +1,4 @@
 import { createRuntimeCore, createCoreCommandDispatch } from "./core/runtimeCore.js";
-import { bindPointLightWorker } from "./core/pointLightWorkerBinding.js";
 import { registerMainCommands } from "./core/registerMainCommands.js";
 import {
   SIM_SECONDS_PER_HOUR,
@@ -58,10 +57,7 @@ import { applyPointLightUsagePass } from "./render/passes/pointLightUsagePass.js
 import { rebuildFlowMapTexture as rebuildFlowMapTexturePrecompute } from "./render/precompute/flowMap.js";
 import { createFlowMapBindingRuntime } from "./render/flowMapBindingRuntime.js";
 import { createDefaultMapImageRuntime } from "./render/defaultMapImageRuntime.js";
-import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvasRuntime.js";
-import { createPointLightBakeSyncBindingRuntime } from "./render/pointLightBakeSyncBindingRuntime.js";
-import { createPointLightBakeBindingRuntime } from "./render/pointLightBakeBindingRuntime.js";
-import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
+import { createPointLightBakeRuntimeBinding } from "./render/pointLightBakeRuntimeBinding.js";
 import { createFrameUiBindingRuntime } from "./render/frameUiBindingRuntime.js";
 import { updateWeatherFieldMeta } from "./render/weatherFieldRuntime.js";
 import { renderFrameSwarmLayers } from "./render/frameSwarmRenderRuntime.js";
@@ -1299,7 +1295,6 @@ async function validateMapFolderViaTauri(folderPath) {
 }
 
 let mapImageRuntime = null;
-let pointLightBakeWorker = null;
 function getMapImageRuntime() {
   if (mapImageRuntime) return mapImageRuntime;
   mapImageRuntime = createMapImageRuntimeBinding({
@@ -1316,7 +1311,7 @@ function getMapImageRuntime() {
     extractImageData,
     rebuildFlowMapTexture,
     syncMapStateToStore,
-    getPointLightBakeWorker: () => pointLightBakeWorker,
+    getPointLightBakeWorker: () => pointLightBakeRuntimeBinding.getWorker(),
     getNormalsImageData: () => normalsImageData,
     getHeightImageData: () => heightImageData,
     setNormalsImageData: (value) => {
@@ -2008,45 +2003,35 @@ function getSwarmFollowSnapshot() {
 }
 
 let movementField = null;
-const pointLightBakeTempCanvas = document.createElement("canvas");
-const pointLightBakeTempCtx = pointLightBakeTempCanvas.getContext("2d");
-const pointLightBakeCanvasRuntime = createPointLightBakeCanvasRuntime({
+const pointLightBakeRuntimeBinding = createPointLightBakeRuntimeBinding({
+  document,
+  windowEl: window,
+  requestAnimationFrame: (cb) => requestAnimationFrame(cb),
+  createWorker: () => new Worker(new URL("./pointLightBakeWorker.js", import.meta.url), { type: "module" }),
   getMapSize: () => splatSize,
   pointLightBakeCanvas,
   pointLightBakeCtx,
-  pointLightBakeTempCanvas,
-  pointLightBakeTempCtx,
   pointLightTex,
   uploadImageToTexture,
   requestOverlayDraw,
-});
-const pointLightBakeRuntime = createPointLightBakeRuntime({
-  windowEl: window,
-  requestAnimationFrame: (cb) => requestAnimationFrame(cb),
-  createWorker: () => {
-    pointLightBakeWorker = new Worker(new URL("./pointLightBakeWorker.js", import.meta.url), { type: "module" });
-    return pointLightBakeWorker;
-  },
-  bindPointLightWorker,
   debounceMs: POINT_LIGHT_BAKE_DEBOUNCE_MS,
-  liveScale: POINT_LIGHT_BAKE_LIVE_SCALE,
-  blendExposure: POINT_LIGHT_BLEND_EXPOSURE,
+  pointLightBakeLiveScale: POINT_LIGHT_BAKE_LIVE_SCALE,
+  pointLightBlendExposure: POINT_LIGHT_BLEND_EXPOSURE,
   isLiveUpdateEnabled: () => isPointLightLiveUpdateEnabled(),
-  ensureBakeSize: ensurePointLightBakeSize,
   hasBakeInputs: () => Boolean(normalsImageData && heightImageData),
-  bakeSync: (useReducedResolution) => bakePointLightsTextureSync(useReducedResolution),
-  getFullBakeSize: () => ({ width: pointLightBakeCanvas.width, height: pointLightBakeCanvas.height }),
   getLights: () => pointLights,
   getHeightScaleValue: () => {
     const lightingSettings = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
     return Math.max(1, Number(lightingSettings.heightScale) || 1);
   },
-  bakePointLightsTextureSync,
-  applyPointLightBakeRgba,
-});
-const pointLightBakeBindingRuntime = createPointLightBakeBindingRuntime({
-  pointLightBakeCanvasRuntime,
-  pointLightBakeRuntime,
+  getLightingSettings: () => getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
+  clamp,
+  defaultPointLightFlicker: DEFAULT_POINT_LIGHT_FLICKER,
+  defaultPointLightFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
+  sampleHeightAtMapPixel,
+  hasLineOfSightToLight,
+  sampleNormalAtMapPixel,
+  normalize3,
 });
 
 function createFlatNormalImage(size = 2) {
@@ -2257,7 +2242,7 @@ mapLifecycleRuntime = createMapLifecycleRuntime({
 });
 
 function ensurePointLightBakeSize() {
-  pointLightBakeBindingRuntime.ensurePointLightBakeSize();
+  pointLightBakeRuntimeBinding.ensurePointLightBakeSize();
 }
 
 function normalize3(x, y, z) {
@@ -2293,39 +2278,23 @@ function hasLineOfSightToLight(surfaceX, surfaceY, surfaceH, lightX, lightY, lig
 }
 
 function applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight) {
-  pointLightBakeBindingRuntime.applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight);
+  pointLightBakeRuntimeBinding.applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight);
 }
 
 function schedulePointLightBake() {
-  pointLightBakeBindingRuntime.schedulePointLightBake();
+  pointLightBakeRuntimeBinding.schedulePointLightBake();
 }
 
 function bakePointLightsTexture() {
-  pointLightBakeBindingRuntime.bakePointLightsTexture();
+  pointLightBakeRuntimeBinding.bakePointLightsTexture();
 }
 
-const pointLightBakeSyncBindingRuntime = createPointLightBakeSyncBindingRuntime({
-  getFullBakeSize: () => ({ width: pointLightBakeCanvas.width, height: pointLightBakeCanvas.height }),
-  pointLightBakeLiveScale: POINT_LIGHT_BAKE_LIVE_SCALE,
-  getLightingSettings: () => getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
-  getLights: () => pointLights,
-  clamp,
-  defaultPointLightFlicker: DEFAULT_POINT_LIGHT_FLICKER,
-  defaultPointLightFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-  sampleHeightAtMapPixel,
-  hasLineOfSightToLight,
-  sampleNormalAtMapPixel,
-  normalize3,
-  pointLightBlendExposure: POINT_LIGHT_BLEND_EXPOSURE,
-  applyPointLightBakeRgba,
-});
-
 function getPointLightBakeSyncRuntime() {
-  return pointLightBakeSyncBindingRuntime.getPointLightBakeSyncRuntime();
+  return pointLightBakeRuntimeBinding.getPointLightBakeSyncRuntime();
 }
 
 function bakePointLightsTextureSync(useReducedResolution = false) {
-  pointLightBakeSyncBindingRuntime.bakePointLightsTextureSync(useReducedResolution);
+  pointLightBakeRuntimeBinding.bakePointLightsTextureSync(useReducedResolution);
 }
 
 const lightLabelBindingRuntime = createLightLabelBindingRuntime({
@@ -2781,6 +2750,7 @@ registerMainCommands(runtimeCore.commandBus, {
   updateWaterLabels,
   updateWaterUi,
   rebuildFlowMapTexture,
+  schedulePointLightBake,
   serializeLightingSettings,
   serializeParallaxSettings,
   serializeFogSettings,
