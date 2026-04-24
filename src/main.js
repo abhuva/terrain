@@ -130,6 +130,7 @@ import { createPathfindingPreviewRuntime } from "./gameplay/pathfindingPreviewRu
 import { createCursorLightPointerRuntime } from "./gameplay/cursorLightPointerRuntime.js";
 import { createCursorLightPointerStateRuntime } from "./gameplay/cursorLightPointerStateRuntime.js";
 import { createSwarmCursorPointerRuntime } from "./gameplay/swarmCursorPointerRuntime.js";
+import { createPointLightSelectionRuntime } from "./gameplay/pointLightSelectionRuntime.js";
 import { createPlayerStateRuntime } from "./gameplay/playerStateRuntime.js";
 import { createCameraViewRuntime } from "./gameplay/cameraViewRuntime.js";
 import { createInteractionModeRuntime } from "./gameplay/interactionModeRuntime.js";
@@ -2219,16 +2220,20 @@ createDefaultMapImageRuntime({
   },
 }).initializeDefaultMapImages();
 
+const pointLightSelectionRuntime = createPointLightSelectionRuntime({
+  pointLightEditorController,
+});
+
 function getSelectedPointLight() {
-  return pointLightEditorController.getSelectedPointLight();
+  return pointLightSelectionRuntime.getSelectedPointLight();
 }
 
 function clearLightEditSelection() {
-  pointLightEditorController.clearLightEditSelection();
+  pointLightSelectionRuntime.clearLightEditSelection();
 }
 
 function setLightEditSelection(light) {
-  pointLightEditorController.setLightEditSelection(light);
+  pointLightSelectionRuntime.setLightEditSelection(light);
 }
 
 const pointLightIoController = createPointLightIoController({

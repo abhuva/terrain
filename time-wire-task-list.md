@@ -1155,3 +1155,10 @@ Recommended next sequence:
     - `node --check src/render/defaultMapImageRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued point-light selection runtime extraction:
+    - extracted point-light selection wrappers (`getSelectedPointLight`, `clearLightEditSelection`, `setLightEditSelection`) from `src/main.js` into `src/gameplay/pointLightSelectionRuntime.js`
+    - `main.js` now keeps these helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/pointLightSelectionRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

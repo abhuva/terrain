@@ -23,6 +23,7 @@ No game engine is used.
 - Gameplay scaffolding modules now exist under `src/gameplay/` (`entityStore`, `movementSystem`) and are scheduler-driven adapters around existing runtime behavior.
 - Interaction command routing is now extracted to `src/gameplay/interactionCommands.js` and composed into main command registration.
 - Point-light editor orchestration is now extracted to `src/gameplay/pointLightEditorController.js`, with draft state isolated in `src/gameplay/pointLightEditorState.js`.
+- Point-light selection wrappers (`getSelectedPointLight`, `clearLightEditSelection`, `setLightEditSelection`) are now extracted to `src/gameplay/pointLightSelectionRuntime.js`.
 - Point-light save/load/confirmation I/O orchestration is now extracted to `src/gameplay/pointLightIoController.js`.
 - Map-level JSON "Save All" file-generation/save orchestration is now extracted to `src/gameplay/mapDataSaveController.js`.
 - Map-sidecar JSON load/apply orchestration for URL/folder-selection paths is now extracted to `src/gameplay/mapSidecarLoader.js`.
