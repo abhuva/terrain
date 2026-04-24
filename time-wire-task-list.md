@@ -1077,3 +1077,11 @@ Recommended next sequence:
     - `node --check src/gameplay/swarmCursorPointerRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued player-state runtime extraction:
+    - extracted player-position clamp/apply helper (`setPlayerPosition`) from `src/main.js` into `src/gameplay/playerStateRuntime.js`
+    - `main.js` now keeps `setPlayerPosition(...)` as a thin pass-through wrapper
+    - runtime wiring uses lazy `getPlayerStateRuntime()` composition to avoid initialization-order regressions
+  - Validation:
+    - `node --check src/gameplay/playerStateRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

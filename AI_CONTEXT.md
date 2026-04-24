@@ -45,6 +45,7 @@ No game engine is used.
 - UI status text update helper (`setStatus`) is now extracted to `src/ui/statusRuntime.js`.
 - Interaction settings UI-apply reflection path is now extracted to `src/ui/interactionSettingsApplier.js`.
 - NPC persistence helpers (`serializeNpcState`, `parseNpcPlayer`, `applyLoadedNpc`) are now extracted to `src/gameplay/npcPersistence.js`.
+- Player-position clamp/apply helper (`setPlayerPosition`) is now extracted to `src/gameplay/playerStateRuntime.js`.
 - Lighting settings UI-apply reflection path is now extracted to `src/ui/lightingSettingsApplier.js`.
 - Render-FX settings UI-apply reflection paths (fog/parallax/cloud/water) are now extracted to `src/ui/renderFxSettingsApplier.js`.
 - Render-FX sidecar serialization helpers (lighting/fog/parallax/cloud/water) are now extracted to `src/gameplay/renderFxDataSerializer.js`.

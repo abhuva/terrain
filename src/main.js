@@ -126,6 +126,7 @@ import {
 import { createPathfindingPreviewRuntime } from "./gameplay/pathfindingPreviewRuntime.js";
 import { createCursorLightPointerRuntime } from "./gameplay/cursorLightPointerRuntime.js";
 import { createSwarmCursorPointerRuntime } from "./gameplay/swarmCursorPointerRuntime.js";
+import { createPlayerStateRuntime } from "./gameplay/playerStateRuntime.js";
 import { setInteractionMode as applyInteractionMode } from "./gameplay/interactionModeController.js";
 import { createPathfindingCostModel } from "./gameplay/pathfindingCostModel.js";
 import {
@@ -3753,8 +3754,7 @@ function setInteractionMode(mode) {
 }
 
 function setPlayerPosition(pixelX, pixelY) {
-  playerState.pixelX = clamp(Math.round(Number(pixelX)), 0, Math.max(0, splatSize.width - 1));
-  playerState.pixelY = clamp(Math.round(Number(pixelY)), 0, Math.max(0, splatSize.height - 1));
+  getPlayerStateRuntime().setPlayerPosition(pixelX, pixelY);
 }
 
 function parseNpcPlayer(rawData) {
@@ -3763,6 +3763,17 @@ function parseNpcPlayer(rawData) {
 
 function applyLoadedNpc(rawData) {
   applyLoadedNpcImpl(rawData);
+}
+
+let playerStateRuntime = null;
+function getPlayerStateRuntime() {
+  if (playerStateRuntime) return playerStateRuntime;
+  playerStateRuntime = createPlayerStateRuntime({
+    playerState,
+    clamp,
+    splatSize,
+  });
+  return playerStateRuntime;
 }
 
 const pathfindingCostModel = createPathfindingCostModel({
