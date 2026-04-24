@@ -960,3 +960,10 @@ Recommended next sequence:
     - `node --check src/render/weatherFieldRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued frame swarm/render orchestration extraction:
+    - extracted render-frame swarm layer/state orchestration from `src/main.js` into `src/render/frameSwarmRenderRuntime.js`
+    - render loop now delegates frame-state assembly + terrain/swarm draw decision through this helper
+  - Validation:
+    - `node --check src/render/frameSwarmRenderRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

@@ -57,6 +57,7 @@ import { createPointLightBakeSync } from "./render/pointLightBakeSync.js";
 import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
 import { createFrameUiRuntime } from "./render/frameUiRuntime.js";
 import { updateWeatherFieldMeta } from "./render/weatherFieldRuntime.js";
+import { renderFrameSwarmLayers } from "./render/frameSwarmRenderRuntime.js";
 import { createTimeSystem } from "./sim/timeSystem.js";
 import { createLightingSystem } from "./sim/lightingSystem.js";
 import { createFogSystem } from "./sim/fogSystem.js";
@@ -4710,35 +4711,29 @@ function render(nowMs) {
   updateSwarmStatsPanel();
   updateCycleHourLabel();
 
-  const swarmSettings = getSwarmSettings();
-  const swarmEnabled = swarmSettings.useAgentSwarm;
-  const showTerrain = !swarmEnabled || swarmSettings.showTerrainInSwarm;
   updateWeatherFieldMeta({
     renderResources,
     splatSize,
     simulationWeather,
     nowMs,
   });
-  const frameState = buildFrameRenderState({
+  const frameState = renderFrameSwarmLayers({
+    getSwarmSettings,
+    buildFrameRenderState,
     coreState,
     nowMs,
     dtSec,
-    cycleHour: cycleState.hour,
-    cycleSpeedHoursPerSec: cycleSpeed,
-    cloudTimeSec: smoothCloudTimeSec,
+    cycleState,
+    cycleSpeed,
+    smoothCloudTimeSec,
     currentMapFolderPath,
     splatSize,
     lightingParams,
     uniformInput,
-    showTerrain,
-    backgroundColorRgb: hexToRgb01(swarmSettings.backgroundColor),
-    swarmEnabled,
-    swarmLitEnabled: swarmSettings.useLitSwarm,
+    hexToRgb01,
+    renderer,
+    renderSwarmLit,
   });
-  renderer.renderTerrainFrame(frameState);
-  if (frameState.swarm.enabled && frameState.swarm.litEnabled) {
-    renderSwarmLit(frameState.lightingParams, frameState.time, swarmSettings, frameState.uniformInput, frameState.camera);
-  }
 
   overlayHooks.renderOverlayIfNeeded(frameState);
   requestAnimationFrame(render);
