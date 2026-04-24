@@ -129,6 +129,7 @@ No game engine is used.
 - Frame-UI binding runtime composition (`createFrameUiRuntime` deps composition) is now extracted to `src/render/frameUiBindingRuntime.js`.
 - Tauri runtime binding composition (`resolveTauriInvoke` + `createTauriRuntimeHelpers`) is now extracted to `src/gameplay/tauriRuntimeBinding.js`.
 - Map-IO helper runtime composition (`createMapIoHelpers` deps composition) is now extracted to `src/gameplay/mapIoHelpersRuntime.js`.
+- Map-path binding runtime composition (map path/url utility wrappers) is now extracted to `src/gameplay/mapPathBindingRuntime.js`.
 - Camera/coordinate transform helpers (camera state, view extents, world/uv/map/screen conversions) are now extracted to `src/gameplay/cameraTransforms.js`.
 - Camera view/command helpers (`resetCamera`, `getScreenAspect`, `getMapAspect`) are now extracted to `src/gameplay/cameraViewRuntime.js`.
 - Pathfinding label helper updates are now extracted to `src/ui/pathfindingLabelUi.js`.

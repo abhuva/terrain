@@ -1353,3 +1353,10 @@ Recommended next sequence:
     - `node --check src/gameplay/mapIoHelpersRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued map-path binding runtime extraction:
+    - extracted map-path binding runtime composition (map path/url wrapper ownership) from `src/main.js` into `src/gameplay/mapPathBindingRuntime.js`
+    - `main.js` now delegates `normalizeMapFolderPath`/`isAbsoluteFsPath`/`joinFsPath`/`buildMapAssetPath`/`toAbsoluteFileUrl` through this runtime
+  - Validation:
+    - `node --check src/gameplay/mapPathBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

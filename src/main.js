@@ -93,13 +93,7 @@ import { createMapSampling } from "./gameplay/mapSampling.js";
 import { createMapRuntimeStateBinding } from "./gameplay/mapRuntimeStateBinding.js";
 import { createMapBootstrapBindingRuntime } from "./gameplay/mapBootstrapBindingRuntime.js";
 import { createShadowOcclusion } from "./gameplay/shadowOcclusion.js";
-import {
-  normalizeMapFolderPath as normalizeMapFolderPathUtil,
-  isAbsoluteFsPath as isAbsoluteFsPathUtil,
-  joinFsPath as joinFsPathUtil,
-  buildMapAssetPath as buildMapAssetPathUtil,
-  toAbsoluteFileUrl as toAbsoluteFileUrlUtil,
-} from "./gameplay/mapPathUtils.js";
+import { createMapPathBindingRuntime } from "./gameplay/mapPathBindingRuntime.js";
 import { createTauriRuntimeBinding } from "./gameplay/tauriRuntimeBinding.js";
 import { getFileFromFolderSelection as selectFileFromFolder } from "./gameplay/mapIoHelpers.js";
 import { createMapIoHelpersRuntime } from "./gameplay/mapIoHelpersRuntime.js";
@@ -1276,8 +1270,12 @@ async function loadImageFromFile(file) {
   return image;
 }
 
+const mapPathBindingRuntime = createMapPathBindingRuntime({
+  defaultMapFolder: DEFAULT_MAP_FOLDER,
+});
+
 function normalizeMapFolderPath(path) {
-  return normalizeMapFolderPathUtil(path, DEFAULT_MAP_FOLDER);
+  return mapPathBindingRuntime.normalizeMapFolderPath(path);
 }
 
 const tauriRuntimeBinding = createTauriRuntimeBinding({
@@ -1288,15 +1286,15 @@ const tauriRuntimeBinding = createTauriRuntimeBinding({
 const tauriInvoke = tauriRuntimeBinding.tauriInvoke;
 
 function isAbsoluteFsPath(path) {
-  return isAbsoluteFsPathUtil(path);
+  return mapPathBindingRuntime.isAbsoluteFsPath(path);
 }
 
 function joinFsPath(folder, fileName) {
-  return joinFsPathUtil(folder, fileName);
+  return mapPathBindingRuntime.joinFsPath(folder, fileName);
 }
 
 function buildMapAssetPath(folder, fileName) {
-  return buildMapAssetPathUtil(folder, fileName);
+  return mapPathBindingRuntime.buildMapAssetPath(folder, fileName);
 }
 
 async function invokeTauri(command, args) {
@@ -1304,7 +1302,7 @@ async function invokeTauri(command, args) {
 }
 
 function toAbsoluteFileUrl(path) {
-  return toAbsoluteFileUrlUtil(path);
+  return mapPathBindingRuntime.toAbsoluteFileUrl(path);
 }
 
 async function pickMapFolderViaTauri() {
