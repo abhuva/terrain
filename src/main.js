@@ -174,7 +174,7 @@ import { getRequiredElementById, getRequiredElements } from "./ui/domElementLook
 import { createOverlayHooksRuntime } from "./ui/overlays/overlayHooksRuntime.js";
 import { createOverlayAnimationRuntime } from "./ui/overlays/overlayAnimationRuntime.js";
 import { createOverlayDirtyRuntime } from "./ui/overlays/overlayDirtyRuntime.js";
-import { createOverlayDrawer } from "./ui/overlays/drawOverlay.js";
+import { createOverlayDrawerRuntime } from "./ui/overlays/overlayDrawerRuntime.js";
 import { createSwarmInputNormalization } from "./ui/swarmInputNormalization.js";
 import { createSwarmPanelUi } from "./ui/swarmPanelUi.js";
 import { createSwarmSettingsApplier } from "./ui/swarmSettingsApplier.js";
@@ -4138,7 +4138,7 @@ function hexToRgb01(hex) {
   return hexToRgb01Util(hex);
 }
 
-const drawOverlay = createOverlayDrawer({
+const drawOverlay = createOverlayDrawerRuntime({
   overlayCtx,
   overlayCanvas,
   getMapAspect,

@@ -1290,3 +1290,10 @@ Recommended next sequence:
     - `node --check src/ui/overlays/overlayHooksRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued overlay-drawer runtime extraction:
+    - extracted overlay-drawer composition (`createOverlayDrawer` deps composition) from `src/main.js` into `src/ui/overlays/overlayDrawerRuntime.js`
+    - `main.js` now delegates to `createOverlayDrawerRuntime(...)`
+  - Validation:
+    - `node --check src/ui/overlays/overlayDrawerRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
