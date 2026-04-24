@@ -1011,3 +1011,11 @@ Recommended next sequence:
     - `node --check src/render/glResourceRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued cursor-light pointer runtime extraction:
+    - extracted cursor-light pointer-to-UV update logic from `src/main.js` into `src/gameplay/cursorLightPointerRuntime.js`
+    - `main.js` now keeps `updateCursorLightFromPointer(...)` as a thin pass-through wrapper
+    - runtime wiring uses lazy `getCursorLightPointerRuntime()` composition to avoid initialization-order regressions
+  - Validation:
+    - `node --check src/gameplay/cursorLightPointerRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
