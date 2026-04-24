@@ -71,6 +71,7 @@ No game engine is used.
 - Color conversion helpers are now extracted to `src/core/colorUtils.js`.
 - Shared clamp/interpolation/hour-format helpers are now extracted to `src/core/mathUtils.js`.
 - Fallback map-image generation and image-data extraction helpers are now extracted to `src/render/fallbackMapImages.js`.
+- Default-map image initialization orchestration (fallback image creation/upload/size+image-data bootstrap) is now extracted to `src/render/defaultMapImageRuntime.js`.
 - Map-image apply/runtime-size/point-light-worker sync helpers are now extracted to `src/gameplay/mapImageRuntime.js`.
 - Point-light/cursor-light label update helpers are now extracted to `src/ui/lightLabelRuntime.js`.
 - Point-light editor UI orchestration (`updateLightEditorUi`) is now extracted to `src/ui/pointLightEditorRuntime.js`.

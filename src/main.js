@@ -57,6 +57,7 @@ import { createBlurPass } from "./render/passes/blurPass.js";
 import { applyPointLightUsagePass } from "./render/passes/pointLightUsagePass.js";
 import { rebuildFlowMapTexture as rebuildFlowMapTexturePrecompute } from "./render/precompute/flowMap.js";
 import { createFlowMapRuntime } from "./render/flowMapRuntime.js";
+import { createDefaultMapImageRuntime } from "./render/defaultMapImageRuntime.js";
 import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvasRuntime.js";
 import { createPointLightBakeSync } from "./render/pointLightBakeSync.js";
 import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
@@ -2187,24 +2188,36 @@ function extractImageData(source) {
   return extractImageDataRender(source);
 }
 
-const defaultNormalImage = createFlatNormalImage();
-const defaultHeightImage = createFlatHeightImage();
-const defaultSlopeImage = createFlatSlopeImage();
-const defaultWaterImage = createFlatWaterImage();
-const defaultSplatImage = createFallbackSplat();
-uploadImageToTexture(normalsTex, defaultNormalImage);
-uploadImageToTexture(heightTex, defaultHeightImage);
-uploadImageToTexture(splatTex, defaultSplatImage);
-uploadImageToTexture(waterTex, defaultWaterImage);
-setSplatSizeFromImage(defaultSplatImage);
-setHeightSizeFromImage(defaultHeightImage);
-setNormalsSizeFromImage(defaultNormalImage);
-normalsImageData = extractImageData(defaultNormalImage);
-heightImageData = extractImageData(defaultHeightImage);
-rebuildFlowMapTexture();
-slopeImageData = extractImageData(defaultSlopeImage);
-waterImageData = extractImageData(defaultWaterImage);
-syncPointLightWorkerMapData();
+createDefaultMapImageRuntime({
+  createFlatNormalImage,
+  createFlatHeightImage,
+  createFlatSlopeImage,
+  createFlatWaterImage,
+  createFallbackSplat,
+  uploadImageToTexture,
+  normalsTex,
+  heightTex,
+  splatTex,
+  waterTex,
+  setSplatSizeFromImage,
+  setHeightSizeFromImage,
+  setNormalsSizeFromImage,
+  extractImageData,
+  rebuildFlowMapTexture,
+  syncPointLightWorkerMapData,
+  setNormalsImageData: (value) => {
+    normalsImageData = value;
+  },
+  setHeightImageData: (value) => {
+    heightImageData = value;
+  },
+  setSlopeImageData: (value) => {
+    slopeImageData = value;
+  },
+  setWaterImageData: (value) => {
+    waterImageData = value;
+  },
+}).initializeDefaultMapImages();
 
 function getSelectedPointLight() {
   return pointLightEditorController.getSelectedPointLight();

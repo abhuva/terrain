@@ -1148,3 +1148,10 @@ Recommended next sequence:
     - `node --check src/gameplay/cursorLightPointerStateRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued default-map image runtime extraction:
+    - extracted default-map image initialization orchestration (fallback image creation/upload/size+image-data bootstrap) from `src/main.js` into `src/render/defaultMapImageRuntime.js`
+    - `main.js` now delegates that startup block through this runtime helper
+  - Validation:
+    - `node --check src/render/defaultMapImageRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
