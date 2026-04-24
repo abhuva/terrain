@@ -1027,3 +1027,10 @@ Recommended next sequence:
     - `node --check src/render/flowMapRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued applied-settings store-sync extraction:
+    - extracted applied-settings normalization/store-sync helpers from `src/main.js` into `src/core/appliedSettingsStoreSync.js`
+    - `main.js` now keeps `normalizeAppliedSettings(...)` and `updateStoreFromAppliedSettings(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/core/appliedSettingsStoreSync.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

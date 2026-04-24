@@ -10,6 +10,7 @@ import {
   normalizeTimeRouting,
 } from "./core/timeRouter.js";
 import { createTimeStateAccess } from "./core/timeStateAccess.js";
+import { createAppliedSettingsStoreSync } from "./core/appliedSettingsStoreSync.js";
 import { rgbToHex as rgbToHexUtil, hexToRgb01 as hexToRgb01Util } from "./core/colorUtils.js";
 import { createModeStateAccess } from "./core/modeStateAccess.js";
 import {
@@ -1431,6 +1432,14 @@ function getInterpolatedRoutedTimeSec(systemTiming) {
   return timeStateAccess.getInterpolatedRoutedTimeSec(systemTiming);
 }
 
+const appliedSettingsStoreSync = createAppliedSettingsStoreSync({
+  runtimeCore,
+  getSettingsDefaults,
+  clamp,
+  normalizeSimTickHours,
+  normalizeRoutingMode,
+});
+
 let frameUiRuntime = null;
 function getFrameUiRuntime() {
   if (frameUiRuntime) return frameUiRuntime;
@@ -1529,169 +1538,11 @@ function applySettingsByKey(key, rawData, fallbackApply) {
 }
 
 function normalizeAppliedSettings(key, rawData, fallbackDefaults) {
-  const defaults = getSettingsDefaults(key, fallbackDefaults);
-  const input = rawData && typeof rawData === "object" ? rawData : {};
-  return {
-    ...defaults,
-    ...input,
-  };
+  return appliedSettingsStoreSync.normalizeAppliedSettings(key, rawData, fallbackDefaults);
 }
 
 function updateStoreFromAppliedSettings(key, normalized) {
-  runtimeCore.store.update((prev) => {
-    if (key === "lighting") {
-      const cycleSpeed = clamp(Number(normalized.cycleSpeed), 0, 1);
-      const simTickHours = normalizeSimTickHours(normalized.simTickHours);
-      return {
-        ...prev,
-        clock: {
-          ...prev.clock,
-          timeScale: cycleSpeed,
-        },
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            lighting: { ...normalized },
-          },
-        },
-        systems: {
-          ...prev.systems,
-          time: {
-            ...prev.systems.time,
-            cycleSpeedHoursPerSec: cycleSpeed,
-            simTickHours,
-          },
-        },
-        ui: {
-          ...prev.ui,
-          cycleHour: Number.isFinite(Number(normalized.cycleHour)) ? clamp(Number(normalized.cycleHour), 0, 24) : prev.ui.cycleHour,
-        },
-      };
-    }
-    if (key === "fog") {
-      return {
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            fog: { ...normalized },
-          },
-        },
-      };
-    }
-    if (key === "parallax") {
-      return {
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            parallax: { ...normalized },
-          },
-        },
-      };
-    }
-    if (key === "clouds") {
-      return {
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            clouds: { ...normalized },
-          },
-        },
-        systems: {
-          ...prev.systems,
-          time: {
-            ...prev.systems.time,
-            routing: {
-              ...prev.systems.time.routing,
-              clouds: normalizeRoutingMode(normalized.timeRouting, "global"),
-            },
-          },
-        },
-      };
-    }
-    if (key === "waterfx") {
-      return {
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            waterFx: { ...normalized },
-          },
-        },
-        systems: {
-          ...prev.systems,
-          time: {
-            ...prev.systems.time,
-            routing: {
-              ...prev.systems.time.routing,
-              water: normalizeRoutingMode(normalized.timeRouting, "detached"),
-            },
-          },
-        },
-      };
-    }
-    if (key === "interaction") {
-      return {
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          pathfinding: {
-            ...prev.gameplay.pathfinding,
-            range: Math.round(clamp(Number(normalized.pathfindingRange), 30, 300)),
-            weightSlope: clamp(Number(normalized.pathWeightSlope), 0, 10),
-            weightHeight: clamp(Number(normalized.pathWeightHeight), 0, 10),
-            weightWater: clamp(Number(normalized.pathWeightWater), 0, 100),
-            slopeCutoff: Math.round(clamp(Number(normalized.pathSlopeCutoff), 0, 90)),
-            baseCost: clamp(Number(normalized.pathBaseCost), 0, 2),
-          },
-          cursorLight: {
-            ...prev.gameplay.cursorLight,
-            enabled: Boolean(normalized.cursorLightEnabled),
-            useTerrainHeight: Boolean(normalized.cursorLightFollowHeight),
-            strength: Math.round(clamp(Number(normalized.cursorLightStrength), 1, 200)),
-            heightOffset: Math.round(clamp(Number(normalized.cursorLightHeightOffset), 0, 120)),
-            color: typeof normalized.cursorLightColor === "string" ? normalized.cursorLightColor : prev.gameplay.cursorLight.color,
-            showGizmo: Boolean(normalized.cursorLightGizmo),
-          },
-          pointLights: {
-            ...(prev.gameplay && prev.gameplay.pointLights ? prev.gameplay.pointLights : {}),
-            liveUpdate: Boolean(normalized.pointLightLiveUpdate),
-          },
-        },
-      };
-    }
-    if (key === "swarm") {
-      return {
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          swarm: {
-            ...prev.gameplay.swarm,
-            ...normalized,
-            timeRouting: normalizeRoutingMode(normalized.timeRouting, "global"),
-          },
-        },
-        systems: {
-          ...prev.systems,
-          time: {
-            ...prev.systems.time,
-            routing: {
-              ...prev.systems.time.routing,
-              swarm: normalizeRoutingMode(normalized.timeRouting, "global"),
-            },
-          },
-        },
-      };
-    }
-    return prev;
-  });
+  appliedSettingsStoreSync.updateStoreFromAppliedSettings(key, normalized);
 }
 
 function serializeLightingSettings() {
