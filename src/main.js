@@ -181,7 +181,7 @@ import { createModeTopicRuntimeBinding } from "./ui/modeTopicRuntimeBinding.js";
 import { createLightLabelBindingRuntime } from "./ui/lightLabelBindingRuntime.js";
 import { createPointLightEditorUiBindingRuntime } from "./ui/pointLightEditorUiBindingRuntime.js";
 import { createCursorLightModeUiBindingRuntime } from "./ui/cursorLightModeUiBindingRuntime.js";
-import { createTimeUiRuntime } from "./ui/timeUiRuntime.js";
+import { createTimeUiBindingRuntime } from "./ui/timeUiBindingRuntime.js";
 import { runStartupUiSyncRuntime } from "./ui/startupUiSyncRuntime.js";
 import { createSwarmOverlayRuntime } from "./ui/swarmOverlayRuntime.js";
 import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
@@ -1712,7 +1712,7 @@ function formatHour(hour) {
 }
 
 function setCycleHourSliderFromState() {
-  getTimeUiRuntime().setCycleHourSliderFromState();
+  getTimeUiBindingRuntime().setCycleHourSliderFromState();
 }
 
 function sampleSunAtHour(hour) {
@@ -2611,17 +2611,17 @@ const cycleState = {
   hour: 9.5,
 };
 let isCycleHourScrubbing = false;
-let timeUiRuntime = null;
-function getTimeUiRuntime() {
-  if (timeUiRuntime) return timeUiRuntime;
-  timeUiRuntime = createTimeUiRuntime({
+let timeUiBindingRuntime = null;
+function getTimeUiBindingRuntime() {
+  if (timeUiBindingRuntime) return timeUiBindingRuntime;
+  timeUiBindingRuntime = createTimeUiBindingRuntime({
     cycleHourInput,
     cycleHourValue,
     cycleState,
     clamp,
     formatHour,
   });
-  return timeUiRuntime;
+  return timeUiBindingRuntime;
 }
 
 function getSimulationKnobSectionFromStore(key) {
@@ -4094,7 +4094,7 @@ function updateWaterUi() {
 }
 
 function updateCycleHourLabel() {
-  getTimeUiRuntime().updateCycleHourLabel();
+  getTimeUiBindingRuntime().updateCycleHourLabel();
 }
 
 function requestOverlayDraw() {

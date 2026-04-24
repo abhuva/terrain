@@ -1465,3 +1465,10 @@ Recommended next sequence:
     - `node --check src/sim/lightingParamsBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued time-UI binding runtime extraction:
+    - extracted time-UI binding runtime composition (`createTimeUiRuntime` deps composition + wrapper methods) from `src/main.js` into `src/ui/timeUiBindingRuntime.js`
+    - `main.js` now delegates `setCycleHourSliderFromState(...)` and `updateCycleHourLabel(...)` through this runtime binding
+  - Validation:
+    - `node --check src/ui/timeUiBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
