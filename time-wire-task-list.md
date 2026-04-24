@@ -1388,3 +1388,10 @@ Recommended next sequence:
     - `node --check src/gameplay/shadowOcclusionRuntimeBinding.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued light-label binding runtime extraction:
+    - extracted light-label binding runtime composition (`createLightLabelRuntime` deps composition + wrapper methods) from `src/main.js` into `src/ui/lightLabelBindingRuntime.js`
+    - `main.js` now delegates point-light and cursor-light label update wrappers through this runtime binding
+  - Validation:
+    - `node --check src/ui/lightLabelBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

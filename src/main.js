@@ -179,7 +179,7 @@ import { createRenderFxSettingsApplier } from "./ui/renderFxSettingsApplier.js";
 import { createStatusRuntime } from "./ui/statusRuntime.js";
 import { createInfoPanelRuntime } from "./ui/infoPanelRuntime.js";
 import { createModeCapabilitiesUi } from "./ui/modeCapabilitiesUi.js";
-import { createLightLabelRuntime } from "./ui/lightLabelRuntime.js";
+import { createLightLabelBindingRuntime } from "./ui/lightLabelBindingRuntime.js";
 import { createPointLightEditorRuntime as createPointLightEditorUiRuntime } from "./ui/pointLightEditorRuntime.js";
 import { createCursorLightModeUiRuntime } from "./ui/cursorLightModeUiRuntime.js";
 import { createTopicPanelRuntime } from "./ui/topicPanelRuntime.js";
@@ -2387,7 +2387,7 @@ function bakePointLightsTextureSync(useReducedResolution = false) {
   pointLightBakeSyncBindingRuntime.bakePointLightsTextureSync(useReducedResolution);
 }
 
-const lightLabelRuntime = createLightLabelRuntime({
+const lightLabelBindingRuntime = createLightLabelBindingRuntime({
   clamp,
   pointLightStrengthInput,
   pointLightStrengthValue,
@@ -2405,31 +2405,31 @@ const lightLabelRuntime = createLightLabelRuntime({
 });
 
 function updatePointLightStrengthLabel() {
-  lightLabelRuntime.updatePointLightStrengthLabel();
+  lightLabelBindingRuntime.updatePointLightStrengthLabel();
 }
 
 function updatePointLightIntensityLabel() {
-  lightLabelRuntime.updatePointLightIntensityLabel();
+  lightLabelBindingRuntime.updatePointLightIntensityLabel();
 }
 
 function updatePointLightHeightOffsetLabel() {
-  lightLabelRuntime.updatePointLightHeightOffsetLabel();
+  lightLabelBindingRuntime.updatePointLightHeightOffsetLabel();
 }
 
 function updatePointLightFlickerLabel() {
-  lightLabelRuntime.updatePointLightFlickerLabel();
+  lightLabelBindingRuntime.updatePointLightFlickerLabel();
 }
 
 function updatePointLightFlickerSpeedLabel() {
-  lightLabelRuntime.updatePointLightFlickerSpeedLabel();
+  lightLabelBindingRuntime.updatePointLightFlickerSpeedLabel();
 }
 
 function updateCursorLightStrengthLabel() {
-  lightLabelRuntime.updateCursorLightStrengthLabel();
+  lightLabelBindingRuntime.updateCursorLightStrengthLabel();
 }
 
 function updateCursorLightHeightOffsetLabel() {
-  lightLabelRuntime.updateCursorLightHeightOffsetLabel();
+  lightLabelBindingRuntime.updateCursorLightHeightOffsetLabel();
 }
 
 const cursorLightModeUiRuntime = createCursorLightModeUiRuntime({
