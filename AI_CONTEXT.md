@@ -125,6 +125,7 @@ No game engine is used.
 - Map-loading runtime composition (`createMapSidecarLoader` + `createMapLoader` deps composition) is now extracted to `src/gameplay/mapLoadingRuntime.js`.
 - Map-runtime-state binding composition (`createMapRuntimeState` deps composition) is now extracted to `src/gameplay/mapRuntimeStateBinding.js`.
 - Map-bootstrap binding composition (`createMapBootstrapRuntime` deps composition) is now extracted to `src/gameplay/mapBootstrapBindingRuntime.js`.
+- Time-state binding runtime composition (`createTimeStateAccess` deps composition + wrappers) is now extracted to `src/core/timeStateBindingRuntime.js`.
 - Camera/coordinate transform helpers (camera state, view extents, world/uv/map/screen conversions) are now extracted to `src/gameplay/cameraTransforms.js`.
 - Camera view/command helpers (`resetCamera`, `getScreenAspect`, `getMapAspect`) are now extracted to `src/gameplay/cameraViewRuntime.js`.
 - Pathfinding label helper updates are now extracted to `src/ui/pathfindingLabelUi.js`.

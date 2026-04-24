@@ -9,7 +9,7 @@ import {
   normalizeSimTickHours,
   normalizeTimeRouting,
 } from "./core/timeRouter.js";
-import { createTimeStateAccess } from "./core/timeStateAccess.js";
+import { createTimeStateBindingRuntime } from "./core/timeStateBindingRuntime.js";
 import { createAppliedSettingsStoreSync } from "./core/appliedSettingsStoreSync.js";
 import { createSimulationKnobAccess } from "./core/simulationKnobAccess.js";
 import { createSettingsRegistryBridge } from "./core/settingsRegistryBridge.js";
@@ -1406,7 +1406,7 @@ const SWARM_TERRAIN_CLEARANCE = 1;
 const SWARM_Z_NEIGHBOR_SCALE = 1;
 const LIGHTING_SAVE_PRECISION = 2;
 
-const timeStateAccess = createTimeStateAccess({
+const timeStateBindingRuntime = createTimeStateBindingRuntime({
   getSettingsDefaults,
   defaultLightingSettings: DEFAULT_LIGHTING_SETTINGS,
   defaultCloudSettings: DEFAULT_CLOUD_SETTINGS,
@@ -1420,23 +1420,23 @@ const timeStateAccess = createTimeStateAccess({
 });
 
 function getDefaultTimeRouting() {
-  return timeStateAccess.getDefaultTimeRouting();
+  return timeStateBindingRuntime.getDefaultTimeRouting();
 }
 
 function getConfiguredSimTickHours() {
-  return timeStateAccess.getConfiguredSimTickHours();
+  return timeStateBindingRuntime.getConfiguredSimTickHours();
 }
 
 function getCurrentTimeRoutingFromStoreOrDefaults() {
-  return timeStateAccess.getCurrentTimeRoutingFromStoreOrDefaults();
+  return timeStateBindingRuntime.getCurrentTimeRoutingFromStoreOrDefaults();
 }
 
 function getConfiguredSimTickHoursFromStoreOrDefaults() {
-  return timeStateAccess.getConfiguredSimTickHoursFromStoreOrDefaults();
+  return timeStateBindingRuntime.getConfiguredSimTickHoursFromStoreOrDefaults();
 }
 
 function getInterpolatedRoutedTimeSec(systemTiming) {
-  return timeStateAccess.getInterpolatedRoutedTimeSec(systemTiming);
+  return timeStateBindingRuntime.getInterpolatedRoutedTimeSec(systemTiming);
 }
 
 const appliedSettingsStoreSync = createAppliedSettingsStoreSync({

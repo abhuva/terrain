@@ -1325,3 +1325,10 @@ Recommended next sequence:
     - `node --check src/gameplay/mapBootstrapBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued time-state binding runtime extraction:
+    - extracted time-state binding runtime composition (`createTimeStateAccess` deps composition + wrappers) from `src/main.js` into `src/core/timeStateBindingRuntime.js`
+    - `main.js` now delegates `getDefaultTimeRouting` / sim-tick/time-routing accessor wrappers through this runtime
+  - Validation:
+    - `node --check src/core/timeStateBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
