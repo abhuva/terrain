@@ -133,6 +133,7 @@ No game engine is used.
 - Settings-apply binding runtime composition (settings serialize/apply/normalize/default-access wrappers) is now extracted to `src/core/settingsApplyBindingRuntime.js`.
 - Map-image runtime binding composition (`createMapImageRuntime` deps composition) is now extracted to `src/gameplay/mapImageRuntimeBinding.js`.
 - Map-sampling runtime binding composition (`createMapSampling` deps composition) is now extracted to `src/gameplay/mapSamplingRuntimeBinding.js`.
+- Shadow-occlusion runtime binding composition (`createShadowOcclusion` deps composition) is now extracted to `src/gameplay/shadowOcclusionRuntimeBinding.js`.
 - Camera/coordinate transform helpers (camera state, view extents, world/uv/map/screen conversions) are now extracted to `src/gameplay/cameraTransforms.js`.
 - Camera view/command helpers (`resetCamera`, `getScreenAspect`, `getMapAspect`) are now extracted to `src/gameplay/cameraViewRuntime.js`.
 - Pathfinding label helper updates are now extracted to `src/ui/pathfindingLabelUi.js`.

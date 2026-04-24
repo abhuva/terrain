@@ -1381,3 +1381,10 @@ Recommended next sequence:
     - `node --check src/gameplay/mapSamplingRuntimeBinding.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued shadow-occlusion runtime binding extraction:
+    - extracted shadow-occlusion runtime binding composition (`createShadowOcclusion` deps composition) from `src/main.js` into `src/gameplay/shadowOcclusionRuntimeBinding.js`
+    - `main.js` now delegates `getShadowOcclusionRuntime` construction through `createShadowOcclusionRuntimeBinding(...)`
+  - Validation:
+    - `node --check src/gameplay/shadowOcclusionRuntimeBinding.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

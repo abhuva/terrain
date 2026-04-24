@@ -93,7 +93,7 @@ import { createMapImageRuntimeBinding } from "./gameplay/mapImageRuntimeBinding.
 import { createMapSamplingRuntimeBinding } from "./gameplay/mapSamplingRuntimeBinding.js";
 import { createMapRuntimeStateBinding } from "./gameplay/mapRuntimeStateBinding.js";
 import { createMapBootstrapBindingRuntime } from "./gameplay/mapBootstrapBindingRuntime.js";
-import { createShadowOcclusion } from "./gameplay/shadowOcclusion.js";
+import { createShadowOcclusionRuntimeBinding } from "./gameplay/shadowOcclusionRuntimeBinding.js";
 import { createMapPathBindingRuntime } from "./gameplay/mapPathBindingRuntime.js";
 import { createTauriRuntimeBinding } from "./gameplay/tauriRuntimeBinding.js";
 import { getFileFromFolderSelection as selectFileFromFolder } from "./gameplay/mapIoHelpers.js";
@@ -1368,7 +1368,7 @@ function getMapSamplingRuntime() {
 let shadowOcclusionRuntime = null;
 function getShadowOcclusionRuntime() {
   if (shadowOcclusionRuntime) return shadowOcclusionRuntime;
-  shadowOcclusionRuntime = createShadowOcclusion({
+  shadowOcclusionRuntime = createShadowOcclusionRuntimeBinding({
     getSplatSize: () => splatSize,
     sampleHeightAtMapCoord,
     sampleHeightAtMapPixel,
