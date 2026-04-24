@@ -312,6 +312,7 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Fixed a migration regression where terrain hover/click stopped working for pathfinding, teleport, and point-light editing.
   - Root cause: extracted camera transform helpers treated `zoomValue: null` as `0`, breaking pointer hit-testing against the current camera view.
   - Reduced one remaining DOM-as-truth pattern in the point-light editor path by letting label updates consume explicit draft/state values instead of rereading input elements after UI reflection.
+  - Reduced another DOM-primary pattern in swarm startup/apply normalization by letting swarm range/zoom normalization helpers accept explicit state values instead of only rereading paired input elements.
   - Current recommended next sequence remains:
     - close remaining Phase 2 command-surface/state-contract work
     - close Phase 4 ownership boundaries for swarm/player/point-light runtime

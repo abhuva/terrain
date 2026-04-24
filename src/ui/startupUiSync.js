@@ -1,6 +1,10 @@
 export function runStartupUiSync(deps) {
   deps.setSwarmDefaults();
-  deps.normalizeSwarmHeightRangeInputs("min");
+  const swarmSettings = deps.getSwarmSettings();
+  deps.normalizeSwarmHeightRangeInputs("min", {
+    minHeight: swarmSettings.minHeight,
+    maxHeight: swarmSettings.maxHeight,
+  });
   deps.updatePathfindingRangeLabel();
   deps.updatePathWeightLabels();
   deps.updatePathSlopeCutoffLabel();
@@ -41,7 +45,7 @@ export function runStartupUiSync(deps) {
   deps.setActiveTopic("");
   deps.setInteractionMode("none");
   deps.updateModeCapabilitiesUi();
-  deps.reseedSwarmAgents(deps.getSwarmSettings().agentCount);
+  deps.reseedSwarmAgents(swarmSettings.agentCount);
   deps.setStatus(
     `${deps.statusTextEl.textContent} | Load maps by folder/path, use left dock mode toggles (LM/PF), wheel zoom + middle-drag pan for terrain, and Agent Swarm panel toggle for boid testing.`,
   );

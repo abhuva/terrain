@@ -51,8 +51,14 @@ export function createSwarmSettingsApplier(deps) {
       hawkIndex: -1,
     });
     deps.swarmState.breedingActive = false;
-    deps.normalizeSwarmFollowZoomInputs("out");
-    deps.normalizeSwarmHeightRangeInputs("min");
+    deps.normalizeSwarmFollowZoomInputs("out", {
+      zoomOut: settings.followZoomOut,
+      zoomIn: settings.followZoomIn,
+    });
+    deps.normalizeSwarmHeightRangeInputs("min", {
+      minHeight: settings.minHeight,
+      maxHeight: settings.maxHeight,
+    });
     deps.updateSwarmLabels();
     deps.updateSwarmUi();
     deps.syncSwarmFollowToStore();
