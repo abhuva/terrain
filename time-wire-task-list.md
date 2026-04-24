@@ -988,3 +988,10 @@ Recommended next sequence:
     - `node --check src/render/viewportRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued cloud-noise runtime extraction:
+    - extracted cloud-noise generation + texture upload helpers from `src/main.js` into `src/render/cloudNoiseRuntime.js`
+    - `main.js` now keeps `createCloudNoiseImage(...)` and `uploadCloudNoiseTexture(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/render/cloudNoiseRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
