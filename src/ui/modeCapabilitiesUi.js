@@ -1,6 +1,6 @@
 export function createModeCapabilitiesUi(deps) {
   function setTopicPanelVisible(visible) {
-    deps.topicPanelEl.classList.toggle("open", visible);
+    deps.topicPanelEl.classList.toggle("hidden", !visible);
   }
 
   function setActiveTopic(topicName) {
