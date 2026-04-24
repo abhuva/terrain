@@ -946,3 +946,10 @@ Recommended next sequence:
     - `node --check src/ui/swarmOverlayRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued frame-UI runtime extraction:
+    - extracted render-frame UI synchronization helpers (fog auto-color input + cycle info text) from `src/main.js` into `src/render/frameUiRuntime.js`
+    - render loop now delegates those responsibilities through one composed frame-UI runtime helper
+  - Validation:
+    - `node --check src/render/frameUiRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

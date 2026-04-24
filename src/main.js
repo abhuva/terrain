@@ -55,6 +55,7 @@ import { rebuildFlowMapTexture as rebuildFlowMapTexturePrecompute } from "./rend
 import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvasRuntime.js";
 import { createPointLightBakeSync } from "./render/pointLightBakeSync.js";
 import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
+import { createFrameUiRuntime } from "./render/frameUiRuntime.js";
 import { createTimeSystem } from "./sim/timeSystem.js";
 import { createLightingSystem } from "./sim/lightingSystem.js";
 import { createFogSystem } from "./sim/fogSystem.js";
@@ -1534,6 +1535,15 @@ function getConfiguredSimTickHoursFromStoreOrDefaults() {
 function getInterpolatedRoutedTimeSec(systemTiming) {
   return timeStateAccess.getInterpolatedRoutedTimeSec(systemTiming);
 }
+
+const frameUiRuntime = createFrameUiRuntime({
+  fogColorInput,
+  cycleInfoEl,
+  normalizeSimTickHours,
+  getConfiguredSimTickHours,
+  formatHour,
+  cycleState,
+});
 
 function serializeLightingSettingsLegacy() {
   return serializeLightingSettingsLegacyImpl();
@@ -4674,9 +4684,7 @@ function render(nowMs) {
   const lightingParams = systemState.lighting && systemState.lighting.lightingParams
     ? systemState.lighting.lightingParams
     : computeLightingParams(coreState);
-  if (!lightingParams.fogColorManual && typeof lightingParams.autoFogHex === "string" && fogColorInput.value !== lightingParams.autoFogHex) {
-    fogColorInput.value = lightingParams.autoFogHex;
-  }
+  frameUiRuntime.syncFogAutoColorInput(lightingParams);
   const uniformInput = buildUniformInputState({
     clamp,
     getMapAspect,
@@ -4696,14 +4704,7 @@ function render(nowMs) {
     cloudTimeSec: smoothCloudTimeSec,
     waterTimeSec: routedTime.water.timeSec,
   });
-  const cycleSpeed = Number(systemState.time && systemState.time.cycleSpeedHoursPerSec) || 0;
-  const simTick = normalizeSimTickHours(systemState.time && systemState.time.simTickHours != null
-    ? systemState.time.simTickHours
-    : getConfiguredSimTickHours());
-  const nextCycleInfo = `Time: ${formatHour(cycleState.hour)} | Speed: ${cycleSpeed.toFixed(2)} h/s | Tick: ${simTick.toFixed(3)}h`;
-  if (cycleInfoEl.textContent !== nextCycleInfo) {
-    cycleInfoEl.textContent = nextCycleInfo;
-  }
+  const { cycleSpeed } = frameUiRuntime.syncCycleInfoText(systemState);
   updateInfoPanel();
   updateSwarmStatsPanel();
   updateCycleHourLabel();
