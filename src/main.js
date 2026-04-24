@@ -90,7 +90,7 @@ import { createPointLightIoRuntime } from "./gameplay/pointLightIoRuntime.js";
 import { createMapDataSaveRuntime } from "./gameplay/mapDataSaveRuntime.js";
 import { createMapLoadingRuntime } from "./gameplay/mapLoadingRuntime.js";
 import { createMapImageRuntimeBinding } from "./gameplay/mapImageRuntimeBinding.js";
-import { createMapSampling } from "./gameplay/mapSampling.js";
+import { createMapSamplingRuntimeBinding } from "./gameplay/mapSamplingRuntimeBinding.js";
 import { createMapRuntimeStateBinding } from "./gameplay/mapRuntimeStateBinding.js";
 import { createMapBootstrapBindingRuntime } from "./gameplay/mapBootstrapBindingRuntime.js";
 import { createShadowOcclusion } from "./gameplay/shadowOcclusion.js";
@@ -1354,7 +1354,7 @@ function getMapImageRuntime() {
 let mapSamplingRuntime = null;
 function getMapSamplingRuntime() {
   if (mapSamplingRuntime) return mapSamplingRuntime;
-  mapSamplingRuntime = createMapSampling({
+  mapSamplingRuntime = createMapSamplingRuntimeBinding({
     clamp,
     getSplatSize: () => splatSize,
     getNormalsSize: () => normalsSize,
