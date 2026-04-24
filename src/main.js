@@ -75,6 +75,7 @@ import { createMapLoader } from "./gameplay/mapLoader.js";
 import { createMapImageRuntime } from "./gameplay/mapImageRuntime.js";
 import { createMapSampling } from "./gameplay/mapSampling.js";
 import { createMapRuntimeState } from "./gameplay/mapRuntimeState.js";
+import { createMapBootstrap } from "./gameplay/mapBootstrap.js";
 import { createShadowOcclusion } from "./gameplay/shadowOcclusion.js";
 import {
   normalizeMapFolderPath as normalizeMapFolderPathUtil,
@@ -4639,16 +4640,11 @@ bindRenderFxControls({
 });
 
 async function tryAutoLoadDefaultMap() {
-  for (const candidate of DEFAULT_MAP_FOLDER_CANDIDATES) {
-    try {
-      await loadMapFromPath(candidate);
-      return;
-    } catch (err) {
-      console.warn(`Failed to load default map folder ${candidate}`, err);
-    }
-  }
-
-  setStatus("Using fallback textures. Load a map folder to begin.");
+  await createMapBootstrap({
+    defaultMapFolderCandidates: DEFAULT_MAP_FOLDER_CANDIDATES,
+    loadMapFromPath,
+    setStatus,
+  }).tryAutoLoadDefaultMap();
 }
 
 bindMapIoControls({

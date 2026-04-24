@@ -72,6 +72,7 @@ No game engine is used.
 - Map runtime state helpers (`setCurrentMapFolderPath`, default-settings apply, map-reset, map-size-change apply) are now extracted to `src/gameplay/mapRuntimeState.js`.
 - Lighting parameter assembly logic (`computeLightingParams`) is now extracted to `src/sim/lightingParamsRuntime.js`.
 - Startup UI synchronization sequence is now extracted to `src/ui/startupUiSync.js`.
+- Map bootstrap/default-folder auto-load flow is now extracted to `src/gameplay/mapBootstrap.js`.
 - Pathfinding preview runtime helpers (movement-field rebuild, preview/path extraction, pointer preview update, path metrics) are now extracted to `src/gameplay/pathfindingPreviewRuntime.js`.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.
