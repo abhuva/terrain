@@ -1346,3 +1346,10 @@ Recommended next sequence:
     - `node --check src/gameplay/tauriRuntimeBinding.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued map-IO helpers runtime extraction:
+    - extracted map-IO helper runtime composition (`createMapIoHelpers` deps composition) from `src/main.js` into `src/gameplay/mapIoHelpersRuntime.js`
+    - `main.js` now delegates `tryLoadJsonFromUrl(...)` through `mapIoHelpersRuntime`
+  - Validation:
+    - `node --check src/gameplay/mapIoHelpersRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

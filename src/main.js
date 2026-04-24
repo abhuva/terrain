@@ -101,7 +101,8 @@ import {
   toAbsoluteFileUrl as toAbsoluteFileUrlUtil,
 } from "./gameplay/mapPathUtils.js";
 import { createTauriRuntimeBinding } from "./gameplay/tauriRuntimeBinding.js";
-import { getFileFromFolderSelection as selectFileFromFolder, createMapIoHelpers } from "./gameplay/mapIoHelpers.js";
+import { getFileFromFolderSelection as selectFileFromFolder } from "./gameplay/mapIoHelpers.js";
+import { createMapIoHelpersRuntime } from "./gameplay/mapIoHelpersRuntime.js";
 import { parsePointLightsPayload, serializePointLightsPayload } from "./gameplay/pointLightsPersistence.js";
 import { createSwarmFollowCameraUpdater } from "./gameplay/swarmFollowCamera.js";
 import { createSwarmUpdateLoop } from "./gameplay/swarmUpdateLoop.js";
@@ -1389,7 +1390,7 @@ function getFileFromFolderSelection(files, fileName) {
   return selectFileFromFolder(files, fileName);
 }
 
-const mapIoHelpers = createMapIoHelpers({
+const mapIoHelpersRuntime = createMapIoHelpersRuntime({
   tauriInvoke,
   isAbsoluteFsPath,
   invokeTauri,
@@ -1397,7 +1398,7 @@ const mapIoHelpers = createMapIoHelpers({
 });
 
 async function tryLoadJsonFromUrl(path) {
-  return mapIoHelpers.tryLoadJsonFromUrl(path);
+  return mapIoHelpersRuntime.tryLoadJsonFromUrl(path);
 }
 
 const SWARM_Z_MAX = 256;
