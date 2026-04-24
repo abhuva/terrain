@@ -15,7 +15,6 @@ import { createSimulationKnobAccess } from "./core/simulationKnobAccess.js";
 import { createSettingsRegistryBridge } from "./core/settingsRegistryBridge.js";
 import { createSettingsDefaultsAccess } from "./core/settingsDefaultsAccess.js";
 import { createSettingsApplyBindingRuntime } from "./core/settingsApplyBindingRuntime.js";
-import { createModeStateRuntimeBinding } from "./core/modeStateRuntimeBinding.js";
 import { rgbToHex as rgbToHexUtil, hexToRgb01 as hexToRgb01Util } from "./core/colorUtils.js";
 import {
   clamp as clampUtil,
@@ -178,11 +177,10 @@ import { createLightingSettingsApplier } from "./ui/lightingSettingsApplier.js";
 import { createRenderFxSettingsApplier } from "./ui/renderFxSettingsApplier.js";
 import { createStatusRuntime } from "./ui/statusRuntime.js";
 import { createInfoPanelRuntime } from "./ui/infoPanelRuntime.js";
-import { createModeCapabilitiesUi } from "./ui/modeCapabilitiesUi.js";
+import { createModeTopicRuntimeBinding } from "./ui/modeTopicRuntimeBinding.js";
 import { createLightLabelBindingRuntime } from "./ui/lightLabelBindingRuntime.js";
 import { createPointLightEditorRuntime as createPointLightEditorUiRuntime } from "./ui/pointLightEditorRuntime.js";
 import { createCursorLightModeUiBindingRuntime } from "./ui/cursorLightModeUiBindingRuntime.js";
-import { createTopicPanelRuntime } from "./ui/topicPanelRuntime.js";
 import { createTimeUiRuntime } from "./ui/timeUiRuntime.js";
 import { runStartupUiSyncRuntime } from "./ui/startupUiSyncRuntime.js";
 import { createSwarmOverlayRuntime } from "./ui/swarmOverlayRuntime.js";
@@ -2441,55 +2439,44 @@ function updateCursorLightModeUi() {
   cursorLightModeUiBindingRuntime.updateCursorLightModeUi();
 }
 
-const modeStateRuntimeBinding = createModeStateRuntimeBinding({
+const modeTopicRuntimeBinding = createModeTopicRuntimeBinding({
   getModeValue: () => runtimeCore.store.getState().mode,
   normalizeRuntimeMode,
   canUseModeTopic,
   canUseModeInteraction,
-});
-
-function getRuntimeMode() {
-  return modeStateRuntimeBinding.getRuntimeMode();
-}
-
-function canUseTopicInCurrentMode(topic) {
-  return modeStateRuntimeBinding.canUseTopicInCurrentMode(topic);
-}
-
-function canUseInteractionInCurrentMode(mode) {
-  return modeStateRuntimeBinding.canUseInteractionInCurrentMode(mode);
-}
-
-const modeCapabilitiesUi = createModeCapabilitiesUi({
   topicButtons,
   topicCards,
   topicPanelEl,
   topicPanelTitleEl,
   dockLightingModeToggle,
   dockPathfindingModeToggle,
-  getRuntimeMode,
-  canUseModeTopic,
-  canUseModeInteraction,
   getInteractionModeSnapshot,
   setInteractionMode,
-});
-const topicPanelRuntime = createTopicPanelRuntime({
-  modeCapabilitiesUi,
-  canUseTopicInCurrentMode,
   setStatus,
-  getRuntimeMode,
 });
 
+function getRuntimeMode() {
+  return modeTopicRuntimeBinding.getRuntimeMode();
+}
+
+function canUseTopicInCurrentMode(topic) {
+  return modeTopicRuntimeBinding.canUseTopicInCurrentMode(topic);
+}
+
+function canUseInteractionInCurrentMode(mode) {
+  return modeTopicRuntimeBinding.canUseInteractionInCurrentMode(mode);
+}
+
 function setTopicPanelVisible(visible) {
-  topicPanelRuntime.setTopicPanelVisible(visible);
+  modeTopicRuntimeBinding.setTopicPanelVisible(visible);
 }
 
 function setActiveTopic(topicName) {
-  topicPanelRuntime.setActiveTopic(topicName);
+  modeTopicRuntimeBinding.setActiveTopic(topicName);
 }
 
 function updateModeCapabilitiesUi() {
-  topicPanelRuntime.updateModeCapabilitiesUi();
+  modeTopicRuntimeBinding.updateModeCapabilitiesUi();
 }
 
 const interactionModeSnapshotRuntime = createInteractionModeSnapshotRuntime({

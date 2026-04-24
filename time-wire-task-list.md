@@ -1402,3 +1402,10 @@ Recommended next sequence:
     - `node --check src/ui/cursorLightModeUiBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued mode/topic runtime binding extraction:
+    - extracted mode/topic runtime binding composition (`createModeStateRuntimeBinding` + `createModeCapabilitiesUi` + `createTopicPanelRuntime`) from `src/main.js` into `src/ui/modeTopicRuntimeBinding.js`
+    - `main.js` now delegates runtime mode/topic wrappers (`getRuntimeMode`, topic/interaction capability checks, topic panel methods) through this binding
+  - Validation:
+    - `node --check src/ui/modeTopicRuntimeBinding.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
