@@ -63,7 +63,9 @@ export function createFrameRuntime(deps) {
       cycleState: deps.cycleState,
       cycleSpeed,
       smoothCloudTimeSec,
-      currentMapFolderPath: deps.currentMapFolderPath,
+      currentMapFolderPath: typeof deps.getCurrentMapFolderPath === "function"
+        ? deps.getCurrentMapFolderPath()
+        : "",
       splatSize: deps.splatSize,
       lightingParams,
       uniformInput,

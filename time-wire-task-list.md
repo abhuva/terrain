@@ -323,6 +323,8 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Reduced `main.js` further by extracting swarm gameplay composition (environment, targeting, mutator, reseed, swarm data apply/serialize) into `src/gameplay/swarmGameplayRuntime.js`.
   - Clarified point-light ownership by keeping editor selection/draft explicitly transient-only runtime state while persisted point-light data and save-confirm state stay canonical/store-backed.
   - Reduced `main.js` further by extracting point-light editor/selection/draft/io composition into `src/gameplay/pointLightRuntime.js`.
+  - Reduced another DOM-primary settings path by making swarm follow-zoom and min/max-height command normalization resolve paired values from canonical swarm settings instead of sibling DOM inputs in panel bindings.
+  - Reduced `main.js` further by extracting map runtime-state/load/save/bootstrap composition into `src/gameplay/mapLifecycleRuntime.js`.
   - Current recommended next sequence remains:
     - close remaining Phase 2 command-surface/state-contract work
     - close Phase 4 ownership boundaries for swarm/player/point-light runtime

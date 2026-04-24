@@ -241,7 +241,12 @@ export function registerMainCommands(commandBus, deps) {
         deps.updateSwarmLabels();
         break;
       case "followZoomInChanged": {
-        const zoomOut = deps.clamp(Number(command.zoomOut), deps.zoomMin, deps.zoomMax);
+        const settings = deps.getSwarmSettings();
+        const zoomOut = deps.clamp(
+          Number(command.zoomOut ?? settings.followZoomOut),
+          deps.zoomMin,
+          deps.zoomMax,
+        );
         const zoomIn = Math.max(zoomOut, deps.clamp(Number(command.zoomIn), deps.zoomMin, deps.zoomMax));
         deps.swarmFollowZoomOutInput.value = zoomOut.toFixed(1);
         deps.swarmFollowZoomInInput.value = zoomIn.toFixed(1);
@@ -250,7 +255,12 @@ export function registerMainCommands(commandBus, deps) {
         break;
       }
       case "followZoomOutChanged": {
-        const zoomIn = deps.clamp(Number(command.zoomIn), deps.zoomMin, deps.zoomMax);
+        const settings = deps.getSwarmSettings();
+        const zoomIn = deps.clamp(
+          Number(command.zoomIn ?? settings.followZoomIn),
+          deps.zoomMin,
+          deps.zoomMax,
+        );
         const zoomOut = Math.min(zoomIn, deps.clamp(Number(command.zoomOut), deps.zoomMin, deps.zoomMax));
         deps.swarmFollowZoomOutInput.value = zoomOut.toFixed(1);
         deps.swarmFollowZoomInInput.value = zoomIn.toFixed(1);
@@ -427,8 +437,9 @@ export function registerMainCommands(commandBus, deps) {
         break;
       }
       case "minHeightChanged": {
+        const settings = deps.getSwarmSettings();
         let minHeight = Math.round(deps.clamp(Number(command.minHeight), 0, 256));
-        let maxHeight = Math.round(deps.clamp(Number(command.maxHeight), 0, 256));
+        let maxHeight = Math.round(deps.clamp(Number(command.maxHeight ?? settings.maxHeight), 0, 256));
         if (minHeight > maxHeight) {
           maxHeight = minHeight;
         }
@@ -440,7 +451,8 @@ export function registerMainCommands(commandBus, deps) {
         break;
       }
       case "maxHeightChanged": {
-        let minHeight = Math.round(deps.clamp(Number(command.minHeight), 0, 256));
+        const settings = deps.getSwarmSettings();
+        let minHeight = Math.round(deps.clamp(Number(command.minHeight ?? settings.minHeight), 0, 256));
         let maxHeight = Math.round(deps.clamp(Number(command.maxHeight), 0, 256));
         if (minHeight > maxHeight) {
           minHeight = maxHeight;

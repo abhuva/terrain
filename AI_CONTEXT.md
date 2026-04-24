@@ -32,6 +32,7 @@ No game engine is used.
 - Map-level JSON "Save All" file-generation/save orchestration is now extracted to `src/gameplay/mapDataSaveController.js`.
 - Map-sidecar JSON load/apply orchestration for URL/folder-selection paths is now extracted to `src/gameplay/mapSidecarLoader.js`.
 - Map-load orchestration for path/folder-selection flows is now extracted to `src/gameplay/mapLoader.js` and composed from `main.js`.
+- Map lifecycle composition (runtime-state binding, load/save runtime wiring, bootstrap/default-map auto-load) is now extracted to `src/gameplay/mapLifecycleRuntime.js`.
 - Swarm integration-step behavior is now extracted to `src/gameplay/swarmStep.js` and composed into the swarm update loop.
 - Swarm render interpolation state handling is now extracted to `src/gameplay/swarmInterpolation.js` and composed into follow/overlay/lit-swarm paths.
 - Swarm reseed/reset behavior is now extracted to `src/gameplay/swarmReseed.js` and composed from `main.js`.
@@ -45,6 +46,7 @@ No game engine is used.
 - Swarm-data serialization for map save/load is now extracted to `src/gameplay/swarmDataSerializer.js`.
 - Swarm UI input normalization helpers are now extracted to `src/ui/swarmInputNormalization.js`.
 - Swarm panel UI reflection (labels, enable/disable state, follow button text, stats panel updates) is now extracted to `src/ui/swarmPanelUi.js`.
+- Swarm paired follow-zoom and min/max-height command normalization now resolves untouched paired values from canonical swarm settings in command handlers, not from sibling DOM inputs in bindings.
 - Swarm settings UI-apply reflection path is now extracted to `src/ui/swarmSettingsApplier.js`.
 - Interaction-sidecar serialization (`interaction.json`) is now extracted to `src/gameplay/interactionDataSerializer.js`.
 - Required DOM element lookup helpers (`getRequiredElementById`, `getRequiredElements`) are now extracted to `src/ui/domElementLookup.js`.

@@ -36,7 +36,7 @@ export function createFrameRuntimeBinding(deps) {
     getSwarmSettings: deps.getSwarmSettings,
     buildFrameRenderState: deps.buildFrameRenderState,
     cycleState: deps.cycleState,
-    currentMapFolderPath: deps.currentMapFolderPath,
+    getCurrentMapFolderPath: deps.getCurrentMapFolderPath,
     renderer: deps.renderer,
     renderSwarmLit: deps.renderSwarmLit,
     requestAnimationFrame: deps.requestAnimationFrame,

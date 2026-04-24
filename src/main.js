@@ -83,12 +83,9 @@ import { createEntityStore } from "./gameplay/entityStore.js";
 import { createCursorLightRuntimeState } from "./gameplay/cursorLightState.js";
 import { createMovementSystem } from "./gameplay/movementSystem.js";
 import { createPointLightRuntime } from "./gameplay/pointLightRuntime.js";
-import { createMapDataSaveRuntime } from "./gameplay/mapDataSaveRuntime.js";
-import { createMapLoadingRuntime } from "./gameplay/mapLoadingRuntime.js";
+import { createMapLifecycleRuntime } from "./gameplay/mapLifecycleRuntime.js";
 import { createMapImageRuntimeBinding } from "./gameplay/mapImageRuntimeBinding.js";
 import { createMapSamplingRuntimeBinding } from "./gameplay/mapSamplingRuntimeBinding.js";
-import { createMapRuntimeStateBinding } from "./gameplay/mapRuntimeStateBinding.js";
-import { createMapBootstrapBindingRuntime } from "./gameplay/mapBootstrapBindingRuntime.js";
 import { createShadowOcclusionRuntimeBinding } from "./gameplay/shadowOcclusionRuntimeBinding.js";
 import { createMapPathBindingRuntime } from "./gameplay/mapPathBindingRuntime.js";
 import { createTauriRuntimeBinding } from "./gameplay/tauriRuntimeBinding.js";
@@ -1609,59 +1606,38 @@ function getSettingsDefaults(key, fallback) {
   return settingsApplyBindingRuntime.getSettingsDefaults(key, fallback);
 }
 
+let mapLifecycleRuntime = null;
+
 function setCurrentMapFolderPath(nextPath) {
-  getMapRuntimeState().setCurrentMapFolderPath(nextPath);
+  mapLifecycleRuntime.setCurrentMapFolderPath(nextPath);
 }
 
 function applyDefaultMapSettings() {
-  getMapRuntimeState().applyDefaultMapSettings();
+  mapLifecycleRuntime.applyDefaultMapSettings();
 }
 
 function resetMapRuntimeStateAfterImages() {
-  getMapRuntimeState().resetMapRuntimeStateAfterImages();
+  mapLifecycleRuntime.resetMapRuntimeStateAfterImages();
 }
 
-const mapDataSaveRuntime = createMapDataSaveRuntime({
-  serializePointLights,
-  serializeLightingSettings,
-  serializeParallaxSettings,
-  serializeInteractionSettings,
-  serializeFogSettings,
-  serializeCloudSettings,
-  serializeWaterSettings,
-  serializeSwarmData,
-  serializeNpcState,
-  normalizeMapFolderPath,
-  getCurrentMapFolderPath: () => currentMapFolderPath,
-  confirm: (text) => window.confirm(text),
-  setStatus,
-  tauriInvoke,
-  isAbsoluteFsPath,
-  pickMapFolderViaTauri,
-  joinFsPath,
-  invokeTauri,
-  showDirectoryPicker:
-    typeof window.showDirectoryPicker === "function" ? window.showDirectoryPicker.bind(window) : null,
-});
-
 function createMapDataFileTexts() {
-  return mapDataSaveRuntime.createMapDataFileTexts();
+  return mapLifecycleRuntime.createMapDataFileTexts();
 }
 
 function downloadTextFile(fileName, text) {
-  mapDataSaveRuntime.downloadTextFile(fileName, text);
+  mapLifecycleRuntime.downloadTextFile(fileName, text);
 }
 
 async function saveAllMapDataFiles() {
-  await mapDataSaveRuntime.saveAllMapDataFiles();
+  await mapLifecycleRuntime.saveAllMapDataFiles();
 }
 
 async function loadMapFromPath(mapFolderPath) {
-  await mapLoadingRuntime.loadMapFromPath(mapFolderPath);
+  await mapLifecycleRuntime.loadMapFromPath(mapFolderPath);
 }
 
 async function loadMapFromFolderSelection(fileList) {
-  await mapLoadingRuntime.loadMapFromFolderSelection(fileList);
+  await mapLifecycleRuntime.loadMapFromFolderSelection(fileList);
 }
 
 function setStatus(text) {
@@ -1946,7 +1922,6 @@ const POINT_LIGHT_BAKE_DEBOUNCE_MS = 80;
 const SWARM_POINT_LIGHT_EDGE_MIN = 0.08;
 const overlayDirtyRuntime = createOverlayDirtyRuntime(true);
 const DEFAULT_MAP_FOLDER = "assets/Map 1/";
-let currentMapFolderPath = DEFAULT_MAP_FOLDER;
 const DEFAULT_MAP_FOLDER_CANDIDATES = ["assets/Map 1/", "assets/"];
 const DEFAULT_PLAYER = {
   charID: "player",
@@ -1954,69 +1929,6 @@ const DEFAULT_PLAYER = {
   pixelY: 96,
   color: "#ff69b4",
 };
-let mapRuntimeState = null;
-function getMapRuntimeState() {
-  if (mapRuntimeState) return mapRuntimeState;
-  mapRuntimeState = createMapRuntimeStateBinding({
-    normalizeMapFolderPath,
-    setCurrentMapFolderPathValue: (value) => {
-      currentMapFolderPath = value;
-    },
-    getCurrentMapFolderPath: () => currentMapFolderPath,
-    mapPathInput,
-    syncMapStateToStore,
-    getSettingsDefaults,
-    defaultLightingSettings: DEFAULT_LIGHTING_SETTINGS,
-    defaultParallaxSettings: DEFAULT_PARALLAX_SETTINGS,
-    defaultInteractionSettings: DEFAULT_INTERACTION_SETTINGS,
-    defaultFogSettings: DEFAULT_FOG_SETTINGS,
-    defaultCloudSettings: DEFAULT_CLOUD_SETTINGS,
-    defaultWaterSettings: DEFAULT_WATER_SETTINGS,
-    defaultSwarmSettings: DEFAULT_SWARM_SETTINGS,
-    applyLightingSettings,
-    applyParallaxSettings,
-    applyInteractionSettings,
-    applyFogSettings,
-    applyCloudSettings,
-    applyWaterSettings,
-    applySwarmSettings,
-    clearPointLights,
-    bakePointLightsTexture,
-    updateLightEditorUi,
-    reseedSwarmAgents,
-    getSwarmSettings,
-    requestOverlayDraw,
-  });
-  return mapRuntimeState;
-}
-const mapLoadingRuntime = createMapLoadingRuntime({
-  tryLoadJsonFromUrl,
-  applyLoadedPointLights,
-  applyLightingSettings,
-  applyParallaxSettings,
-  applyInteractionSettings,
-  applyFogSettings,
-  applyCloudSettings,
-  applyWaterSettings,
-  applySwarmData,
-  applyLoadedNpc,
-  getFileFromFolderSelection,
-  defaultPlayer: DEFAULT_PLAYER,
-  normalizeMapFolderPath,
-  tauriInvoke,
-  isAbsoluteFsPath,
-  validateMapFolderViaTauri,
-  joinFsPath,
-  buildMapAssetPath,
-  loadImageFromUrl,
-  loadImageFromFile,
-  applyMapImages,
-  setCurrentMapFolderPath,
-  resetMapRuntimeStateAfterImages,
-  rebuildMovementField,
-  setStatus,
-  getFileFromFolderSelection,
-});
 const playerState = {
   charID: DEFAULT_PLAYER.charID,
   pixelX: DEFAULT_PLAYER.pixelX,
@@ -2229,7 +2141,7 @@ const pointLightRuntime = createPointLightRuntime({
     typeof window.showSaveFilePicker === "function" ? window.showSaveFilePicker.bind(window) : null,
   normalizeMapFolderPath,
   downloadTextFile,
-  getCurrentMapFolderPath: () => currentMapFolderPath,
+  getCurrentMapFolderPath: () => mapLifecycleRuntime.getCurrentMapFolderPath(),
   tryLoadJsonFromUrl,
   clearPointLightsLoadInput: () => {
     pointLightsLoadInput.value = "";
@@ -2284,6 +2196,65 @@ async function savePointLightsJson() {
 async function loadPointLightsFromAssetsOrPrompt() {
   await pointLightRuntime.loadPointLightsFromAssetsOrPrompt();
 }
+
+mapLifecycleRuntime = createMapLifecycleRuntime({
+  defaultMapFolder: DEFAULT_MAP_FOLDER,
+  defaultMapFolderCandidates: DEFAULT_MAP_FOLDER_CANDIDATES,
+  defaultPlayer: DEFAULT_PLAYER,
+  normalizeMapFolderPath,
+  mapPathInput,
+  syncMapStateToStore,
+  getSettingsDefaults,
+  defaultLightingSettings: DEFAULT_LIGHTING_SETTINGS,
+  defaultParallaxSettings: DEFAULT_PARALLAX_SETTINGS,
+  defaultInteractionSettings: DEFAULT_INTERACTION_SETTINGS,
+  defaultFogSettings: DEFAULT_FOG_SETTINGS,
+  defaultCloudSettings: DEFAULT_CLOUD_SETTINGS,
+  defaultWaterSettings: DEFAULT_WATER_SETTINGS,
+  defaultSwarmSettings: DEFAULT_SWARM_SETTINGS,
+  applyLightingSettings,
+  applyParallaxSettings,
+  applyInteractionSettings,
+  applyFogSettings,
+  applyCloudSettings,
+  applyWaterSettings,
+  applySwarmSettings,
+  clearPointLights,
+  bakePointLightsTexture,
+  updateLightEditorUi,
+  reseedSwarmAgents: (...args) => reseedSwarmAgents(...args),
+  getSwarmSettings,
+  requestOverlayDraw,
+  tryLoadJsonFromUrl,
+  applyLoadedPointLights,
+  applySwarmData,
+  applyLoadedNpc,
+  getFileFromFolderSelection,
+  tauriInvoke,
+  isAbsoluteFsPath,
+  validateMapFolderViaTauri,
+  joinFsPath,
+  buildMapAssetPath,
+  loadImageFromUrl,
+  loadImageFromFile,
+  applyMapImages,
+  rebuildMovementField,
+  setStatus,
+  serializePointLights,
+  serializeLightingSettings,
+  serializeParallaxSettings,
+  serializeInteractionSettings,
+  serializeFogSettings,
+  serializeCloudSettings,
+  serializeWaterSettings,
+  serializeSwarmData,
+  serializeNpcState,
+  confirm: (text) => window.confirm(text),
+  pickMapFolderViaTauri,
+  invokeTauri,
+  showDirectoryPicker:
+    typeof window.showDirectoryPicker === "function" ? window.showDirectoryPicker.bind(window) : null,
+});
 
 function ensurePointLightBakeSize() {
   pointLightBakeBindingRuntime.ensurePointLightBakeSize();
@@ -2525,7 +2496,7 @@ function createPointLight(pixelX, pixelY) {
 }
 
 function applyMapSizeChangeIfNeeded(changed) {
-  getMapRuntimeState().applyMapSizeChangeIfNeeded(changed);
+  mapLifecycleRuntime.applyMapSizeChangeIfNeeded(changed);
 }
 bakePointLightsTexture();
 updateLightEditorUi();
@@ -3065,7 +3036,7 @@ function getPathfindingStateSnapshot() {
 function syncMapStateToStore() {
   syncMapState({
     store: runtimeCore.store,
-    currentMapFolderPath,
+    currentMapFolderPath: mapLifecycleRuntime.getCurrentMapFolderPath(),
     splatSize,
   });
 }
@@ -4330,14 +4301,8 @@ bindRenderFxRuntime({
   rebuildFlowMapTexture,
 });
 
-const mapBootstrapRuntime = createMapBootstrapBindingRuntime({
-  defaultMapFolderCandidates: DEFAULT_MAP_FOLDER_CANDIDATES,
-  loadMapFromPath,
-  setStatus,
-});
-
 async function tryAutoLoadDefaultMap() {
-  await mapBootstrapRuntime.tryAutoLoadDefaultMap();
+  await mapLifecycleRuntime.tryAutoLoadDefaultMap();
 }
 
 bindMapIoRuntime({
@@ -4408,7 +4373,7 @@ function getFrameRuntime() {
     getSwarmSettings,
     buildFrameRenderState,
     cycleState,
-    currentMapFolderPath,
+    getCurrentMapFolderPath: () => mapLifecycleRuntime.getCurrentMapFolderPath(),
     renderer,
     renderSwarmLit,
     requestAnimationFrame: (cb) => window.requestAnimationFrame(cb),
@@ -4465,7 +4430,7 @@ runStartupUiSyncRuntime({
   setCycleHourSliderFromState,
   updateCycleHourLabel,
   mapPathInput,
-  currentMapFolderPath,
+  currentMapFolderPath: mapLifecycleRuntime.getCurrentMapFolderPath(),
   updateLightEditorUi,
   updateCursorLightModeUi,
   updateParallaxUi,
