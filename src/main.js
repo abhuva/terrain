@@ -111,23 +111,10 @@ import { createCursorLightPointerStateRuntime } from "./gameplay/cursorLightPoin
 import { createSwarmCursorPointerBindingRuntime } from "./gameplay/swarmCursorPointerBindingRuntime.js";
 import { createInteractionModeSnapshotBindingRuntime } from "./gameplay/interactionModeSnapshotBindingRuntime.js";
 import { createPlayerStateRuntimeBinding } from "./gameplay/playerStateRuntimeBinding.js";
-import { createCameraViewRuntimeBinding } from "./gameplay/cameraViewRuntimeBinding.js";
+import { createCameraRuntimeBinding } from "./gameplay/cameraRuntimeBinding.js";
 import { createInteractionModeRuntime } from "./gameplay/interactionModeRuntime.js";
 import { setInteractionMode as applyInteractionMode } from "./gameplay/interactionModeController.js";
 import { createPathfindingRuntimeBinding } from "./gameplay/pathfindingRuntimeBinding.js";
-import {
-  getBaseViewHalfExtents as getBaseViewHalfExtentsTransform,
-  getActiveCameraState as getActiveCameraStateTransform,
-  getViewHalfExtents as getViewHalfExtentsTransform,
-  clientToNdc as clientToNdcTransform,
-  worldFromNdc as worldFromNdcTransform,
-  worldToUv as worldToUvTransform,
-  uvToMapPixelIndex as uvToMapPixelIndexTransform,
-  mapPixelIndexToUv as mapPixelIndexToUvTransform,
-  mapPixelToWorld as mapPixelToWorldTransform,
-  mapCoordToWorld as mapCoordToWorldTransform,
-  worldToScreen as worldToScreenTransform,
-} from "./gameplay/cameraTransforms.js";
 import { updatePointLightEditorUi as syncPointLightEditorUi } from "./ui/pointLightEditorUi.js";
 import { bindCanvasRuntime } from "./ui/canvasBindingRuntime.js";
 import { bindPointLightEditorRuntime } from "./ui/pointLightEditorBindingRuntime.js";
@@ -2950,28 +2937,17 @@ syncPlayerStateToStore();
 syncSwarmStateToStore();
 syncPointLightsStateToStore();
 
-function resetCamera() {
-  getCameraViewRuntimeBinding().resetCamera();
-}
-
-function getScreenAspect() {
-  return getCameraViewRuntimeBinding().getScreenAspect();
-}
-
-function getMapAspect() {
-  return getCameraViewRuntimeBinding().getMapAspect();
-}
-
-let cameraViewRuntimeBinding = null;
-function getCameraViewRuntimeBinding() {
-  if (cameraViewRuntimeBinding) return cameraViewRuntimeBinding;
-  cameraViewRuntimeBinding = createCameraViewRuntimeBinding({
-    dispatchCoreCommand,
-    canvas,
-    splatSize,
-  });
-  return cameraViewRuntimeBinding;
-}
+const cameraRuntimeBinding = createCameraRuntimeBinding({
+  dispatchCoreCommand,
+  canvas,
+  overlayCanvas,
+  splatSize,
+  clamp,
+  getCameraState: () => runtimeCore.store.getState().camera || {},
+});
+const resetCamera = cameraRuntimeBinding.resetCamera;
+const getScreenAspect = cameraRuntimeBinding.getScreenAspect;
+const getMapAspect = cameraRuntimeBinding.getMapAspect;
 
 function getSwarmCursorMode() {
   return resolveSwarmCursorMode({
@@ -3529,94 +3505,17 @@ const renderSwarmLit = createSwarmLitRenderer({
   swarmPointBuffer,
 });
 
-function getBaseViewHalfExtents() {
-  return getBaseViewHalfExtentsTransform({
-    getScreenAspect,
-    getMapAspect,
-  });
-}
-
-function getActiveCameraState() {
-  return getActiveCameraStateTransform({
-    getCameraState: () => runtimeCore.store.getState().camera || {},
-  });
-}
-
-function getViewHalfExtents(zoomValue = null) {
-  return getViewHalfExtentsTransform({
-    zoomValue,
-    getActiveCameraState,
-    getBaseViewHalfExtents,
-  });
-}
-
-function clientToNdc(clientX, clientY) {
-  return clientToNdcTransform({
-    clientX,
-    clientY,
-    getCanvasRect: () => canvas.getBoundingClientRect(),
-  });
-}
-
-function worldFromNdc(ndc, zoomValue = null, pan = null) {
-  return worldFromNdcTransform({
-    ndc,
-    zoomValue,
-    pan,
-    getActiveCameraState,
-    getViewHalfExtents,
-  });
-}
-
-function worldToUv(world) {
-  return worldToUvTransform({
-    world,
-    getMapAspect,
-  });
-}
-
-function uvToMapPixelIndex(uv) {
-  return uvToMapPixelIndexTransform({
-    uv,
-    clamp,
-    splatSize,
-  });
-}
-
-function mapPixelIndexToUv(pixelX, pixelY) {
-  return mapPixelIndexToUvTransform({
-    pixelX,
-    pixelY,
-    splatSize,
-  });
-}
-
-function mapPixelToWorld(pixelX, pixelY) {
-  return mapPixelToWorldTransform({
-    pixelX,
-    pixelY,
-    mapPixelIndexToUv,
-    getMapAspect,
-  });
-}
-
-function mapCoordToWorld(mapX, mapY) {
-  return mapCoordToWorldTransform({
-    mapX,
-    mapY,
-    splatSize,
-    getMapAspect,
-  });
-}
-
-function worldToScreen(world) {
-  return worldToScreenTransform({
-    world,
-    getActiveCameraState,
-    getViewHalfExtents,
-    overlayCanvas,
-  });
-}
+const getBaseViewHalfExtents = cameraRuntimeBinding.getBaseViewHalfExtents;
+const getActiveCameraState = cameraRuntimeBinding.getActiveCameraState;
+const getViewHalfExtents = cameraRuntimeBinding.getViewHalfExtents;
+const clientToNdc = cameraRuntimeBinding.clientToNdc;
+const worldFromNdc = cameraRuntimeBinding.worldFromNdc;
+const worldToUv = cameraRuntimeBinding.worldToUv;
+const uvToMapPixelIndex = cameraRuntimeBinding.uvToMapPixelIndex;
+const mapPixelIndexToUv = cameraRuntimeBinding.mapPixelIndexToUv;
+const mapPixelToWorld = cameraRuntimeBinding.mapPixelToWorld;
+const mapCoordToWorld = cameraRuntimeBinding.mapCoordToWorld;
+const worldToScreen = cameraRuntimeBinding.worldToScreen;
 
 function setInteractionMode(mode) {
   interactionModeRuntime.setInteractionMode(mode);

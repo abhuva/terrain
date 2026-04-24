@@ -154,6 +154,7 @@ No game engine is used.
 - Cursor-light pointer binding runtime composition (`createCursorLightPointerRuntime` deps composition + wrapper) is now extracted to `src/gameplay/cursorLightPointerBindingRuntime.js`.
 - Swarm-cursor pointer binding runtime composition (`createSwarmCursorPointerRuntime` deps composition + wrapper) is now extracted to `src/gameplay/swarmCursorPointerBindingRuntime.js`.
 - Camera-view binding runtime composition (`createCameraViewRuntime` deps composition + wrapper methods) is now extracted to `src/gameplay/cameraViewRuntimeBinding.js`.
+- Camera runtime composition (camera-view binding plus coordinate/camera transform wrapper methods) is now extracted to `src/gameplay/cameraRuntimeBinding.js`.
 - Player-state runtime binding composition (`createPlayerStateRuntime` deps composition + wrapper) is now extracted to `src/gameplay/playerStateRuntimeBinding.js`.
 - Pathfinding cost-model binding runtime composition (`createPathfindingCostModel` deps composition + wrapper methods) is now extracted to `src/gameplay/pathfindingCostModelBindingRuntime.js`.
 - Point-light-editor UI binding runtime composition (`createPointLightEditorUiRuntime` deps composition + wrapper) is now extracted to `src/ui/pointLightEditorUiBindingRuntime.js`.
