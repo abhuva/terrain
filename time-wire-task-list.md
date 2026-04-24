@@ -1304,3 +1304,10 @@ Recommended next sequence:
     - `node --check src/gameplay/mapDataSaveRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued map-loading runtime extraction:
+    - extracted map-loading runtime composition (`createMapSidecarLoader` + `createMapLoader` deps composition) from `src/main.js` into `src/gameplay/mapLoadingRuntime.js`
+    - `main.js` now delegates map load entry points through `mapLoadingRuntime`
+  - Validation:
+    - `node --check src/gameplay/mapLoadingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

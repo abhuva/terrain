@@ -87,8 +87,7 @@ import { createPointLightEditorController } from "./gameplay/pointLightEditorCon
 import { createPointLightEditorRuntime } from "./gameplay/pointLightEditorRuntime.js";
 import { createPointLightIoRuntime } from "./gameplay/pointLightIoRuntime.js";
 import { createMapDataSaveRuntime } from "./gameplay/mapDataSaveRuntime.js";
-import { createMapSidecarLoader } from "./gameplay/mapSidecarLoader.js";
-import { createMapLoader } from "./gameplay/mapLoader.js";
+import { createMapLoadingRuntime } from "./gameplay/mapLoadingRuntime.js";
 import { createMapImageRuntime } from "./gameplay/mapImageRuntime.js";
 import { createMapSampling } from "./gameplay/mapSampling.js";
 import { createMapRuntimeState } from "./gameplay/mapRuntimeState.js";
@@ -1667,11 +1666,11 @@ async function saveAllMapDataFiles() {
 }
 
 async function loadMapFromPath(mapFolderPath) {
-  await mapLoader.loadMapFromPath(mapFolderPath);
+  await mapLoadingRuntime.loadMapFromPath(mapFolderPath);
 }
 
 async function loadMapFromFolderSelection(fileList) {
-  await mapLoader.loadMapFromFolderSelection(fileList);
+  await mapLoadingRuntime.loadMapFromFolderSelection(fileList);
 }
 
 function setStatus(text) {
@@ -2024,7 +2023,7 @@ function getMapRuntimeState() {
   });
   return mapRuntimeState;
 }
-const mapSidecarLoader = createMapSidecarLoader({
+const mapLoadingRuntime = createMapLoadingRuntime({
   tryLoadJsonFromUrl,
   applyLoadedPointLights,
   applyLightingSettings,
@@ -2037,8 +2036,6 @@ const mapSidecarLoader = createMapSidecarLoader({
   applyLoadedNpc,
   getFileFromFolderSelection,
   defaultPlayer: DEFAULT_PLAYER,
-});
-const mapLoader = createMapLoader({
   normalizeMapFolderPath,
   tauriInvoke,
   isAbsoluteFsPath,
@@ -2050,7 +2047,6 @@ const mapLoader = createMapLoader({
   applyMapImages,
   setCurrentMapFolderPath,
   resetMapRuntimeStateAfterImages,
-  mapSidecarLoader,
   rebuildMovementField,
   setStatus,
   getFileFromFolderSelection,
