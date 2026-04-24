@@ -119,8 +119,11 @@ No game engine is used.
 - WebGL shader/program/texture creation and image upload helpers are now extracted to `src/render/glResourceRuntime.js`.
 - Flow-map rebuild orchestration (`rebuildFlowMapTexture`) is now extracted to `src/render/flowMapRuntime.js`.
 - Pathfinding preview runtime helpers (movement-field rebuild, preview/path extraction, pointer preview update, path metrics) are now extracted to `src/gameplay/pathfindingPreviewRuntime.js`.
+- Pathfinding runtime composition (cost-model binding + preview runtime + movement-field ownership) is now extracted to `src/gameplay/pathfindingRuntimeBinding.js`.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.
+- Render-FX UI binding composition (label/UI wrapper methods) is now extracted to `src/ui/renderFxUiBindingRuntime.js`.
+- Pathfinding label binding composition (label wrapper methods) is now extracted to `src/ui/pathfindingLabelBindingRuntime.js`.
 - Render-FX binding orchestration (`bindRenderFxControls` deps composition) is now extracted to `src/ui/renderFxBindingRuntime.js`.
 - Render-FX command handling now normalizes field-level command patches from canonical store-backed section state instead of rebuilding full section snapshots from sibling DOM inputs on every event.
 - Swarm-follow binding orchestration (`bindSwarmFollowControls` deps composition) is now extracted to `src/ui/swarmFollowBindingRuntime.js`.

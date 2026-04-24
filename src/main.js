@@ -106,7 +106,6 @@ import {
   getSwarmSettings as resolveSwarmSettings,
   getPathfindingStateSnapshot as resolvePathfindingStateSnapshot,
 } from "./gameplay/runtimeStateSnapshots.js";
-import { createPathfindingPreviewRuntime } from "./gameplay/pathfindingPreviewRuntime.js";
 import { createCursorLightPointerBindingRuntime } from "./gameplay/cursorLightPointerBindingRuntime.js";
 import { createCursorLightPointerStateRuntime } from "./gameplay/cursorLightPointerStateRuntime.js";
 import { createSwarmCursorPointerBindingRuntime } from "./gameplay/swarmCursorPointerBindingRuntime.js";
@@ -115,7 +114,7 @@ import { createPlayerStateRuntimeBinding } from "./gameplay/playerStateRuntimeBi
 import { createCameraViewRuntimeBinding } from "./gameplay/cameraViewRuntimeBinding.js";
 import { createInteractionModeRuntime } from "./gameplay/interactionModeRuntime.js";
 import { setInteractionMode as applyInteractionMode } from "./gameplay/interactionModeController.js";
-import { createPathfindingCostModelBindingRuntime } from "./gameplay/pathfindingCostModelBindingRuntime.js";
+import { createPathfindingRuntimeBinding } from "./gameplay/pathfindingRuntimeBinding.js";
 import {
   getBaseViewHalfExtents as getBaseViewHalfExtentsTransform,
   getActiveCameraState as getActiveCameraStateTransform,
@@ -161,8 +160,8 @@ import { createCursorLightModeUiBindingRuntime } from "./ui/cursorLightModeUiBin
 import { createTimeUiBindingRuntime } from "./ui/timeUiBindingRuntime.js";
 import { runStartupUiSyncRuntime } from "./ui/startupUiSyncRuntime.js";
 import { createSwarmOverlayBindingRuntime } from "./ui/swarmOverlayBindingRuntime.js";
-import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
-import * as pathfindingLabelUi from "./ui/pathfindingLabelUi.js";
+import { createRenderFxUiBindingRuntime } from "./ui/renderFxUiBindingRuntime.js";
+import { createPathfindingLabelBindingRuntime } from "./ui/pathfindingLabelBindingRuntime.js";
 
 const runtimeCore = createRuntimeCore();
 const dispatchCoreCommand = createCoreCommandDispatch(runtimeCore);
@@ -2002,7 +2001,6 @@ function getSwarmFollowSnapshot() {
   return swarmFollowRuntimeState.getSwarmFollowSnapshot();
 }
 
-let movementField = null;
 const pointLightBakeRuntimeBinding = createPointLightBakeRuntimeBinding({
   document,
   windowEl: window,
@@ -3620,36 +3618,6 @@ function worldToScreen(world) {
   });
 }
 
-function updatePathfindingRangeLabel() {
-  pathfindingLabelUi.updatePathfindingRangeLabel({
-    getPathfindingStateSnapshot,
-    pathfindingRangeValue,
-  });
-}
-
-function updatePathWeightLabels() {
-  pathfindingLabelUi.updatePathWeightLabels({
-    getPathfindingStateSnapshot,
-    pathWeightSlopeValue,
-    pathWeightHeightValue,
-    pathWeightWaterValue,
-  });
-}
-
-function updatePathSlopeCutoffLabel() {
-  pathfindingLabelUi.updatePathSlopeCutoffLabel({
-    getPathfindingStateSnapshot,
-    pathSlopeCutoffValue,
-  });
-}
-
-function updatePathBaseCostLabel() {
-  pathfindingLabelUi.updatePathBaseCostLabel({
-    getPathfindingStateSnapshot,
-    pathBaseCostValue,
-  });
-}
-
 function setInteractionMode(mode) {
   interactionModeRuntime.setInteractionMode(mode);
 }
@@ -3699,7 +3667,7 @@ function getPlayerStateRuntimeBinding() {
   return playerStateRuntimeBinding;
 }
 
-const pathfindingCostModelBindingRuntime = createPathfindingCostModelBindingRuntime({
+const pathfindingRuntimeBinding = createPathfindingRuntimeBinding({
   clamp,
   playerState,
   getMapSize: () => splatSize,
@@ -3707,28 +3675,6 @@ const pathfindingCostModelBindingRuntime = createPathfindingCostModelBindingRunt
   getSlopeImageData: () => slopeImageData,
   getHeightImageData: () => heightImageData,
   getWaterImageData: () => waterImageData,
-});
-
-function getGrayAt(imageData, x, y, sourceWidth = splatSize.width, sourceHeight = splatSize.height) {
-  return pathfindingCostModelBindingRuntime.getGrayAt(imageData, x, y, sourceWidth, sourceHeight);
-}
-
-function movementWindowBounds() {
-  return pathfindingCostModelBindingRuntime.movementWindowBounds();
-}
-
-function computeMoveStepCost(fromX, fromY, toX, toY) {
-  return pathfindingCostModelBindingRuntime.computeMoveStepCost(fromX, fromY, toX, toY);
-}
-
-const pathfindingPreviewRuntime = createPathfindingPreviewRuntime({
-  movementWindowBounds,
-  computeMoveStepCost,
-  playerState,
-  getMovementField: () => movementField,
-  setMovementField: (value) => {
-    movementField = value;
-  },
   movePreviewState,
   getInteractionModeSnapshot,
   requestOverlayDraw,
@@ -3737,226 +3683,146 @@ const pathfindingPreviewRuntime = createPathfindingPreviewRuntime({
   worldToUv,
   uvToMapPixelIndex,
 });
-
-function rebuildMovementField() {
-  pathfindingPreviewRuntime.rebuildMovementField();
-}
-
-function extractPathTo(pixelX, pixelY) {
-  return pathfindingPreviewRuntime.extractPathTo(pixelX, pixelY);
-}
-
-function refreshPathPreview() {
-  pathfindingPreviewRuntime.refreshPathPreview();
-}
-
-function updatePathPreviewFromPointer(clientX, clientY) {
-  pathfindingPreviewRuntime.updatePathPreviewFromPointer(clientX, clientY);
-}
-
-function getCurrentPathMetrics() {
-  return pathfindingPreviewRuntime.getCurrentPathMetrics();
-}
+const getGrayAt = pathfindingRuntimeBinding.getGrayAt;
+const computeMoveStepCost = pathfindingRuntimeBinding.computeMoveStepCost;
+const rebuildMovementField = pathfindingRuntimeBinding.rebuildMovementField;
+const extractPathTo = pathfindingRuntimeBinding.extractPathTo;
+const refreshPathPreview = pathfindingRuntimeBinding.refreshPathPreview;
+const updatePathPreviewFromPointer = pathfindingRuntimeBinding.updatePathPreviewFromPointer;
+const getCurrentPathMetrics = pathfindingRuntimeBinding.getCurrentPathMetrics;
 
 function updateInfoPanel() {
   updateInfoPanelImpl();
 }
 
-function updateParallaxStrengthLabel() {
-  renderFxUiRuntime.updateParallaxStrengthLabel({
-    clamp,
-    serializeParallaxSettings,
-    parallaxStrengthValue,
-  });
-}
+const pathfindingLabelBindingRuntime = createPathfindingLabelBindingRuntime({
+  getPathfindingStateSnapshot,
+  pathfindingRangeValue,
+  pathWeightSlopeValue,
+  pathWeightHeightValue,
+  pathWeightWaterValue,
+  pathSlopeCutoffValue,
+  pathBaseCostValue,
+});
+const updatePathfindingRangeLabel = pathfindingLabelBindingRuntime.updatePathfindingRangeLabel;
+const updatePathWeightLabels = pathfindingLabelBindingRuntime.updatePathWeightLabels;
+const updatePathSlopeCutoffLabel = pathfindingLabelBindingRuntime.updatePathSlopeCutoffLabel;
+const updatePathBaseCostLabel = pathfindingLabelBindingRuntime.updatePathBaseCostLabel;
 
-function updateParallaxBandsLabel() {
-  renderFxUiRuntime.updateParallaxBandsLabel({
-    clamp,
-    serializeParallaxSettings,
-    parallaxBandsValue,
-  });
-}
-
-function updateShadowBlurLabel() {
-  renderFxUiRuntime.updateShadowBlurLabel({
-    clamp,
-    serializeLightingSettings,
-    shadowBlurValue,
-  });
-}
-
-function updateSimTickLabel() {
-  renderFxUiRuntime.updateSimTickLabel({
-    normalizeSimTickHours,
-    serializeLightingSettings,
-    simTickHoursValue,
-  });
-}
-
-function updateFogAlphaLabels() {
-  renderFxUiRuntime.updateFogAlphaLabels({
-    clamp,
-    serializeFogSettings,
-    fogMinAlphaValue,
-    fogMaxAlphaValue,
-  });
-}
-
-function updateFogFalloffLabel() {
-  renderFxUiRuntime.updateFogFalloffLabel({
-    clamp,
-    serializeFogSettings,
-    fogFalloffValue,
-  });
-}
-
-function updateFogStartOffsetLabel() {
-  renderFxUiRuntime.updateFogStartOffsetLabel({
-    clamp,
-    serializeFogSettings,
-    fogStartOffsetValue,
-  });
-}
-
-function updatePointFlickerLabels() {
-  renderFxUiRuntime.updatePointFlickerLabels({
-    clamp,
-    serializeLightingSettings,
-    pointFlickerStrengthValue,
-    pointFlickerSpeedValue,
-    pointFlickerSpatialValue,
-  });
-}
-
-function updatePointFlickerUi() {
-  renderFxUiRuntime.updatePointFlickerUi({
-    pointFlickerStrengthInput,
-    pointFlickerSpeedInput,
-    pointFlickerSpatialInput,
-  });
-}
-
-function updateVolumetricLabels() {
-  renderFxUiRuntime.updateVolumetricLabels({
-    clamp,
-    serializeLightingSettings,
-    volumetricStrengthValue,
-    volumetricDensityValue,
-    volumetricAnisotropyValue,
-    volumetricLengthValue,
-    volumetricSamplesValue,
-  });
-}
-
-function updateVolumetricUi() {
-  renderFxUiRuntime.updateVolumetricUi({
-    volumetricStrengthInput,
-    volumetricDensityInput,
-    volumetricAnisotropyInput,
-    volumetricLengthInput,
-    volumetricSamplesInput,
-  });
-}
-
-function updateCloudLabels() {
-  renderFxUiRuntime.updateCloudLabels({
-    clamp,
-    serializeCloudSettings,
-    cloudCoverageValue,
-    cloudSoftnessValue,
-    cloudOpacityValue,
-    cloudScaleValue,
-    cloudSpeed1Value,
-    cloudSpeed2Value,
-    cloudSunParallaxValue,
-  });
-}
-
-function updateWaterLabels() {
-  renderFxUiRuntime.updateWaterLabels({
-    clamp,
-    serializeWaterSettings,
-    waterFlowDirectionValue,
-    waterLocalFlowMixValue,
-    waterDownhillBoostValue,
-    waterFlowRadius1Value,
-    waterFlowRadius2Value,
-    waterFlowRadius3Value,
-    waterFlowWeight1Value,
-    waterFlowWeight2Value,
-    waterFlowWeight3Value,
-    waterFlowStrengthValue,
-    waterFlowSpeedValue,
-    waterFlowScaleValue,
-    waterShimmerStrengthValue,
-    waterGlintStrengthValue,
-    waterGlintSharpnessValue,
-    waterShoreFoamStrengthValue,
-    waterShoreWidthValue,
-    waterReflectivityValue,
-    waterTintStrengthValue,
-  });
-}
-
-function updateParallaxUi() {
-  renderFxUiRuntime.updateParallaxUi({
-    parallaxStrengthInput,
-    parallaxBandsInput,
-  });
-}
-
-function updateFogUi() {
-  renderFxUiRuntime.updateFogUi({
-    fogColorInput,
-    fogMinAlphaInput,
-    fogMaxAlphaInput,
-    fogFalloffInput,
-    fogStartOffsetInput,
-  });
-}
-
-function updateCloudUi() {
-  renderFxUiRuntime.updateCloudUi({
-    cloudCoverageInput,
-    cloudSoftnessInput,
-    cloudOpacityInput,
-    cloudScaleInput,
-    cloudSpeed1Input,
-    cloudSpeed2Input,
-    cloudSunParallaxInput,
-    cloudSunProjectToggle,
-  });
-}
-
-function updateWaterUi() {
-  renderFxUiRuntime.updateWaterUi({
-    serializeWaterSettings,
-    waterFlowDownhillToggle,
-    waterFlowInvertDownhillToggle,
-    waterFlowDebugToggle,
-    waterFlowDirectionInput,
-    waterLocalFlowMixInput,
-    waterDownhillBoostInput,
-    waterFlowRadius1Input,
-    waterFlowRadius2Input,
-    waterFlowRadius3Input,
-    waterFlowWeight1Input,
-    waterFlowWeight2Input,
-    waterFlowWeight3Input,
-    waterFlowStrengthInput,
-    waterFlowSpeedInput,
-    waterFlowScaleInput,
-    waterShimmerStrengthInput,
-    waterGlintStrengthInput,
-    waterGlintSharpnessInput,
-    waterShoreFoamStrengthInput,
-    waterShoreWidthInput,
-    waterReflectivityInput,
-    waterTintColorInput,
-    waterTintStrengthInput,
-  });
-}
+const renderFxUiBindingRuntime = createRenderFxUiBindingRuntime({
+  clamp,
+  normalizeSimTickHours,
+  serializeLightingSettings,
+  serializeFogSettings,
+  serializeParallaxSettings,
+  serializeCloudSettings,
+  serializeWaterSettings,
+  parallaxStrengthValue,
+  parallaxBandsValue,
+  shadowBlurValue,
+  simTickHoursValue,
+  fogMinAlphaValue,
+  fogMaxAlphaValue,
+  fogFalloffValue,
+  fogStartOffsetValue,
+  pointFlickerStrengthValue,
+  pointFlickerSpeedValue,
+  pointFlickerSpatialValue,
+  volumetricStrengthValue,
+  volumetricDensityValue,
+  volumetricAnisotropyValue,
+  volumetricLengthValue,
+  volumetricSamplesValue,
+  cloudCoverageValue,
+  cloudSoftnessValue,
+  cloudOpacityValue,
+  cloudScaleValue,
+  cloudSpeed1Value,
+  cloudSpeed2Value,
+  cloudSunParallaxValue,
+  waterFlowDirectionValue,
+  waterLocalFlowMixValue,
+  waterDownhillBoostValue,
+  waterFlowRadius1Value,
+  waterFlowRadius2Value,
+  waterFlowRadius3Value,
+  waterFlowWeight1Value,
+  waterFlowWeight2Value,
+  waterFlowWeight3Value,
+  waterFlowStrengthValue,
+  waterFlowSpeedValue,
+  waterFlowScaleValue,
+  waterShimmerStrengthValue,
+  waterGlintStrengthValue,
+  waterGlintSharpnessValue,
+  waterShoreFoamStrengthValue,
+  waterShoreWidthValue,
+  waterReflectivityValue,
+  waterTintStrengthValue,
+  pointFlickerStrengthInput,
+  pointFlickerSpeedInput,
+  pointFlickerSpatialInput,
+  volumetricStrengthInput,
+  volumetricDensityInput,
+  volumetricAnisotropyInput,
+  volumetricLengthInput,
+  volumetricSamplesInput,
+  parallaxStrengthInput,
+  parallaxBandsInput,
+  fogColorInput,
+  fogMinAlphaInput,
+  fogMaxAlphaInput,
+  fogFalloffInput,
+  fogStartOffsetInput,
+  cloudCoverageInput,
+  cloudSoftnessInput,
+  cloudOpacityInput,
+  cloudScaleInput,
+  cloudSpeed1Input,
+  cloudSpeed2Input,
+  cloudSunParallaxInput,
+  cloudSunProjectToggle,
+  waterFlowDownhillToggle,
+  waterFlowInvertDownhillToggle,
+  waterFlowDebugToggle,
+  waterFlowDirectionInput,
+  waterLocalFlowMixInput,
+  waterDownhillBoostInput,
+  waterFlowRadius1Input,
+  waterFlowRadius2Input,
+  waterFlowRadius3Input,
+  waterFlowWeight1Input,
+  waterFlowWeight2Input,
+  waterFlowWeight3Input,
+  waterFlowStrengthInput,
+  waterFlowSpeedInput,
+  waterFlowScaleInput,
+  waterShimmerStrengthInput,
+  waterGlintStrengthInput,
+  waterGlintSharpnessInput,
+  waterShoreFoamStrengthInput,
+  waterShoreWidthInput,
+  waterReflectivityInput,
+  waterTintColorInput,
+  waterTintStrengthInput,
+});
+const updateParallaxStrengthLabel = renderFxUiBindingRuntime.updateParallaxStrengthLabel;
+const updateParallaxBandsLabel = renderFxUiBindingRuntime.updateParallaxBandsLabel;
+const updateShadowBlurLabel = renderFxUiBindingRuntime.updateShadowBlurLabel;
+const updateSimTickLabel = renderFxUiBindingRuntime.updateSimTickLabel;
+const updateFogAlphaLabels = renderFxUiBindingRuntime.updateFogAlphaLabels;
+const updateFogFalloffLabel = renderFxUiBindingRuntime.updateFogFalloffLabel;
+const updateFogStartOffsetLabel = renderFxUiBindingRuntime.updateFogStartOffsetLabel;
+const updatePointFlickerLabels = renderFxUiBindingRuntime.updatePointFlickerLabels;
+const updatePointFlickerUi = renderFxUiBindingRuntime.updatePointFlickerUi;
+const updateVolumetricLabels = renderFxUiBindingRuntime.updateVolumetricLabels;
+const updateVolumetricUi = renderFxUiBindingRuntime.updateVolumetricUi;
+const updateCloudLabels = renderFxUiBindingRuntime.updateCloudLabels;
+const updateWaterLabels = renderFxUiBindingRuntime.updateWaterLabels;
+const updateParallaxUi = renderFxUiBindingRuntime.updateParallaxUi;
+const updateFogUi = renderFxUiBindingRuntime.updateFogUi;
+const updateCloudUi = renderFxUiBindingRuntime.updateCloudUi;
+const updateWaterUi = renderFxUiBindingRuntime.updateWaterUi;
 
 function updateCycleHourLabel() {
   getTimeUiBindingRuntime().updateCycleHourLabel();

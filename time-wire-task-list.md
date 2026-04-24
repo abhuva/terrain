@@ -327,6 +327,8 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Reduced `main.js` further by extracting map runtime-state/load/save/bootstrap composition into `src/gameplay/mapLifecycleRuntime.js`.
   - Reduced another DOM-primary settings path by making render-FX bindings dispatch field-level patches while `core/renderFx/changed` normalizes the full section from canonical store state.
   - Reduced `main.js` further by extracting point-light bake composition into `src/render/pointLightBakeRuntimeBinding.js`, including worker access reused by map-image runtime sync.
+  - Reduced `main.js` further by extracting render-FX UI wrapper composition into `src/ui/renderFxUiBindingRuntime.js` and pathfinding label wrapper composition into `src/ui/pathfindingLabelBindingRuntime.js`.
+  - Reduced `main.js` further by extracting pathfinding cost-model/preview composition and movement-field ownership into `src/gameplay/pathfindingRuntimeBinding.js`.
   - Current recommended next sequence remains:
     - close remaining Phase 2 command-surface/state-contract work
     - close Phase 4 ownership boundaries for swarm/player/point-light runtime
