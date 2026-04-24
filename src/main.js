@@ -99,17 +99,16 @@ import { createTauriRuntimeBinding } from "./gameplay/tauriRuntimeBinding.js";
 import { getFileFromFolderSelection as selectFileFromFolder } from "./gameplay/mapIoHelpers.js";
 import { createMapIoHelpersRuntime } from "./gameplay/mapIoHelpersRuntime.js";
 import { parsePointLightsPayload, serializePointLightsPayload } from "./gameplay/pointLightsPersistence.js";
-import { createSwarmFollowCameraUpdater } from "./gameplay/swarmFollowCamera.js";
-import { createSwarmUpdateLoop } from "./gameplay/swarmUpdateLoop.js";
 import { createSwarmStepFunction } from "./gameplay/swarmStep.js";
-import { createSwarmInterpolation } from "./gameplay/swarmInterpolation.js";
 import { createSwarmReseeder } from "./gameplay/swarmReseed.js";
 import { createSwarmTargeting } from "./gameplay/swarmTargeting.js";
 import { createSwarmEnvironment } from "./gameplay/swarmEnvironment.js";
 import { createSwarmAgentStateMutator } from "./gameplay/swarmAgentStateMutator.js";
 import { createSwarmFollowSmoothingRuntime } from "./gameplay/swarmFollowSmoothingRuntime.js";
+import { createSwarmFollowRuntimeState } from "./gameplay/swarmFollowRuntimeState.js";
 import { createSwarmDataApplier } from "./gameplay/swarmDataApplier.js";
 import { createSwarmDataSerializer } from "./gameplay/swarmDataSerializer.js";
+import { createSwarmLoopRuntime } from "./gameplay/swarmLoopRuntime.js";
 import { createSwarmRuntime } from "./gameplay/swarmRuntime.js";
 import { createInteractionDataSerializer } from "./gameplay/interactionDataSerializer.js";
 import { createNpcPersistence } from "./gameplay/npcPersistence.js";
@@ -2124,8 +2123,11 @@ const swarmFollowState = {
   hawkIndex: -1,
   speedNormFiltered: null,
 };
-const swarmFollowSmoothingRuntime = createSwarmFollowSmoothingRuntime({
+const swarmFollowRuntimeState = createSwarmFollowRuntimeState({
   swarmFollowState,
+});
+const swarmFollowSmoothingRuntime = createSwarmFollowSmoothingRuntime({
+  resetSwarmFollowSpeedNormFiltered: swarmFollowRuntimeState.resetSwarmFollowSpeedNormFiltered,
 });
 let movementField = null;
 const pointLightBakeTempCanvas = document.createElement("canvas");
@@ -3312,11 +3314,12 @@ const chooseRandomFollowAgentIndex = swarmTargeting.chooseRandomFollowAgentIndex
 const chooseRandomFollowHawkIndex = swarmTargeting.chooseRandomFollowHawkIndex;
 const swarmAgentStateMutator = createSwarmAgentStateMutator({
   swarmState,
-  swarmFollowState,
   invalidateSwarmInterpolation,
   getSwarmSettings,
   chooseRandomSwarmTargetIndexNear,
   chooseRandomFollowAgentIndex,
+  getSwarmFollowSnapshot: swarmFollowRuntimeState.getSwarmFollowSnapshot,
+  setSwarmFollowAgentIndex: swarmFollowRuntimeState.setSwarmFollowAgentIndex,
   stopSwarmFollow,
   clamp,
   splatSize,
@@ -3335,8 +3338,9 @@ const reseedSwarmAgents = createSwarmReseeder({
   terrainFloorAtSwarmCoord,
   clamp,
   swarmState,
-  swarmFollowState,
   chooseRandomFollowAgentIndex,
+  getSwarmFollowSnapshot: swarmFollowRuntimeState.getSwarmFollowSnapshot,
+  setSwarmFollowAgentIndex: swarmFollowRuntimeState.setSwarmFollowAgentIndex,
   createSpawnedHawk: swarmTargeting.createSpawnedHawk,
   requestOverlayDraw,
 });
@@ -3358,7 +3362,7 @@ const applySwarmDataImpl = createSwarmDataApplier({
 });
 const serializeSwarmDataImpl = createSwarmDataSerializer({
   getSwarmSettings,
-  swarmFollowState,
+  getSwarmFollowSnapshot: swarmFollowRuntimeState.getSwarmFollowSnapshot,
   swarmState,
 });
 const serializeInteractionSettingsImpl = createInteractionDataSerializer({
@@ -3577,44 +3581,34 @@ function getSwarmCursorPointerBindingRuntime() {
   return swarmCursorPointerBindingRuntime;
 }
 
-const swarmInterpolation = createSwarmInterpolation({
+const swarmLoopRuntime = createSwarmLoopRuntime({
   swarmState,
-  swarmRenderState,
-  clamp,
-});
-const writeInterpolatedSwarmAgentPos = swarmInterpolation.writeInterpolatedAgentPos;
-const writeInterpolatedSwarmHawkPos = swarmInterpolation.writeInterpolatedHawkPos;
-
-const updateSwarm = createSwarmUpdateLoop({
   swarmRenderState,
   clamp,
   isSwarmEnabled,
   getSwarmSettings,
-  swarmState,
-  captureSwarmRenderPreviousState: swarmInterpolation.capturePreviousState,
   stepSwarm,
   syncSwarmRuntimeStateToStore,
-});
-
-const updateSwarmFollowCamera = createSwarmFollowCameraUpdater({
-  swarmFollowState,
-  swarmState,
-  isSwarmEnabled,
   stopSwarmFollow,
-  getSwarmSettings,
   chooseRandomFollowHawkIndex,
   chooseRandomFollowAgentIndex,
-  writeInterpolatedSwarmHawkPos: swarmInterpolation.writeInterpolatedHawkPos,
-  writeInterpolatedSwarmAgentPos: swarmInterpolation.writeInterpolatedAgentPos,
   swarmFollowHawkScratch,
   swarmFollowAgentScratch,
   mapCoordToWorld,
-  clamp,
   zoomMin,
   zoomMax,
   getZoom: () => getActiveCameraState().zoom,
   dispatchCoreCommand,
+  getSwarmFollowSnapshot: swarmFollowRuntimeState.getSwarmFollowSnapshot,
+  setSwarmFollowAgentIndex: swarmFollowRuntimeState.setSwarmFollowAgentIndex,
+  setSwarmFollowHawkIndex: swarmFollowRuntimeState.setSwarmFollowHawkIndex,
+  getSwarmFollowSpeedNormFiltered: swarmFollowRuntimeState.getSwarmFollowSpeedNormFiltered,
+  setSwarmFollowSpeedNormFiltered: swarmFollowRuntimeState.setSwarmFollowSpeedNormFiltered,
 });
+const writeInterpolatedSwarmAgentPos = swarmLoopRuntime.writeInterpolatedSwarmAgentPos;
+const writeInterpolatedSwarmHawkPos = swarmLoopRuntime.writeInterpolatedSwarmHawkPos;
+const updateSwarm = swarmLoopRuntime.updateSwarm;
+const updateSwarmFollowCamera = swarmLoopRuntime.updateSwarmFollowCamera;
 
 function drawSwarmUnlitOverlay(settings) {
   swarmOverlayBindingRuntime.drawSwarmUnlitOverlay(settings);
@@ -3644,8 +3638,8 @@ const swarmOverlayBindingRuntime = createSwarmOverlayBindingRuntime({
 const renderSwarmLit = createSwarmLitRenderer({
   swarmState,
   clamp,
-  writeInterpolatedSwarmAgentPos: swarmInterpolation.writeInterpolatedAgentPos,
-  writeInterpolatedSwarmHawkPos: swarmInterpolation.writeInterpolatedHawkPos,
+  writeInterpolatedSwarmAgentPos,
+  writeInterpolatedSwarmHawkPos,
   swarmLitAgentScratch,
   swarmLitHawkScratch,
   computeSwarmDirectionalShadow,

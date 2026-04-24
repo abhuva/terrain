@@ -1,6 +1,6 @@
 export function createSwarmFollowSmoothingRuntime(deps) {
   function resetSwarmFollowSpeedSmoothing() {
-    deps.swarmFollowState.speedNormFiltered = null;
+    deps.resetSwarmFollowSpeedNormFiltered();
   }
 
   return {

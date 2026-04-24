@@ -62,6 +62,8 @@ No game engine is used.
 - Swarm runtime/store synchronization helpers are now extracted to `src/gameplay/swarmStoreSync.js`.
 - Swarm follow-state apply/stop controller logic is now extracted to `src/gameplay/swarmFollowStateController.js`.
 - Swarm follow/runtime store-sync composition (`applySwarmFollowState`, `stopSwarmFollow`, swarm runtime/store snapshot sync) is now extracted to `src/gameplay/swarmRuntime.js`.
+- Swarm follow runtime-state accessors for target indices/smoothing are now extracted to `src/gameplay/swarmFollowRuntimeState.js`.
+- Swarm interpolation/update/follow-camera loop composition is now extracted to `src/gameplay/swarmLoopRuntime.js`.
 - Swarm follow-camera smoothing reset helper (`resetSwarmFollowSpeedSmoothing`) is now extracted to `src/gameplay/swarmFollowSmoothingRuntime.js`.
 - Pathfinding movement-window and step-cost helpers are now extracted to `src/gameplay/pathfindingCostModel.js`.
 - Mode/topic capability UI orchestration is now extracted to `src/ui/modeCapabilitiesUi.js`.
