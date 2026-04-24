@@ -63,6 +63,7 @@ No game engine is used.
 - Point-light/cursor-light label update helpers are now extracted to `src/ui/lightLabelRuntime.js`.
 - Sun keyframe interpolation model (`sampleSunAtHour`) is now extracted to `src/sim/sunModel.js`.
 - Map normal/height sampling helpers (`normalize3`, `sampleNormalAtMapPixel`, `sampleHeightAtMapPixel`, `sampleHeightAtMapCoord`) are now extracted to `src/gameplay/mapSampling.js`.
+- Shadow/occlusion helpers (`computeSwarmDirectionalShadow`, `hasLineOfSightToLight`) are now extracted to `src/gameplay/shadowOcclusion.js`.
 - Pathfinding preview runtime helpers (movement-field rebuild, preview/path extraction, pointer preview update, path metrics) are now extracted to `src/gameplay/pathfindingPreviewRuntime.js`.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.

@@ -70,6 +70,7 @@ import { createMapSidecarLoader } from "./gameplay/mapSidecarLoader.js";
 import { createMapLoader } from "./gameplay/mapLoader.js";
 import { createMapImageRuntime } from "./gameplay/mapImageRuntime.js";
 import { createMapSampling } from "./gameplay/mapSampling.js";
+import { createShadowOcclusion } from "./gameplay/shadowOcclusion.js";
 import {
   normalizeMapFolderPath as normalizeMapFolderPathUtil,
   isAbsoluteFsPath as isAbsoluteFsPathUtil,
@@ -1451,6 +1452,18 @@ function getMapSamplingRuntime() {
   return mapSamplingRuntime;
 }
 
+let shadowOcclusionRuntime = null;
+function getShadowOcclusionRuntime() {
+  if (shadowOcclusionRuntime) return shadowOcclusionRuntime;
+  shadowOcclusionRuntime = createShadowOcclusion({
+    getSplatSize: () => splatSize,
+    sampleHeightAtMapCoord,
+    sampleHeightAtMapPixel,
+    swarmZMax: SWARM_Z_MAX,
+  });
+  return shadowOcclusionRuntime;
+}
+
 async function applyMapImages(splatImage, normalsImage, heightImage, slopeImage, waterImage) {
   await getMapImageRuntime().applyMapImages(splatImage, normalsImage, heightImage, slopeImage, waterImage);
 }
@@ -2503,61 +2516,19 @@ function sampleHeightAtMapCoord(mapX, mapY) {
 }
 
 function computeSwarmDirectionalShadow(mapX, mapY, sourceHeight, lightDir, blockedShadowFactor) {
-  const lx = Number(lightDir[0]) || 0;
-  const ly = Number(lightDir[1]) || 0;
-  const lz = Number(lightDir[2]) || 0;
-  if (lz <= 0.01) return 0;
-  const dirLen = Math.hypot(lx, ly);
-  if (dirLen < 0.0001) return 1;
-
-  const stepPixels = 1.5;
-  const maxSteps = 120;
-  const slope = lz / Math.max(dirLen, 0.0001);
-  const stepX = (lx / dirLen) * stepPixels;
-  const stepY = (ly / dirLen) * stepPixels;
-  const heightBias = 0.7;
-  let rayX = mapX;
-  let rayY = mapY;
-  let traveledPixels = 0;
-  for (let i = 0; i < maxSteps; i++) {
-    rayX += stepX;
-    rayY += stepY;
-    traveledPixels += stepPixels;
-    if (rayX <= 0 || rayY <= 0 || rayX >= splatSize.width - 1 || rayY >= splatSize.height - 1) {
-      break;
-    }
-    const terrainH = sampleHeightAtMapCoord(rayX, rayY) * SWARM_Z_MAX;
-    const rayH = sourceHeight + slope * traveledPixels;
-    if (terrainH > rayH + heightBias) {
-      return blockedShadowFactor;
-    }
-  }
-  return 1;
+  return getShadowOcclusionRuntime().computeSwarmDirectionalShadow(mapX, mapY, sourceHeight, lightDir, blockedShadowFactor);
 }
 
 function hasLineOfSightToLight(surfaceX, surfaceY, surfaceH, lightX, lightY, lightH, heightScaleValue) {
-  const dx = lightX - surfaceX;
-  const dy = lightY - surfaceY;
-  const dist = Math.hypot(dx, dy);
-  if (dist <= 1.0) return true;
-
-  const stepSize = 1.0;
-  const stepCount = Math.max(1, Math.floor(dist / stepSize));
-  const invSteps = 1 / stepCount;
-  const heightBias = 0.7;
-
-  for (let i = 1; i < stepCount; i++) {
-    const t = i * invSteps;
-    const sx = surfaceX + dx * t;
-    const sy = surfaceY + dy * t;
-    const rayH = surfaceH + (lightH - surfaceH) * t;
-    const terrainH = sampleHeightAtMapPixel(sx, sy) * heightScaleValue;
-    if (terrainH > rayH + heightBias) {
-      return false;
-    }
-  }
-
-  return true;
+  return getShadowOcclusionRuntime().hasLineOfSightToLight(
+    surfaceX,
+    surfaceY,
+    surfaceH,
+    lightX,
+    lightY,
+    lightH,
+    heightScaleValue,
+  );
 }
 
 function applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight) {

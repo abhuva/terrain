@@ -863,3 +863,11 @@ Recommended next sequence:
     - `node --check src/gameplay/mapSampling.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued shadow/occlusion extraction:
+    - extracted shadow/occlusion helpers from `src/main.js` into `src/gameplay/shadowOcclusion.js`
+    - `main.js` now keeps `computeSwarmDirectionalShadow(...)` and `hasLineOfSightToLight(...)` as thin pass-through wrappers
+    - runtime wiring uses lazy `getShadowOcclusionRuntime()` composition to avoid initialization-order regressions
+  - Validation:
+    - `node --check src/gameplay/shadowOcclusion.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
