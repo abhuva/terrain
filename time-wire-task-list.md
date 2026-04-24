@@ -894,3 +894,10 @@ Recommended next sequence:
     - `node --check src/ui/timeUiRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued mode-state access extraction:
+    - extracted runtime mode state-access helpers from `src/main.js` into `src/core/modeStateAccess.js`
+    - `main.js` now keeps `getRuntimeMode(...)`, `canUseTopicInCurrentMode(...)`, and `canUseInteractionInCurrentMode(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/core/modeStateAccess.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

@@ -11,6 +11,7 @@ import {
 } from "./core/timeRouter.js";
 import { createTimeStateAccess } from "./core/timeStateAccess.js";
 import { rgbToHex as rgbToHexUtil, hexToRgb01 as hexToRgb01Util } from "./core/colorUtils.js";
+import { createModeStateAccess } from "./core/modeStateAccess.js";
 import {
   clamp as clampUtil,
   clampRound as clampRoundUtil,
@@ -2626,16 +2627,23 @@ function updateCursorLightModeUi() {
   cursorLightHeightOffsetInput.disabled = !followTerrain;
 }
 
+const modeStateAccess = createModeStateAccess({
+  getModeValue: () => runtimeCore.store.getState().mode,
+  normalizeRuntimeMode,
+  canUseModeTopic,
+  canUseModeInteraction,
+});
+
 function getRuntimeMode() {
-  return normalizeRuntimeMode(runtimeCore.store.getState().mode);
+  return modeStateAccess.getRuntimeMode();
 }
 
 function canUseTopicInCurrentMode(topic) {
-  return canUseModeTopic(getRuntimeMode(), topic);
+  return modeStateAccess.canUseTopicInCurrentMode(topic);
 }
 
 function canUseInteractionInCurrentMode(mode) {
-  return canUseModeInteraction(getRuntimeMode(), mode);
+  return modeStateAccess.canUseInteractionInCurrentMode(mode);
 }
 
 const modeCapabilitiesUi = createModeCapabilitiesUi({
