@@ -1,15 +1,20 @@
 export function getSwarmRuntimeStateSnapshot(deps) {
+  const followState = deps.swarmFollowState || {};
+  const swarmState = deps.swarmState || {};
   const follow = typeof deps.getSwarmFollowSnapshot === "function"
     ? deps.getSwarmFollowSnapshot()
     : {
-        enabled: Boolean(deps.swarmFollowState.enabled),
-        targetType: deps.swarmFollowState.targetType === "hawk" ? "hawk" : "agent",
-        agentIndex: Number.isFinite(Number(deps.swarmFollowState.agentIndex)) ? Math.round(Number(deps.swarmFollowState.agentIndex)) : -1,
-        hawkIndex: Number.isFinite(Number(deps.swarmFollowState.hawkIndex)) ? Math.round(Number(deps.swarmFollowState.hawkIndex)) : -1,
+        enabled: Boolean(followState.enabled),
+        targetType: followState.targetType === "hawk" ? "hawk" : "agent",
+        agentIndex: Number.isFinite(Number(followState.agentIndex)) ? Math.round(Number(followState.agentIndex)) : -1,
+        hawkIndex: Number.isFinite(Number(followState.hawkIndex)) ? Math.round(Number(followState.hawkIndex)) : -1,
       };
+  const enabled = typeof deps.isSwarmEnabled === "function"
+    ? deps.isSwarmEnabled()
+    : Boolean(swarmState.enabled);
   return {
-    enabled: deps.isSwarmEnabled(),
-    count: Math.max(0, Math.round(Number(deps.swarmState.count) || 0)),
+    enabled,
+    count: Math.max(0, Math.round(Number(swarmState.count) || 0)),
     followEnabled: Boolean(follow.enabled),
     followTargetType: follow.targetType === "hawk" ? "hawk" : "agent",
     followAgentIndex: Number.isFinite(Number(follow.agentIndex)) ? Math.round(Number(follow.agentIndex)) : -1,

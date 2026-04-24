@@ -14,6 +14,11 @@ import { createSimulationKnobAccess } from "./core/simulationKnobAccess.js";
 import { createSettingsRegistryBridge } from "./core/settingsRegistryBridge.js";
 import { createSettingsDefaultsAccess } from "./core/settingsDefaultsAccess.js";
 import { createSettingsApplyBindingRuntime } from "./core/settingsApplyBindingRuntime.js";
+import { createSettingsRuntimeBinding } from "./core/settingsRuntimeBinding.js";
+import { createSettingsFacadeRuntime } from "./core/settingsFacadeRuntime.js";
+import { createMainCommandDepsRuntime } from "./core/mainCommandDepsRuntime.js";
+import { setupRuntimeSystems } from "./core/runtimeSystemSetup.js";
+import { tryAutoLoadDefaultMapRuntime, runAppStartupRuntime } from "./core/appStartupRuntime.js";
 import { rgbToHex as rgbToHexUtil, hexToRgb01 as hexToRgb01Util } from "./core/colorUtils.js";
 import {
   clamp as clampUtil,
@@ -67,12 +72,6 @@ import { resizeViewport } from "./render/viewportRuntime.js";
 import { createCloudNoiseImage as createCloudNoiseImageRender, uploadCloudNoiseTexture as uploadCloudNoiseTextureRender } from "./render/cloudNoiseRuntime.js";
 import { createGlResourceBindingRuntime } from "./render/glResourceBindingRuntime.js";
 import { createShadowPipelineBindingRuntime } from "./render/shadowPipelineBindingRuntime.js";
-import { createTimeSystem } from "./sim/timeSystem.js";
-import { createLightingSystem } from "./sim/lightingSystem.js";
-import { createFogSystem } from "./sim/fogSystem.js";
-import { createCloudSystem } from "./sim/cloudSystem.js";
-import { createWaterFxSystem } from "./sim/waterFxSystem.js";
-import { createWeatherSystem } from "./sim/weatherSystem.js";
 import { sampleSunAtHour as sampleSunAtHourModel } from "./sim/sunModel.js";
 import { createLightingParamsBindingRuntime } from "./sim/lightingParamsBindingRuntime.js";
 import { createEntityStore } from "./gameplay/entityStore.js";
@@ -94,17 +93,12 @@ import { createSwarmFollowRuntimeState } from "./gameplay/swarmFollowRuntimeStat
 import { createSwarmLoopRuntime } from "./gameplay/swarmLoopRuntime.js";
 import { createSwarmGameplayRuntime } from "./gameplay/swarmGameplayRuntime.js";
 import { createSwarmRuntime } from "./gameplay/swarmRuntime.js";
-import { createInteractionDataSerializer } from "./gameplay/interactionDataSerializer.js";
-import { createRenderFxDataSerializer } from "./gameplay/renderFxDataSerializer.js";
-import { syncMapState, syncPlayerState, syncPointLightsState } from "./gameplay/stateSync.js";
-import { getCursorLightSnapshot as buildCursorLightSnapshot, isPointLightLiveUpdateEnabled as getPointLightLiveUpdateEnabled } from "./gameplay/interactionStateAccess.js";
-import { setSwarmDefaults as applySwarmDefaults, isSwarmEnabled as resolveSwarmEnabled } from "./gameplay/swarmStateAccess.js";
+import { syncPlayerState } from "./gameplay/stateSync.js";
 import {
   getInteractionModeSnapshot as resolveInteractionModeSnapshot,
-  getSwarmCursorMode as resolveSwarmCursorMode,
-  getSwarmSettings as resolveSwarmSettings,
-  getPathfindingStateSnapshot as resolvePathfindingStateSnapshot,
 } from "./gameplay/runtimeStateSnapshots.js";
+import { createMainRuntimeStateBinding } from "./gameplay/mainRuntimeStateBinding.js";
+import { createMainFacadeRuntime } from "./gameplay/mainFacadeRuntime.js";
 import { createSwarmCursorPointerBindingRuntime } from "./gameplay/swarmCursorPointerBindingRuntime.js";
 import { createPlayerRuntimeBinding } from "./gameplay/playerRuntimeBinding.js";
 import { createCameraRuntimeBinding } from "./gameplay/cameraRuntimeBinding.js";
@@ -128,21 +122,18 @@ import { createOverlayHooksRuntime } from "./ui/overlays/overlayHooksRuntime.js"
 import { createOverlayAnimationRuntime } from "./ui/overlays/overlayAnimationRuntime.js";
 import { createOverlayDirtyRuntime } from "./ui/overlays/overlayDirtyRuntime.js";
 import { createOverlayDrawerRuntime } from "./ui/overlays/overlayDrawerRuntime.js";
-import { createSwarmInputNormalization } from "./ui/swarmInputNormalization.js";
-import { createSwarmPanelUi } from "./ui/swarmPanelUi.js";
-import { createSwarmSettingsApplier } from "./ui/swarmSettingsApplier.js";
-import { createInteractionSettingsApplier } from "./ui/interactionSettingsApplier.js";
-import { createLightingSettingsApplier } from "./ui/lightingSettingsApplier.js";
-import { createRenderFxSettingsApplier } from "./ui/renderFxSettingsApplier.js";
+import { createSettingsLegacyRuntimeBinding } from "./ui/settingsLegacyRuntimeBinding.js";
+import { setupMainBindingsRuntime } from "./ui/mainBindingsRuntime.js";
+import { createSwarmUiRuntimeBinding } from "./ui/swarmUiRuntimeBinding.js";
 import { createStatusRuntime } from "./ui/statusRuntime.js";
 import { createInfoPanelRuntime } from "./ui/infoPanelRuntime.js";
 import { createLightLabelBindingRuntime } from "./ui/lightLabelBindingRuntime.js";
 import { createTimeUiBindingRuntime } from "./ui/timeUiBindingRuntime.js";
-import { runStartupUiSyncRuntime } from "./ui/startupUiSyncRuntime.js";
 import { createSwarmOverlayBindingRuntime } from "./ui/swarmOverlayBindingRuntime.js";
 import { createRenderFxUiBindingRuntime } from "./ui/renderFxUiBindingRuntime.js";
 import { createPathfindingLabelBindingRuntime } from "./ui/pathfindingLabelBindingRuntime.js";
 import { createModeInteractionRuntimeBinding } from "./ui/modeInteractionRuntimeBinding.js";
+import { createRenderFxSettingsSyncRuntime } from "./ui/renderFxSettingsSyncRuntime.js";
 
 const runtimeCore = createRuntimeCore();
 const dispatchCoreCommand = createCoreCommandDispatch(runtimeCore);
@@ -1418,6 +1409,14 @@ const settingsApplyBindingRuntime = createSettingsApplyBindingRuntime({
   appliedSettingsStoreSync,
   settingsDefaultsAccess,
 });
+let settingsRuntimeBinding = null;
+let settingsLegacyBindings = null;
+let mainRuntimeStateBinding = null;
+const settingsFacadeRuntime = createSettingsFacadeRuntime({
+  settingsApplyBindingRuntime,
+  getSettingsRuntimeBinding: () => settingsRuntimeBinding,
+  getLegacyBindings: () => settingsLegacyBindings,
+});
 
 let frameUiRuntime = null;
 function getFrameUiRuntime() {
@@ -1433,152 +1432,98 @@ function getFrameUiRuntime() {
   return frameUiRuntime;
 }
 
-function serializeLightingSettingsLegacy() {
-  return serializeLightingSettingsLegacyImpl();
-}
-
-function applyLightingSettingsLegacy(rawData) {
-  applyLightingSettingsLegacyImpl(rawData);
-}
-
-function serializeFogSettingsLegacy() {
-  return serializeFogSettingsLegacyImpl();
-}
-
-function serializeParallaxSettingsLegacy() {
-  return serializeParallaxSettingsLegacyImpl();
-}
-
-function serializeCloudSettingsLegacy() {
-  return serializeCloudSettingsLegacyImpl();
-}
-
-function serializeWaterSettingsLegacy() {
-  return serializeWaterSettingsLegacyImpl();
-}
-
-function serializeInteractionSettingsLegacy() {
-  return serializeInteractionSettingsImpl();
-}
-
 function serializeNpcState() {
   return serializeNpcStateImpl();
 }
-
-function serializeSwarmDataLegacy() {
-  return serializeSwarmDataImpl();
+function serializeLightingSettingsLegacy(...args) {
+  return settingsFacadeRuntime.serializeLightingSettingsLegacy(...args);
 }
-
-function applySwarmSettingsLegacy(rawData) {
-  applySwarmSettingsLegacyImpl(rawData);
+function applyLightingSettingsLegacy(...args) {
+  return settingsFacadeRuntime.applyLightingSettingsLegacy(...args);
 }
-
-function applySwarmData(rawData) {
-  applySwarmDataImpl(rawData);
+function serializeFogSettingsLegacy(...args) {
+  return settingsFacadeRuntime.serializeFogSettingsLegacy(...args);
 }
-
-function applyFogSettingsLegacy(rawData) {
-  applyFogSettingsLegacyImpl(rawData);
+function serializeParallaxSettingsLegacy(...args) {
+  return settingsFacadeRuntime.serializeParallaxSettingsLegacy(...args);
 }
-
-function applyParallaxSettingsLegacy(rawData) {
-  applyParallaxSettingsLegacyImpl(rawData);
+function serializeCloudSettingsLegacy(...args) {
+  return settingsFacadeRuntime.serializeCloudSettingsLegacy(...args);
 }
-
-function applyCloudSettingsLegacy(rawData) {
-  applyCloudSettingsLegacyImpl(rawData);
+function serializeWaterSettingsLegacy(...args) {
+  return settingsFacadeRuntime.serializeWaterSettingsLegacy(...args);
 }
-
-function applyWaterSettingsLegacy(rawData) {
-  applyWaterSettingsLegacyImpl(rawData);
+function serializeInteractionSettingsLegacy(...args) {
+  return settingsFacadeRuntime.serializeInteractionSettingsLegacy(...args);
 }
-
-function applyInteractionSettingsLegacy(rawData) {
-  applyInteractionSettingsLegacyImpl(rawData);
+function serializeSwarmDataLegacy(...args) {
+  return settingsFacadeRuntime.serializeSwarmDataLegacy(...args);
 }
-
-function serializeSettingsByKey(key, fallbackSerialize) {
-  return settingsApplyBindingRuntime.serializeSettingsByKey(key, fallbackSerialize);
+function applySwarmSettingsLegacy(...args) {
+  return settingsFacadeRuntime.applySwarmSettingsLegacy(...args);
 }
-
-function applySettingsByKey(key, rawData, fallbackApply) {
-  settingsApplyBindingRuntime.applySettingsByKey(key, rawData, fallbackApply);
+function applySwarmData(...args) {
+  return settingsFacadeRuntime.applySwarmData(...args);
 }
-
-function normalizeAppliedSettings(key, rawData, fallbackDefaults) {
-  return settingsApplyBindingRuntime.normalizeAppliedSettings(key, rawData, fallbackDefaults);
+function applyFogSettingsLegacy(...args) {
+  return settingsFacadeRuntime.applyFogSettingsLegacy(...args);
 }
-
-function updateStoreFromAppliedSettings(key, normalized) {
-  settingsApplyBindingRuntime.updateStoreFromAppliedSettings(key, normalized);
+function applyParallaxSettingsLegacy(...args) {
+  return settingsFacadeRuntime.applyParallaxSettingsLegacy(...args);
 }
-
-function serializeLightingSettings() {
-  return serializeSettingsByKey("lighting", serializeLightingSettingsLegacy);
+function applyCloudSettingsLegacy(...args) {
+  return settingsFacadeRuntime.applyCloudSettingsLegacy(...args);
 }
-
-function applyLightingSettings(rawData) {
-  updateStoreFromAppliedSettings("lighting", normalizeAppliedSettings("lighting", rawData, DEFAULT_LIGHTING_SETTINGS));
-  applySettingsByKey("lighting", rawData, applyLightingSettingsLegacy);
+function applyWaterSettingsLegacy(...args) {
+  return settingsFacadeRuntime.applyWaterSettingsLegacy(...args);
 }
-
-function serializeFogSettings() {
-  return serializeSettingsByKey("fog", serializeFogSettingsLegacy);
+function applyInteractionSettingsLegacy(...args) {
+  return settingsFacadeRuntime.applyInteractionSettingsLegacy(...args);
 }
-
-function applyFogSettings(rawData) {
-  updateStoreFromAppliedSettings("fog", normalizeAppliedSettings("fog", rawData, DEFAULT_FOG_SETTINGS));
-  applySettingsByKey("fog", rawData, applyFogSettingsLegacy);
+function serializeLightingSettings(...args) {
+  return settingsFacadeRuntime.serializeLightingSettings(...args);
 }
-
-function serializeParallaxSettings() {
-  return serializeSettingsByKey("parallax", serializeParallaxSettingsLegacy);
+function applyLightingSettings(...args) {
+  return settingsFacadeRuntime.applyLightingSettings(...args);
 }
-
-function applyParallaxSettings(rawData) {
-  updateStoreFromAppliedSettings("parallax", normalizeAppliedSettings("parallax", rawData, DEFAULT_PARALLAX_SETTINGS));
-  applySettingsByKey("parallax", rawData, applyParallaxSettingsLegacy);
+function serializeFogSettings(...args) {
+  return settingsFacadeRuntime.serializeFogSettings(...args);
 }
-
-function serializeCloudSettings() {
-  return serializeSettingsByKey("clouds", serializeCloudSettingsLegacy);
+function applyFogSettings(...args) {
+  return settingsFacadeRuntime.applyFogSettings(...args);
 }
-
-function applyCloudSettings(rawData) {
-  updateStoreFromAppliedSettings("clouds", normalizeAppliedSettings("clouds", rawData, DEFAULT_CLOUD_SETTINGS));
-  applySettingsByKey("clouds", rawData, applyCloudSettingsLegacy);
+function serializeParallaxSettings(...args) {
+  return settingsFacadeRuntime.serializeParallaxSettings(...args);
 }
-
-function serializeWaterSettings() {
-  return serializeSettingsByKey("waterfx", serializeWaterSettingsLegacy);
+function applyParallaxSettings(...args) {
+  return settingsFacadeRuntime.applyParallaxSettings(...args);
 }
-
-function applyWaterSettings(rawData) {
-  updateStoreFromAppliedSettings("waterfx", normalizeAppliedSettings("waterfx", rawData, DEFAULT_WATER_SETTINGS));
-  applySettingsByKey("waterfx", rawData, applyWaterSettingsLegacy);
+function serializeCloudSettings(...args) {
+  return settingsFacadeRuntime.serializeCloudSettings(...args);
 }
-
-function serializeInteractionSettings() {
-  return serializeSettingsByKey("interaction", serializeInteractionSettingsLegacy);
+function applyCloudSettings(...args) {
+  return settingsFacadeRuntime.applyCloudSettings(...args);
 }
-
-function applyInteractionSettings(rawData) {
-  updateStoreFromAppliedSettings("interaction", normalizeAppliedSettings("interaction", rawData, DEFAULT_INTERACTION_SETTINGS));
-  applySettingsByKey("interaction", rawData, applyInteractionSettingsLegacy);
+function serializeWaterSettings(...args) {
+  return settingsFacadeRuntime.serializeWaterSettings(...args);
 }
-
-function serializeSwarmData() {
-  return serializeSettingsByKey("swarm", serializeSwarmDataLegacy);
+function applyWaterSettings(...args) {
+  return settingsFacadeRuntime.applyWaterSettings(...args);
 }
-
-function applySwarmSettings(rawData) {
-  updateStoreFromAppliedSettings("swarm", normalizeAppliedSettings("swarm", rawData, DEFAULT_SWARM_SETTINGS));
-  applySwarmSettingsLegacy(rawData);
-  syncSwarmStateToStore();
+function serializeInteractionSettings(...args) {
+  return settingsFacadeRuntime.serializeInteractionSettings(...args);
 }
-
+function applyInteractionSettings(...args) {
+  return settingsFacadeRuntime.applyInteractionSettings(...args);
+}
+function serializeSwarmData(...args) {
+  return settingsFacadeRuntime.serializeSwarmData(...args);
+}
+function applySwarmSettings(...args) {
+  return settingsFacadeRuntime.applySwarmSettings(...args);
+}
 function getSettingsDefaults(key, fallback) {
-  return settingsApplyBindingRuntime.getSettingsDefaults(key, fallback);
+  return settingsFacadeRuntime.getSettingsDefaults(key, fallback);
 }
 
 let mapLifecycleRuntime = null;
@@ -1980,6 +1925,7 @@ const swarmFollowState = {
   speedNormFiltered: null,
 };
 const swarmFollowRuntimeState = createSwarmFollowRuntimeState({
+  getStore: () => runtimeCore.store,
   swarmFollowState,
 });
 const swarmFollowSmoothingRuntime = createSwarmFollowSmoothingRuntime({
@@ -2057,6 +2003,12 @@ function extractImageData(source) {
   return extractImageDataRender(source);
 }
 
+let pointLightRuntime = null;
+let pathfindingRuntimeBinding = null;
+let pathfindingLabelBindingRuntime = null;
+let renderFxUiBindingRuntime = null;
+let renderFxSettingsSyncRuntime = null;
+
 createDefaultMapImageRuntime({
   createFlatNormalImage,
   createFlatHeightImage,
@@ -2088,7 +2040,180 @@ createDefaultMapImageRuntime({
   },
 }).initializeDefaultMapImages();
 
-const pointLightRuntime = createPointLightRuntime({
+const interactionDefaults = DEFAULT_INTERACTION_SETTINGS;
+const lightInteractionRuntimeBinding = createLightInteractionRuntimeBinding({
+  clamp,
+  hexToRgb01,
+  rgbToHex,
+  cursorLightDefaults: {
+    enabled: interactionDefaults.cursorLightEnabled,
+    colorHex: interactionDefaults.cursorLightColor,
+    strength: interactionDefaults.cursorLightStrength,
+    heightOffset: interactionDefaults.cursorLightHeightOffset,
+    useTerrainHeight: interactionDefaults.cursorLightFollowHeight,
+    showGizmo: interactionDefaults.cursorLightGizmo,
+  },
+  getCursorLightSnapshot,
+  clientToNdc,
+  worldFromNdc,
+  worldToUv,
+  cursorLightHeightOffsetInput,
+  syncPointLightEditorUi,
+  getSelectedPointLight,
+  getLightEditDraft: () => pointLightRuntime.getDraft(),
+  lightEditorEmptyEl,
+  lightEditorFieldsEl,
+  lightCoordEl,
+  pointLightColorInput,
+  pointLightStrengthInput,
+  pointLightIntensityInput,
+  pointLightHeightOffsetInput,
+  pointLightFlickerInput,
+  pointLightFlickerSpeedInput,
+  updatePointLightStrengthLabel,
+  updatePointLightIntensityLabel,
+  updatePointLightHeightOffsetLabel,
+  updatePointLightFlickerLabel,
+  updatePointLightFlickerSpeedLabel,
+  getPointLightRuntime: () => pointLightRuntime,
+});
+const cursorLightState = lightInteractionRuntimeBinding.cursorLightState;
+const clearCursorLightPointerState = lightInteractionRuntimeBinding.clearCursorLightPointerState;
+const setCursorLightPointerUv = lightInteractionRuntimeBinding.setCursorLightPointerUv;
+const applyCursorLightConfigSnapshot = lightInteractionRuntimeBinding.applyCursorLightConfigSnapshot;
+const updateCursorLightFromPointer = lightInteractionRuntimeBinding.updateCursorLightFromPointer;
+const updateCursorLightModeUi = lightInteractionRuntimeBinding.updateCursorLightModeUi;
+function updateLightEditorUi() {
+  return lightInteractionRuntimeBinding.updateLightEditorUi();
+}
+function beginLightEdit(light) {
+  return lightInteractionRuntimeBinding.beginLightEdit(light);
+}
+function applyDraftToSelectedPointLight() {
+  return lightInteractionRuntimeBinding.applyDraftToSelectedPointLight();
+}
+function rebakeIfPointLightLiveUpdateEnabled() {
+  return lightInteractionRuntimeBinding.rebakeIfPointLightLiveUpdateEnabled();
+}
+function findPointLightAtPixel(pixelX, pixelY, radiusPx = POINT_LIGHT_SELECT_RADIUS) {
+  return lightInteractionRuntimeBinding.findPointLightAtPixel(pixelX, pixelY, radiusPx);
+}
+function createPointLight(pixelX, pixelY) {
+  return lightInteractionRuntimeBinding.createPointLight(pixelX, pixelY);
+}
+function getPathfindingRuntimeBinding() {
+  return pathfindingRuntimeBinding;
+}
+function getGrayAt(imageData, x, y, sourceWidth, sourceHeight) {
+  return getPathfindingRuntimeBinding().getGrayAt(imageData, x, y, sourceWidth, sourceHeight);
+}
+function computeMoveStepCost(fromX, fromY, toX, toY) {
+  return getPathfindingRuntimeBinding().computeMoveStepCost(fromX, fromY, toX, toY);
+}
+function rebuildMovementField() {
+  return getPathfindingRuntimeBinding().rebuildMovementField();
+}
+function extractPathTo(pixelX, pixelY) {
+  return getPathfindingRuntimeBinding().extractPathTo(pixelX, pixelY);
+}
+function refreshPathPreview() {
+  return getPathfindingRuntimeBinding().refreshPathPreview();
+}
+function updatePathPreviewFromPointer(clientX, clientY) {
+  return getPathfindingRuntimeBinding().updatePathPreviewFromPointer(clientX, clientY);
+}
+function getCurrentPathMetrics() {
+  return getPathfindingRuntimeBinding().getCurrentPathMetrics();
+}
+function getPathfindingLabelBindingRuntime() {
+  return pathfindingLabelBindingRuntime;
+}
+function updatePathfindingRangeLabel() {
+  return getPathfindingLabelBindingRuntime().updatePathfindingRangeLabel();
+}
+function updatePathWeightLabels() {
+  return getPathfindingLabelBindingRuntime().updatePathWeightLabels();
+}
+function updatePathSlopeCutoffLabel() {
+  return getPathfindingLabelBindingRuntime().updatePathSlopeCutoffLabel();
+}
+function updatePathBaseCostLabel() {
+  return getPathfindingLabelBindingRuntime().updatePathBaseCostLabel();
+}
+function getRenderFxUiBindingRuntime() {
+  return renderFxUiBindingRuntime;
+}
+function updateParallaxStrengthLabel() {
+  return getRenderFxUiBindingRuntime().updateParallaxStrengthLabel();
+}
+function updateParallaxBandsLabel() {
+  return getRenderFxUiBindingRuntime().updateParallaxBandsLabel();
+}
+function updateShadowBlurLabel() {
+  return getRenderFxUiBindingRuntime().updateShadowBlurLabel();
+}
+function updateSimTickLabel() {
+  return getRenderFxUiBindingRuntime().updateSimTickLabel();
+}
+function updateFogAlphaLabels() {
+  return getRenderFxUiBindingRuntime().updateFogAlphaLabels();
+}
+function updateFogFalloffLabel() {
+  return getRenderFxUiBindingRuntime().updateFogFalloffLabel();
+}
+function updateFogStartOffsetLabel() {
+  return getRenderFxUiBindingRuntime().updateFogStartOffsetLabel();
+}
+function updatePointFlickerLabels() {
+  return getRenderFxUiBindingRuntime().updatePointFlickerLabels();
+}
+function updatePointFlickerUi() {
+  return getRenderFxUiBindingRuntime().updatePointFlickerUi();
+}
+function updateVolumetricLabels() {
+  return getRenderFxUiBindingRuntime().updateVolumetricLabels();
+}
+function updateVolumetricUi() {
+  return getRenderFxUiBindingRuntime().updateVolumetricUi();
+}
+function updateCloudLabels() {
+  return getRenderFxUiBindingRuntime().updateCloudLabels();
+}
+function updateWaterLabels() {
+  return getRenderFxUiBindingRuntime().updateWaterLabels();
+}
+function updateParallaxUi() {
+  return getRenderFxUiBindingRuntime().updateParallaxUi();
+}
+function updateFogUi() {
+  return getRenderFxUiBindingRuntime().updateFogUi();
+}
+function updateCloudUi() {
+  return getRenderFxUiBindingRuntime().updateCloudUi();
+}
+function updateWaterUi() {
+  return getRenderFxUiBindingRuntime().updateWaterUi();
+}
+function getRenderFxSettingsSyncRuntime() {
+  return renderFxSettingsSyncRuntime;
+}
+function syncRenderFxParallaxUi() {
+  return getRenderFxSettingsSyncRuntime().syncParallaxUi();
+}
+function syncRenderFxLightingUi() {
+  return getRenderFxSettingsSyncRuntime().syncLightingUi();
+}
+function syncRenderFxFogUi() {
+  return getRenderFxSettingsSyncRuntime().syncFogUi();
+}
+function syncRenderFxCloudUi() {
+  return getRenderFxSettingsSyncRuntime().syncCloudUi();
+}
+function syncRenderFxWaterUi() {
+  return getRenderFxSettingsSyncRuntime().syncWaterUi();
+}
+
+pointLightRuntime = createPointLightRuntime({
   pointLights,
   clamp,
   splatSize,
@@ -2357,55 +2482,6 @@ function applyMapSizeChangeIfNeeded(changed) {
   mapLifecycleRuntime.applyMapSizeChangeIfNeeded(changed);
 }
 bakePointLightsTexture();
-const interactionDefaults = DEFAULT_INTERACTION_SETTINGS;
-const lightInteractionRuntimeBinding = createLightInteractionRuntimeBinding({
-  clamp,
-  hexToRgb01,
-  rgbToHex,
-  cursorLightDefaults: {
-    enabled: interactionDefaults.cursorLightEnabled,
-    colorHex: interactionDefaults.cursorLightColor,
-    strength: interactionDefaults.cursorLightStrength,
-    heightOffset: interactionDefaults.cursorLightHeightOffset,
-    useTerrainHeight: interactionDefaults.cursorLightFollowHeight,
-    showGizmo: interactionDefaults.cursorLightGizmo,
-  },
-  getCursorLightSnapshot,
-  clientToNdc,
-  worldFromNdc,
-  worldToUv,
-  cursorLightHeightOffsetInput,
-  syncPointLightEditorUi,
-  getSelectedPointLight,
-  getLightEditDraft: () => pointLightRuntime.getDraft(),
-  lightEditorEmptyEl,
-  lightEditorFieldsEl,
-  lightCoordEl,
-  pointLightColorInput,
-  pointLightStrengthInput,
-  pointLightIntensityInput,
-  pointLightHeightOffsetInput,
-  pointLightFlickerInput,
-  pointLightFlickerSpeedInput,
-  updatePointLightStrengthLabel,
-  updatePointLightIntensityLabel,
-  updatePointLightHeightOffsetLabel,
-  updatePointLightFlickerLabel,
-  updatePointLightFlickerSpeedLabel,
-  pointLightRuntime,
-});
-const cursorLightState = lightInteractionRuntimeBinding.cursorLightState;
-const clearCursorLightPointerState = lightInteractionRuntimeBinding.clearCursorLightPointerState;
-const setCursorLightPointerUv = lightInteractionRuntimeBinding.setCursorLightPointerUv;
-const applyCursorLightConfigSnapshot = lightInteractionRuntimeBinding.applyCursorLightConfigSnapshot;
-const updateCursorLightFromPointer = lightInteractionRuntimeBinding.updateCursorLightFromPointer;
-const updateCursorLightModeUi = lightInteractionRuntimeBinding.updateCursorLightModeUi;
-const updateLightEditorUi = lightInteractionRuntimeBinding.updateLightEditorUi;
-const beginLightEdit = lightInteractionRuntimeBinding.beginLightEdit;
-const applyDraftToSelectedPointLight = lightInteractionRuntimeBinding.applyDraftToSelectedPointLight;
-const rebakeIfPointLightLiveUpdateEnabled = lightInteractionRuntimeBinding.rebakeIfPointLightLiveUpdateEnabled;
-const findPointLightAtPixel = lightInteractionRuntimeBinding.findPointLightAtPixel;
-const createPointLight = lightInteractionRuntimeBinding.createPointLight;
 updateLightEditorUi();
 
 const zoomMin = 0.5;
@@ -2584,7 +2660,7 @@ renderer.registerPass("backgroundClear", {
     },
 });
 
-registerMainCommands(runtimeCore.commandBus, {
+registerMainCommands(runtimeCore.commandBus, createMainCommandDepsRuntime({
   zoomMin,
   zoomMax,
   lastDragClient,
@@ -2636,36 +2712,16 @@ registerMainCommands(runtimeCore.commandBus, {
   getMovementStateSnapshot: () => movementSystem.getSnapshot(),
   rebuildMovementField,
   getPathfindingStateSnapshot,
-  pathfindingRangeInput,
-  pathWeightSlopeInput,
-  pathWeightHeightInput,
-  pathWeightWaterInput,
-  pathSlopeCutoffInput,
-  pathBaseCostInput,
+  syncPathfindingSettingsUi,
   pointLightLiveUpdateToggle,
-  updatePathfindingRangeLabel,
-  updatePathWeightLabels,
-  updatePathSlopeCutoffLabel,
-  updatePathBaseCostLabel,
-  updateParallaxStrengthLabel,
-  updateParallaxBandsLabel,
-  updateParallaxUi,
-  updateShadowBlurLabel,
-  updateVolumetricLabels,
-  updateVolumetricUi,
-  updatePointFlickerLabels,
-  updatePointFlickerUi,
-  updateFogAlphaLabels,
-  updateFogFalloffLabel,
-  updateFogStartOffsetLabel,
-  updateFogUi,
+  syncRenderFxParallaxUi,
+  syncRenderFxLightingUi,
+  syncRenderFxFogUi,
   markFogColorManual: () => {
     fogColorManual = true;
   },
-  updateCloudLabels,
-  updateCloudUi,
-  updateWaterLabels,
-  updateWaterUi,
+  syncRenderFxCloudUi,
+  syncRenderFxWaterUi,
   rebuildFlowMapTexture,
   schedulePointLightBake,
   serializeLightingSettings,
@@ -2675,37 +2731,13 @@ registerMainCommands(runtimeCore.commandBus, {
   serializeWaterSettings,
   updateSwarmUi: () => updateSwarmUi(),
   updateSwarmLabels: () => updateSwarmLabels(),
+  syncSwarmSettingsInputs: () => syncSwarmSettingsInputs(),
+  syncSwarmPanelUi: () => syncSwarmPanelUi(),
   updateSwarmStatsPanel: () => updateSwarmStatsPanel(),
   applySwarmFollowState,
   stopSwarmFollow,
   syncSwarmFollowToStore,
   syncSwarmStateToStore,
-  swarmFollowZoomInInput,
-  swarmFollowZoomOutInput,
-  swarmFollowAgentSpeedSmoothingInput,
-  swarmFollowAgentZoomSmoothingInput,
-  swarmUpdateIntervalInput,
-  swarmMaxSpeedInput,
-  swarmSteeringMaxInput,
-  swarmVariationStrengthInput,
-  swarmNeighborRadiusInput,
-  swarmMinHeightInput,
-  swarmMaxHeightInput,
-  swarmSeparationRadiusInput,
-  swarmAlignmentWeightInput,
-  swarmCohesionWeightInput,
-  swarmSeparationWeightInput,
-  swarmWanderWeightInput,
-  swarmRestChanceInput,
-  swarmRestTicksInput,
-  swarmBreedingThresholdInput,
-  swarmBreedingSpawnChanceInput,
-  swarmCursorStrengthInput,
-  swarmCursorRadiusInput,
-  swarmHawkCountInput,
-  swarmHawkSpeedInput,
-  swarmHawkSteeringInput,
-  swarmHawkTargetRangeInput,
   normalizeSwarmFollowZoomInputs: (...args) => normalizeSwarmFollowZoomInputs(...args),
   normalizeSwarmHeightRangeInputs: (...args) => normalizeSwarmHeightRangeInputs(...args),
   reseedSwarmAgents: (...args) => reseedSwarmAgents(...args),
@@ -2718,12 +2750,11 @@ registerMainCommands(runtimeCore.commandBus, {
   updateSwarmFollowButtonUi: () => updateSwarmFollowButtonUi(),
   chooseRandomFollowHawkIndex: (...args) => chooseRandomFollowHawkIndex(...args),
   chooseRandomFollowAgentIndex: (...args) => chooseRandomFollowAgentIndex(...args),
-  simTickHoursInput,
   updateSimTickLabel,
-  swarmTimeRoutingInput,
-  cloudTimeRoutingInput,
-  waterTimeRoutingInput,
-});
+  syncSimTickHoursInput: (value) => syncSimTickHoursInput(value),
+  syncCycleSpeedInput: (value) => syncCycleSpeedInput(value),
+  syncRoutingInput: (target, mode) => syncRoutingInput(target, mode),
+}));
 let previousMode = normalizeRuntimeMode(runtimeCore.store.getState().mode);
 runtimeCore.store.subscribe((nextState) => {
   const nextMode = normalizeRuntimeMode(nextState ? nextState.mode : previousMode);
@@ -2734,245 +2765,181 @@ runtimeCore.store.subscribe((nextState) => {
   updateModeCapabilitiesUi();
 });
 
-runtimeCore.scheduler.addSystem(
-  createTimeSystem({
-    clamp,
-    wrapHour,
-    cycleState,
-    isCycleHourScrubbing: () => isCycleHourScrubbing,
-    setCycleHourSliderFromState,
-    setTimeState: () => {},
-    updateStoreTime: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        clock: {
-          ...prev.clock,
-          nowSec: Math.max(0, Number(value.nowSec) || 0),
-          timeScale: clamp(Number(value.cycleSpeedHoursPerSec), 0, 1),
-        },
-        systems: {
-          ...prev.systems,
-          time: {
-            ...prev.systems.time,
-            ...value,
-          },
-        },
-        ui: {
-          ...prev.ui,
-          cycleHour: cycleState.hour,
-        },
-      }));
-    },
-  }),
-);
-
-runtimeCore.scheduler.addSystem(
-  createLightingSystem({
-    computeLightingParams,
-    setLightingState: () => {},
-    updateStoreLighting: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        systems: {
-          ...prev.systems,
-          lighting: {
-            ...prev.systems.lighting,
-            ...value,
-          },
-        },
-      }));
-    },
-  }),
-);
-
-runtimeCore.scheduler.addSystem(
-  createFogSystem({
-    clamp,
-    setFogState: () => {},
-    updateStoreFog: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        systems: {
-          ...prev.systems,
-          fog: {
-            ...prev.systems.fog,
-            ...value,
-          },
-        },
-      }));
-    },
-  }),
-);
-
-runtimeCore.scheduler.addSystem(
-  createCloudSystem({
-    clamp,
-    setCloudState: () => {},
-    updateStoreClouds: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        systems: {
-          ...prev.systems,
-          clouds: {
-            ...prev.systems.clouds,
-            ...value,
-          },
-        },
-      }));
-    },
-  }),
-);
-
-runtimeCore.scheduler.addSystem(
-  createWaterFxSystem({
-    clamp,
-    hexToRgb01,
-    setWaterFxState: () => {},
-    updateStoreWaterFx: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        systems: {
-          ...prev.systems,
-          waterFx: {
-            ...prev.systems.waterFx,
-            ...value,
-          },
-        },
-      }));
-    },
-  }),
-);
-
-runtimeCore.scheduler.addSystem(
-  createWeatherSystem({
-    clamp,
-    updateStoreWeather: (value) => {
-      runtimeCore.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          weather: {
-            ...prev.simulation.weather,
-            ...value,
-          },
-        },
-      }));
-    },
-  }),
-);
-
-runtimeCore.scheduler.addSystem(movementSystem);
-
-runtimeCore.scheduler.initAll({ nowMs: 0, dtSec: 0 }, runtimeCore.store.getState());
-syncMapStateToStore();
-syncPlayerStateToStore();
-syncSwarmStateToStore();
-syncPointLightsStateToStore();
-
-const cameraRuntimeBinding = createCameraRuntimeBinding({
-  dispatchCoreCommand,
-  canvas,
-  overlayCanvas,
-  splatSize,
+setupRuntimeSystems({
+  scheduler: runtimeCore.scheduler,
+  movementSystem,
+  getState: () => runtimeCore.store.getState(),
   clamp,
-  getCameraState: () => runtimeCore.store.getState().camera || {},
+  wrapHour,
+  cycleState,
+  isCycleHourScrubbing: () => isCycleHourScrubbing,
+  setCycleHourSliderFromState,
+  computeLightingParams,
+  hexToRgb01,
+  updateStoreTime: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      clock: {
+        ...prev.clock,
+        nowSec: Math.max(0, Number(value.nowSec) || 0),
+        timeScale: clamp(Number(value.cycleSpeedHoursPerSec), 0, 1),
+      },
+      systems: {
+        ...prev.systems,
+        time: {
+          ...prev.systems.time,
+          ...value,
+        },
+      },
+      ui: {
+        ...prev.ui,
+        cycleHour: cycleState.hour,
+      },
+    }));
+  },
+  updateStoreLighting: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      systems: {
+        ...prev.systems,
+        lighting: {
+          ...prev.systems.lighting,
+          ...value,
+        },
+      },
+    }));
+  },
+  updateStoreFog: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      systems: {
+        ...prev.systems,
+        fog: {
+          ...prev.systems.fog,
+          ...value,
+        },
+      },
+    }));
+  },
+  updateStoreClouds: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      systems: {
+        ...prev.systems,
+        clouds: {
+          ...prev.systems.clouds,
+          ...value,
+        },
+      },
+    }));
+  },
+  updateStoreWaterFx: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      systems: {
+        ...prev.systems,
+        waterFx: {
+          ...prev.systems.waterFx,
+          ...value,
+        },
+      },
+    }));
+  },
+  updateStoreWeather: (value) => {
+    runtimeCore.store.update((prev) => ({
+      ...prev,
+      simulation: {
+        ...prev.simulation,
+        weather: {
+          ...prev.simulation.weather,
+          ...value,
+        },
+      },
+    }));
+  },
+  syncMapStateToStore,
+  syncPlayerStateToStore,
+  syncSwarmStateToStore,
+  syncPointLightsStateToStore,
 });
-const resetCamera = cameraRuntimeBinding.resetCamera;
-const getScreenAspect = cameraRuntimeBinding.getScreenAspect;
-const getMapAspect = cameraRuntimeBinding.getMapAspect;
 
-function getSwarmCursorMode() {
-  return resolveSwarmCursorMode({
-    getCoreSwarm: () => runtimeCore.store.getState().gameplay.swarm || null,
-    getSettingsDefaults,
-    defaultSwarmSettings: DEFAULT_SWARM_SETTINGS,
+let cameraRuntimeBinding = null;
+function getCameraRuntimeBinding() {
+  if (cameraRuntimeBinding) return cameraRuntimeBinding;
+  cameraRuntimeBinding = createCameraRuntimeBinding({
+    dispatchCoreCommand,
+    canvas,
+    overlayCanvas,
+    splatSize,
+    clamp,
+    getCameraState: () => runtimeCore.store.getState().camera || {},
   });
+  return cameraRuntimeBinding;
 }
 
-function getSwarmSettings() {
-  return resolveSwarmSettings({
+function resetCamera() {
+  return getCameraRuntimeBinding().resetCamera();
+}
+
+function getScreenAspect() {
+  return getCameraRuntimeBinding().getScreenAspect();
+}
+
+function getMapAspect() {
+  return getCameraRuntimeBinding().getMapAspect();
+}
+
+function getMainRuntimeStateBinding() {
+  if (mainRuntimeStateBinding) return mainRuntimeStateBinding;
+  mainRuntimeStateBinding = createMainRuntimeStateBinding({
+    store: runtimeCore.store,
     getCoreSwarm: () => runtimeCore.store.getState().gameplay.swarm || {},
+    getCorePathfinding: () => runtimeCore.store.getState().gameplay.pathfinding || {},
+    getCoreCursorLight: () => runtimeCore.store.getState().gameplay.cursorLight || null,
+    getCorePointLights: () => runtimeCore.store.getState().gameplay.pointLights || null,
     getSettingsDefaults,
     defaultSwarmSettings: DEFAULT_SWARM_SETTINGS,
     clamp,
     swarmZMax: SWARM_Z_MAX,
-    zoomMin,
-    zoomMax,
+    zoomMin: 0.5,
+    zoomMax: 32,
     normalizeRoutingMode,
-  });
-}
-
-function getPathfindingStateSnapshot() {
-  return resolvePathfindingStateSnapshot({
-    getCorePathfinding: () => runtimeCore.store.getState().gameplay.pathfinding || {},
-    clamp,
-  });
-}
-
-function syncMapStateToStore() {
-  syncMapState({
-    store: runtimeCore.store,
-    currentMapFolderPath: mapLifecycleRuntime.getCurrentMapFolderPath(),
+    getCurrentMapFolderPath: () => mapLifecycleRuntime.getCurrentMapFolderPath(),
     splatSize,
-  });
-}
-
-function syncPointLightsStateToStore(nextLiveUpdate = null, nextSaveConfirmArmed = null) {
-  syncPointLightsState({
-    store: runtimeCore.store,
-    isPointLightLiveUpdateEnabled,
-    nextLiveUpdate,
-    nextSaveConfirmArmed,
-  });
-}
-
-function getCursorLightSnapshot() {
-  return buildCursorLightSnapshot({
-    getCoreCursorLight: () => runtimeCore.store.getState().gameplay.cursorLight || null,
     cursorLightState,
-    clamp,
-  });
-}
-
-function isPointLightLiveUpdateEnabled() {
-  return getPointLightLiveUpdateEnabled({
-    getCorePointLights: () => runtimeCore.store.getState().gameplay.pointLights || null,
-  });
-}
-
-function isPointLightsSaveConfirmArmed() {
-  return Boolean(runtimeCore.store.getState().gameplay.pointLights?.saveConfirmArmed);
-}
-
-function setSwarmDefaults() {
-  applySwarmDefaults({
-    updateStoreFromAppliedSettings,
-    normalizeAppliedSettings,
-    defaultSwarmSettings: DEFAULT_SWARM_SETTINGS,
+    updateStoreFromAppliedSettings: (key, normalized) =>
+      settingsApplyBindingRuntime.updateStoreFromAppliedSettings(key, normalized),
+    normalizeAppliedSettings: (key, rawData, fallbackDefaults) =>
+      settingsApplyBindingRuntime.normalizeAppliedSettings(key, rawData, fallbackDefaults),
     applySwarmSettingsLegacy,
-    stopSwarmFollow,
+    stopSwarmFollow: (...args) => stopSwarmFollow(...args),
     swarmState,
   });
+  return mainRuntimeStateBinding;
 }
 
-function isSwarmEnabled() {
-  return resolveSwarmEnabled({ getSwarmSettings });
-}
-
-const swarmInputNormalization = createSwarmInputNormalization({
+const swarmUiRuntimeBinding = createSwarmUiRuntimeBinding({
+  store: runtimeCore.store,
+  getCoreSwarm: () => runtimeCore.store.getState().gameplay.swarm || {},
+  getCorePathfinding: () => runtimeCore.store.getState().gameplay.pathfinding || {},
+  getCoreCursorLight: () => runtimeCore.store.getState().gameplay.cursorLight || null,
+  getCorePointLights: () => runtimeCore.store.getState().gameplay.pointLights || null,
+  getSettingsDefaults,
+  defaultSwarmSettings: DEFAULT_SWARM_SETTINGS,
   clamp,
-  swarmMinHeightInput,
-  swarmMaxHeightInput,
-  swarmFollowZoomInInput,
-  swarmFollowZoomOutInput,
-  swarmHeightMax: SWARM_Z_MAX,
+  swarmZMax: SWARM_Z_MAX,
   zoomMin,
   zoomMax,
-});
-const normalizeSwarmHeightRangeInputs = swarmInputNormalization.normalizeSwarmHeightRangeInputs;
-const normalizeSwarmFollowZoomInputs = swarmInputNormalization.normalizeSwarmFollowZoomInputs;
-const swarmPanelUi = createSwarmPanelUi({
-  getSwarmSettings,
+  normalizeRoutingMode,
+  getCurrentMapFolderPath: () => mapLifecycleRuntime.getCurrentMapFolderPath(),
+  splatSize,
+  cursorLightState,
+  updateStoreFromAppliedSettings: (key, normalized) =>
+    settingsApplyBindingRuntime.updateStoreFromAppliedSettings(key, normalized),
+  normalizeAppliedSettings: (key, rawData, fallbackDefaults) =>
+    settingsApplyBindingRuntime.normalizeAppliedSettings(key, rawData, fallbackDefaults),
+  applySwarmSettingsLegacy,
+  stopSwarmFollow,
   swarmState,
   getSwarmFollowSnapshot: swarmFollowRuntimeState.getSwarmFollowSnapshot,
   swarmFollowToggleBtn,
@@ -3008,7 +2975,7 @@ const swarmPanelUi = createSwarmPanelUi({
   swarmHawkSpeedValue,
   swarmHawkSteeringValue,
   swarmHawkTargetRangeValue,
-  swarmShowTerrainToggle,
+  swarmEnabledToggle,
   swarmLitModeToggle,
   swarmFollowTargetInput,
   swarmFollowZoomToggle,
@@ -3018,6 +2985,7 @@ const swarmPanelUi = createSwarmPanelUi({
   swarmFollowAgentSpeedSmoothingInput,
   swarmFollowAgentZoomSmoothingInput,
   swarmStatsPanelToggle,
+  swarmShowTerrainToggle,
   swarmBackgroundColorInput,
   swarmAgentCountInput,
   swarmUpdateIntervalInput,
@@ -3045,12 +3013,107 @@ const swarmPanelUi = createSwarmPanelUi({
   swarmHawkSpeedInput,
   swarmHawkSteeringInput,
   swarmHawkTargetRangeInput,
+  swarmTimeRoutingInput,
+  cloudTimeRoutingInput,
+  waterTimeRoutingInput,
+  simTickHoursInput,
+  cycleSpeedInput,
 });
-const updateSwarmLabels = swarmPanelUi.updateSwarmLabels;
-const updateSwarmUi = swarmPanelUi.updateSwarmUi;
-const updateSwarmStatsPanel = swarmPanelUi.updateSwarmStatsPanel;
-const updateSwarmFollowButtonUi = swarmPanelUi.updateSwarmFollowButtonUi;
-const applySwarmSettingsLegacyImpl = createSwarmSettingsApplier({
+function getSwarmCursorMode(...args) {
+  return getMainRuntimeStateBinding().getSwarmCursorMode(...args);
+}
+function getSwarmSettings(...args) {
+  return getMainRuntimeStateBinding().getSwarmSettings(...args);
+}
+function getPathfindingStateSnapshot(...args) {
+  return getMainRuntimeStateBinding().getPathfindingStateSnapshot(...args);
+}
+function syncMapStateToStore(...args) {
+  return getMainRuntimeStateBinding().syncMapStateToStore(...args);
+}
+function syncPointLightsStateToStore(...args) {
+  return getMainRuntimeStateBinding().syncPointLightsStateToStore(...args);
+}
+function getCursorLightSnapshot(...args) {
+  return getMainRuntimeStateBinding().getCursorLightSnapshot(...args);
+}
+function isPointLightLiveUpdateEnabled(...args) {
+  return getMainRuntimeStateBinding().isPointLightLiveUpdateEnabled(...args);
+}
+function isPointLightsSaveConfirmArmed(...args) {
+  return getMainRuntimeStateBinding().isPointLightsSaveConfirmArmed(...args);
+}
+function setSwarmDefaults(...args) {
+  return getMainRuntimeStateBinding().setSwarmDefaults(...args);
+}
+function isSwarmEnabled(...args) {
+  return getMainRuntimeStateBinding().isSwarmEnabled(...args);
+}
+function normalizeSwarmHeightRangeInputs(...args) {
+  return swarmUiRuntimeBinding.normalizeSwarmHeightRangeInputs(...args);
+}
+function normalizeSwarmFollowZoomInputs(...args) {
+  return swarmUiRuntimeBinding.normalizeSwarmFollowZoomInputs(...args);
+}
+function updateSwarmLabels(...args) {
+  return swarmUiRuntimeBinding.updateSwarmLabels(...args);
+}
+function updateSwarmUi(...args) {
+  return swarmUiRuntimeBinding.updateSwarmUi(...args);
+}
+function updateSwarmStatsPanel(...args) {
+  return swarmUiRuntimeBinding.updateSwarmStatsPanel(...args);
+}
+function updateSwarmFollowButtonUi(...args) {
+  return swarmUiRuntimeBinding.updateSwarmFollowButtonUi(...args);
+}
+function syncSwarmSettingsInputs(...args) {
+  return swarmUiRuntimeBinding.syncSwarmSettingsInputs(...args);
+}
+function syncSwarmPanelUi(...args) {
+  return swarmUiRuntimeBinding.syncSwarmPanelUi(...args);
+}
+function syncSimTickHoursInput(...args) {
+  return swarmUiRuntimeBinding.syncSimTickHoursInput(...args);
+}
+function syncCycleSpeedInput(...args) {
+  return swarmUiRuntimeBinding.syncCycleSpeedInput(...args);
+}
+function syncRoutingInput(...args) {
+  return swarmUiRuntimeBinding.syncRoutingInput(...args);
+}
+function resetSwarmFollowSpeedSmoothing() {
+  swarmFollowSmoothingRuntime.resetSwarmFollowSpeedSmoothing();
+}
+
+const swarmGameplayRuntime = createSwarmGameplayRuntime({
+  sampleHeightAtMapPixel,
+  getGrayAt,
+  waterImageData,
+  swarmHeightMax: SWARM_Z_MAX,
+  terrainClearance: SWARM_TERRAIN_CLEARANCE,
+  swarmState,
+  splatSize,
+  clamp,
+  getSwarmSettings,
+  getSwarmFollowSnapshot,
+  setSwarmFollowAgentIndex: swarmFollowRuntimeState.setSwarmFollowAgentIndex,
+  stopSwarmFollow,
+  invalidateSwarmInterpolation,
+  requestOverlayDraw,
+  applySwarmSettings,
+  applySwarmFollowState,
+  syncSwarmRuntimeStateToStore,
+});
+const terrainFloorAtSwarmCoord = swarmGameplayRuntime.terrainFloorAtSwarmCoord;
+const isWaterAtSwarmCoord = swarmGameplayRuntime.isWaterAtSwarmCoord;
+const isSwarmCoordFlyable = swarmGameplayRuntime.isSwarmCoordFlyable;
+const chooseRandomSwarmTargetIndexNear = swarmGameplayRuntime.chooseRandomSwarmTargetIndexNear;
+const chooseRandomFollowAgentIndex = swarmGameplayRuntime.chooseRandomFollowAgentIndex;
+const chooseRandomFollowHawkIndex = swarmGameplayRuntime.chooseRandomFollowHawkIndex;
+const ensureSwarmBuffers = swarmGameplayRuntime.ensureSwarmBuffers;
+const reseedSwarmAgents = swarmGameplayRuntime.reseedSwarmAgents;
+settingsLegacyBindings = createSettingsLegacyRuntimeBinding({
   getSwarmSettings,
   swarmEnabledToggle,
   swarmLitModeToggle,
@@ -3098,49 +3161,11 @@ const applySwarmSettingsLegacyImpl = createSwarmSettingsApplier({
   updateSwarmLabels,
   updateSwarmUi,
   syncSwarmFollowToStore,
-});
-
-function resetSwarmFollowSpeedSmoothing() {
-  swarmFollowSmoothingRuntime.resetSwarmFollowSpeedSmoothing();
-}
-
-const swarmGameplayRuntime = createSwarmGameplayRuntime({
-  sampleHeightAtMapPixel,
-  getGrayAt,
-  waterImageData,
-  swarmHeightMax: SWARM_Z_MAX,
-  terrainClearance: SWARM_TERRAIN_CLEARANCE,
-  swarmState,
-  splatSize,
-  clamp,
-  getSwarmSettings,
-  getSwarmFollowSnapshot,
-  setSwarmFollowAgentIndex: swarmFollowRuntimeState.setSwarmFollowAgentIndex,
-  stopSwarmFollow,
-  invalidateSwarmInterpolation,
-  requestOverlayDraw,
-  applySwarmSettings,
-  applySwarmFollowState,
-  syncSwarmRuntimeStateToStore,
-});
-const terrainFloorAtSwarmCoord = swarmGameplayRuntime.terrainFloorAtSwarmCoord;
-const isWaterAtSwarmCoord = swarmGameplayRuntime.isWaterAtSwarmCoord;
-const isSwarmCoordFlyable = swarmGameplayRuntime.isSwarmCoordFlyable;
-const chooseRandomSwarmTargetIndexNear = swarmGameplayRuntime.chooseRandomSwarmTargetIndexNear;
-const chooseRandomFollowAgentIndex = swarmGameplayRuntime.chooseRandomFollowAgentIndex;
-const chooseRandomFollowHawkIndex = swarmGameplayRuntime.chooseRandomFollowHawkIndex;
-const ensureSwarmBuffers = swarmGameplayRuntime.ensureSwarmBuffers;
-const reseedSwarmAgents = swarmGameplayRuntime.reseedSwarmAgents;
-const applySwarmDataImpl = swarmGameplayRuntime.applySwarmData;
-const serializeSwarmDataImpl = swarmGameplayRuntime.serializeSwarmData;
-const serializeInteractionSettingsImpl = createInteractionDataSerializer({
+  serializeSwarmDataLegacy: swarmGameplayRuntime.serializeSwarmData,
+  applySwarmData: swarmGameplayRuntime.applySwarmData,
   getPathfindingStateSnapshot,
   getCursorLightSnapshot,
   getPointLightsState: () => runtimeCore.store.getState().gameplay.pointLights,
-  clamp,
-});
-const applyInteractionSettingsLegacyImpl = createInteractionSettingsApplier({
-  getPathfindingStateSnapshot,
   pathfindingRangeInput,
   pathWeightSlopeInput,
   pathWeightHeightInput,
@@ -3151,7 +3176,6 @@ const applyInteractionSettingsLegacyImpl = createInteractionSettingsApplier({
   updatePathWeightLabels,
   updatePathSlopeCutoffLabel,
   updatePathBaseCostLabel,
-  getCursorLightSnapshot,
   applyCursorLightConfigSnapshot,
   cursorLightState,
   cursorLightModeToggle,
@@ -3165,10 +3189,13 @@ const applyInteractionSettingsLegacyImpl = createInteractionSettingsApplier({
   updateCursorLightStrengthLabel,
   updateCursorLightHeightOffsetLabel,
   updateCursorLightModeUi,
-});
-const applyLightingSettingsLegacyImpl = createLightingSettingsApplier({
   getCoreState: () => runtimeCore.store.getState(),
   getLightingSettings: () => getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
+  getFogSettings: () => getSimulationKnobSectionFromStore("fog") || getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS),
+  getParallaxSettings: () => getSimulationKnobSectionFromStore("parallax") || getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS),
+  getCloudSettings: () => getSimulationKnobSectionFromStore("clouds") || getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS),
+  getWaterSettings: () => getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS),
+  getTimeState: () => runtimeCore.store.getState().systems.time || {},
   shadowsToggle,
   heightScaleInput,
   shadowStrengthInput,
@@ -3188,24 +3215,6 @@ const applyLightingSettingsLegacyImpl = createLightingSettingsApplier({
   pointFlickerStrengthInput,
   pointFlickerSpeedInput,
   pointFlickerSpatialInput,
-  clamp,
-  normalizeSimTickHours,
-  updateVolumetricLabels,
-  updateVolumetricUi,
-  updateShadowBlurLabel,
-  updatePointFlickerLabels,
-  updatePointFlickerUi,
-  updateSimTickLabel,
-  setCycleHourSliderFromState,
-  updateCycleHourLabel,
-  schedulePointLightBake,
-});
-const renderFxSettingsApplier = createRenderFxSettingsApplier({
-  getFogSettings: () => getSimulationKnobSectionFromStore("fog") || getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS),
-  getParallaxSettings: () => getSimulationKnobSectionFromStore("parallax") || getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS),
-  getCloudSettings: () => getSimulationKnobSectionFromStore("clouds") || getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS),
-  getWaterSettings: () => getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS),
-  getTimeState: () => runtimeCore.store.getState().systems.time || {},
   fogToggle,
   fogColorInput,
   setFogColorManual: (value) => {
@@ -3254,8 +3263,19 @@ const renderFxSettingsApplier = createRenderFxSettingsApplier({
   waterTintStrengthInput,
   waterTimeRoutingInput,
   clamp,
+  clampRound,
+  normalizeSimTickHours,
   normalizeRoutingMode,
   rgbToHex,
+  updateVolumetricLabels,
+  updateVolumetricUi,
+  updateShadowBlurLabel,
+  updatePointFlickerLabels,
+  updatePointFlickerUi,
+  updateSimTickLabel,
+  setCycleHourSliderFromState,
+  updateCycleHourLabel,
+  schedulePointLightBake,
   updateFogAlphaLabels,
   updateFogFalloffLabel,
   updateFogStartOffsetLabel,
@@ -3268,31 +3288,36 @@ const renderFxSettingsApplier = createRenderFxSettingsApplier({
   updateWaterLabels,
   updateWaterUi,
   rebuildFlowMapTexture,
-});
-const applyFogSettingsLegacyImpl = renderFxSettingsApplier.applyFogSettingsLegacy;
-const applyParallaxSettingsLegacyImpl = renderFxSettingsApplier.applyParallaxSettingsLegacy;
-const applyCloudSettingsLegacyImpl = renderFxSettingsApplier.applyCloudSettingsLegacy;
-const applyWaterSettingsLegacyImpl = renderFxSettingsApplier.applyWaterSettingsLegacy;
-const renderFxDataSerializer = createRenderFxDataSerializer({
-  getCoreState: () => runtimeCore.store.getState(),
-  getLightingSettings: () => getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
-  getFogSettings: () => getSimulationKnobSectionFromStore("fog") || getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS),
-  getParallaxSettings: () => getSimulationKnobSectionFromStore("parallax") || getSettingsDefaults("parallax", DEFAULT_PARALLAX_SETTINGS),
-  getCloudSettings: () => getSimulationKnobSectionFromStore("clouds") || getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS),
-  getWaterSettings: () => getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS),
-  getTimeState: () => runtimeCore.store.getState().systems.time || {},
-  cycleState,
   getConfiguredSimTickHours,
-  clamp,
-  clampRound,
-  normalizeRoutingMode,
-  rgbToHex,
 });
-const serializeLightingSettingsLegacyImpl = renderFxDataSerializer.serializeLightingSettingsLegacy;
-const serializeFogSettingsLegacyImpl = renderFxDataSerializer.serializeFogSettingsLegacy;
-const serializeParallaxSettingsLegacyImpl = renderFxDataSerializer.serializeParallaxSettingsLegacy;
-const serializeCloudSettingsLegacyImpl = renderFxDataSerializer.serializeCloudSettingsLegacy;
-const serializeWaterSettingsLegacyImpl = renderFxDataSerializer.serializeWaterSettingsLegacy;
+function syncPathfindingSettingsUi(...args) {
+  return settingsFacadeRuntime.syncPathfindingSettingsUi(...args);
+}
+settingsRuntimeBinding = createSettingsRuntimeBinding({
+  settingsApplyBindingRuntime,
+  defaultLightingSettings: DEFAULT_LIGHTING_SETTINGS,
+  defaultFogSettings: DEFAULT_FOG_SETTINGS,
+  defaultParallaxSettings: DEFAULT_PARALLAX_SETTINGS,
+  defaultCloudSettings: DEFAULT_CLOUD_SETTINGS,
+  defaultWaterSettings: DEFAULT_WATER_SETTINGS,
+  defaultInteractionSettings: DEFAULT_INTERACTION_SETTINGS,
+  defaultSwarmSettings: DEFAULT_SWARM_SETTINGS,
+  serializeLightingSettingsLegacy: (...args) => settingsFacadeRuntime.serializeLightingSettingsLegacy(...args),
+  applyLightingSettingsLegacy: (...args) => settingsFacadeRuntime.applyLightingSettingsLegacy(...args),
+  serializeFogSettingsLegacy: (...args) => settingsFacadeRuntime.serializeFogSettingsLegacy(...args),
+  applyFogSettingsLegacy: (...args) => settingsFacadeRuntime.applyFogSettingsLegacy(...args),
+  serializeParallaxSettingsLegacy: (...args) => settingsFacadeRuntime.serializeParallaxSettingsLegacy(...args),
+  applyParallaxSettingsLegacy: (...args) => settingsFacadeRuntime.applyParallaxSettingsLegacy(...args),
+  serializeCloudSettingsLegacy: (...args) => settingsFacadeRuntime.serializeCloudSettingsLegacy(...args),
+  applyCloudSettingsLegacy: (...args) => settingsFacadeRuntime.applyCloudSettingsLegacy(...args),
+  serializeWaterSettingsLegacy: (...args) => settingsFacadeRuntime.serializeWaterSettingsLegacy(...args),
+  applyWaterSettingsLegacy: (...args) => settingsFacadeRuntime.applyWaterSettingsLegacy(...args),
+  serializeInteractionSettingsLegacy: (...args) => settingsFacadeRuntime.serializeInteractionSettingsLegacy(...args),
+  applyInteractionSettingsLegacy: (...args) => settingsFacadeRuntime.applyInteractionSettingsLegacy(...args),
+  serializeSwarmDataLegacy: (...args) => settingsFacadeRuntime.serializeSwarmDataLegacy(...args),
+  applySwarmSettingsLegacy: (...args) => settingsFacadeRuntime.applySwarmSettingsLegacy(...args),
+  syncSwarmStateToStore: () => syncSwarmStateToStore(),
+});
 const serializeNpcStateImpl = playerRuntimeBinding.serializeNpcState;
 const parseNpcPlayerImpl = playerRuntimeBinding.parseNpcPlayer;
 const applyLoadedNpcImpl = playerRuntimeBinding.applyLoadedNpc;
@@ -3421,22 +3446,6 @@ const renderSwarmLit = createSwarmLitRenderer({
   swarmPointVao,
   swarmPointBuffer,
 });
-
-const getBaseViewHalfExtents = cameraRuntimeBinding.getBaseViewHalfExtents;
-const getActiveCameraState = cameraRuntimeBinding.getActiveCameraState;
-const getViewHalfExtents = cameraRuntimeBinding.getViewHalfExtents;
-const clientToNdc = cameraRuntimeBinding.clientToNdc;
-const worldFromNdc = cameraRuntimeBinding.worldFromNdc;
-const worldToUv = cameraRuntimeBinding.worldToUv;
-const uvToMapPixelIndex = cameraRuntimeBinding.uvToMapPixelIndex;
-const mapPixelIndexToUv = cameraRuntimeBinding.mapPixelIndexToUv;
-const mapPixelToWorld = cameraRuntimeBinding.mapPixelToWorld;
-const mapCoordToWorld = cameraRuntimeBinding.mapCoordToWorld;
-const worldToScreen = cameraRuntimeBinding.worldToScreen;
-
-function setInteractionMode(mode) {
-  interactionModeRuntime.setInteractionMode(mode);
-}
 const interactionModeRuntime = createInteractionModeRuntime({
   applyInteractionMode,
   canUseInteractionInCurrentMode,
@@ -3446,20 +3455,61 @@ const interactionModeRuntime = createInteractionModeRuntime({
   store: runtimeCore.store,
   requestOverlayDraw,
 });
-
-function setPlayerPosition(pixelX, pixelY) {
-  playerRuntimeBinding.setPlayerPosition(pixelX, pixelY);
+const mainFacadeRuntime = createMainFacadeRuntime({
+  getCameraRuntimeBinding,
+  interactionModeRuntime,
+  playerRuntimeBinding,
+  parseNpcPlayerImpl,
+  applyLoadedNpcImpl,
+  updateInfoPanelImpl,
+});
+function getBaseViewHalfExtents(...args) {
+  return mainFacadeRuntime.getBaseViewHalfExtents(...args);
+}
+function getActiveCameraState(...args) {
+  return mainFacadeRuntime.getActiveCameraState(...args);
+}
+function getViewHalfExtents(...args) {
+  return mainFacadeRuntime.getViewHalfExtents(...args);
+}
+function clientToNdc(...args) {
+  return mainFacadeRuntime.clientToNdc(...args);
+}
+function worldFromNdc(...args) {
+  return mainFacadeRuntime.worldFromNdc(...args);
+}
+function worldToUv(...args) {
+  return mainFacadeRuntime.worldToUv(...args);
+}
+function uvToMapPixelIndex(...args) {
+  return mainFacadeRuntime.uvToMapPixelIndex(...args);
+}
+function mapPixelIndexToUv(...args) {
+  return mainFacadeRuntime.mapPixelIndexToUv(...args);
+}
+function mapPixelToWorld(...args) {
+  return mainFacadeRuntime.mapPixelToWorld(...args);
+}
+function mapCoordToWorld(...args) {
+  return mainFacadeRuntime.mapCoordToWorld(...args);
+}
+function worldToScreen(...args) {
+  return mainFacadeRuntime.worldToScreen(...args);
+}
+function setInteractionMode(...args) {
+  return mainFacadeRuntime.setInteractionMode(...args);
+}
+function setPlayerPosition(...args) {
+  return mainFacadeRuntime.setPlayerPosition(...args);
+}
+function parseNpcPlayer(...args) {
+  return mainFacadeRuntime.parseNpcPlayer(...args);
+}
+function applyLoadedNpc(...args) {
+  return mainFacadeRuntime.applyLoadedNpc(...args);
 }
 
-function parseNpcPlayer(rawData) {
-  return parseNpcPlayerImpl(rawData);
-}
-
-function applyLoadedNpc(rawData) {
-  applyLoadedNpcImpl(rawData);
-}
-
-const pathfindingRuntimeBinding = createPathfindingRuntimeBinding({
+pathfindingRuntimeBinding = createPathfindingRuntimeBinding({
   clamp,
   playerState,
   getMapSize: () => splatSize,
@@ -3475,19 +3525,12 @@ const pathfindingRuntimeBinding = createPathfindingRuntimeBinding({
   worldToUv,
   uvToMapPixelIndex,
 });
-const getGrayAt = pathfindingRuntimeBinding.getGrayAt;
-const computeMoveStepCost = pathfindingRuntimeBinding.computeMoveStepCost;
-const rebuildMovementField = pathfindingRuntimeBinding.rebuildMovementField;
-const extractPathTo = pathfindingRuntimeBinding.extractPathTo;
-const refreshPathPreview = pathfindingRuntimeBinding.refreshPathPreview;
-const updatePathPreviewFromPointer = pathfindingRuntimeBinding.updatePathPreviewFromPointer;
-const getCurrentPathMetrics = pathfindingRuntimeBinding.getCurrentPathMetrics;
 
-function updateInfoPanel() {
-  updateInfoPanelImpl();
+function updateInfoPanel(...args) {
+  return mainFacadeRuntime.updateInfoPanel(...args);
 }
 
-const pathfindingLabelBindingRuntime = createPathfindingLabelBindingRuntime({
+pathfindingLabelBindingRuntime = createPathfindingLabelBindingRuntime({
   getPathfindingStateSnapshot,
   pathfindingRangeValue,
   pathWeightSlopeValue,
@@ -3496,12 +3539,8 @@ const pathfindingLabelBindingRuntime = createPathfindingLabelBindingRuntime({
   pathSlopeCutoffValue,
   pathBaseCostValue,
 });
-const updatePathfindingRangeLabel = pathfindingLabelBindingRuntime.updatePathfindingRangeLabel;
-const updatePathWeightLabels = pathfindingLabelBindingRuntime.updatePathWeightLabels;
-const updatePathSlopeCutoffLabel = pathfindingLabelBindingRuntime.updatePathSlopeCutoffLabel;
-const updatePathBaseCostLabel = pathfindingLabelBindingRuntime.updatePathBaseCostLabel;
 
-const renderFxUiBindingRuntime = createRenderFxUiBindingRuntime({
+renderFxUiBindingRuntime = createRenderFxUiBindingRuntime({
   clamp,
   normalizeSimTickHours,
   serializeLightingSettings,
@@ -3598,23 +3637,24 @@ const renderFxUiBindingRuntime = createRenderFxUiBindingRuntime({
   waterTintColorInput,
   waterTintStrengthInput,
 });
-const updateParallaxStrengthLabel = renderFxUiBindingRuntime.updateParallaxStrengthLabel;
-const updateParallaxBandsLabel = renderFxUiBindingRuntime.updateParallaxBandsLabel;
-const updateShadowBlurLabel = renderFxUiBindingRuntime.updateShadowBlurLabel;
-const updateSimTickLabel = renderFxUiBindingRuntime.updateSimTickLabel;
-const updateFogAlphaLabels = renderFxUiBindingRuntime.updateFogAlphaLabels;
-const updateFogFalloffLabel = renderFxUiBindingRuntime.updateFogFalloffLabel;
-const updateFogStartOffsetLabel = renderFxUiBindingRuntime.updateFogStartOffsetLabel;
-const updatePointFlickerLabels = renderFxUiBindingRuntime.updatePointFlickerLabels;
-const updatePointFlickerUi = renderFxUiBindingRuntime.updatePointFlickerUi;
-const updateVolumetricLabels = renderFxUiBindingRuntime.updateVolumetricLabels;
-const updateVolumetricUi = renderFxUiBindingRuntime.updateVolumetricUi;
-const updateCloudLabels = renderFxUiBindingRuntime.updateCloudLabels;
-const updateWaterLabels = renderFxUiBindingRuntime.updateWaterLabels;
-const updateParallaxUi = renderFxUiBindingRuntime.updateParallaxUi;
-const updateFogUi = renderFxUiBindingRuntime.updateFogUi;
-const updateCloudUi = renderFxUiBindingRuntime.updateCloudUi;
-const updateWaterUi = renderFxUiBindingRuntime.updateWaterUi;
+renderFxSettingsSyncRuntime = createRenderFxSettingsSyncRuntime({
+  updateParallaxStrengthLabel,
+  updateParallaxBandsLabel,
+  updateParallaxUi,
+  updateShadowBlurLabel,
+  updateVolumetricLabels,
+  updateVolumetricUi,
+  updatePointFlickerLabels,
+  updatePointFlickerUi,
+  updateFogAlphaLabels,
+  updateFogFalloffLabel,
+  updateFogStartOffsetLabel,
+  updateFogUi,
+  updateCloudLabels,
+  updateCloudUi,
+  updateWaterLabels,
+  updateWaterUi,
+});
 
 function updateCycleHourLabel() {
   getTimeUiBindingRuntime().updateCycleHourLabel();
@@ -3670,281 +3710,277 @@ const drawOverlay = createOverlayDrawerRuntime({
   drawSwarmGizmos,
 });
 
-bindCanvasRuntime({
-  canvas,
-  windowEl: window,
-  dispatchCoreCommand,
-  updateSwarmCursorFromPointer,
-  updateCursorLightFromPointer,
-  updatePathPreviewFromPointer,
-  isMiddleDragging: () => isMiddleDragging,
-  isCursorLightEnabled: () => getCursorLightSnapshot().enabled,
-  getInteractionMode: () => getInteractionModeSnapshot(),
-  requestOverlayDraw,
-  clientToNdc,
-  worldFromNdc,
-  worldToUv,
-  uvToMapPixelIndex,
-  swarmCursorState,
-  cursorLightState,
-  movePreviewState,
-});
-
-bindPathfindingRuntime({
-  pathfindingRangeInput,
-  pathWeightSlopeInput,
-  pathWeightHeightInput,
-  pathWeightWaterInput,
-  pathSlopeCutoffInput,
-  pathBaseCostInput,
-  dispatchCoreCommand,
-});
-
-bindSwarmPanelRuntime({
-  swarmShowTerrainToggle,
-  swarmLitModeToggle,
-  swarmFollowZoomToggle,
-  swarmFollowZoomInInput,
-  swarmFollowZoomOutInput,
-  swarmFollowHawkRangeGizmoToggle,
-  swarmFollowAgentSpeedSmoothingInput,
-  swarmFollowAgentZoomSmoothingInput,
-  swarmStatsPanelToggle,
-  swarmBackgroundColorInput,
-  swarmAgentCountInput,
-  swarmUpdateIntervalInput,
-  swarmMaxSpeedInput,
-  swarmSteeringMaxInput,
-  swarmVariationStrengthInput,
-  swarmNeighborRadiusInput,
-  swarmMinHeightInput,
-  swarmMaxHeightInput,
-  swarmSeparationRadiusInput,
-  swarmAlignmentWeightInput,
-  swarmCohesionWeightInput,
-  swarmSeparationWeightInput,
-  swarmWanderWeightInput,
-  swarmRestChanceInput,
-  swarmRestTicksInput,
-  swarmBreedingThresholdInput,
-  swarmBreedingSpawnChanceInput,
-  swarmCursorModeInput,
-  swarmCursorStrengthInput,
-  swarmCursorRadiusInput,
-  swarmHawkEnabledToggle,
-  swarmHawkCountInput,
-  swarmHawkColorInput,
-  swarmHawkSpeedInput,
-  swarmHawkSteeringInput,
-  swarmHawkTargetRangeInput,
-  swarmTimeRoutingInput,
-  swarmEnabledToggle,
-  dispatchCoreCommand,
-  swarmState,
-  swarmCursorState,
-  swarmFollowState,
-  clamp,
-  getSwarmSettings,
-  updateSwarmUi,
-  updateSwarmLabels,
-  updateSwarmStatsPanel,
-  normalizeSwarmFollowZoomInputs,
-  normalizeSwarmHeightRangeInputs,
-  reseedSwarmAgents,
-  resetSwarmFollowSpeedSmoothing,
-  updateSwarmFollowButtonUi,
-  requestOverlayDraw,
-  setStatus,
-});
-
-bindSwarmFollowRuntime({
-  swarmFollowToggleBtn,
-  swarmFollowTargetInput,
-  dispatchCoreCommand,
-});
-bindTopicPanelRuntime({
-  topicButtons,
-  topicPanelCloseBtn,
-  windowEl: window,
-  setActiveTopic,
-  canUseTopic: canUseTopicInCurrentMode,
-  setStatus,
-});
-
-bindInteractionCycleRuntime({
-  windowEl: window,
-  dockLightingModeToggle,
-  dockPathfindingModeToggle,
-  cycleSpeedInput,
-  cycleHourInput,
-  simTickHoursInput,
-  dispatchCoreCommand,
-  getInteractionMode: () => getInteractionModeSnapshot(),
-  canUseInteractionMode: canUseInteractionInCurrentMode,
-  movePreviewState,
-  rebuildMovementField,
-  requestOverlayDraw,
-  setStatus,
-});
-
-bindCursorLightRuntime({
-  cursorLightModeToggle,
-  cursorLightFollowHeightToggle,
-  cursorLightColorInput,
-  cursorLightStrengthInput,
-  cursorLightHeightOffsetInput,
-  cursorLightGizmoToggle,
-  dispatchCoreCommand,
-  setStatus,
-});
-
-bindPointLightEditorRuntime({
-  pointLightColorInput,
-  pointLightStrengthInput,
-  pointLightIntensityInput,
-  pointLightHeightOffsetInput,
-  pointLightFlickerInput,
-  pointLightFlickerSpeedInput,
-  pointLightLiveUpdateToggle,
-  lightSaveBtn,
-  lightCancelBtn,
-  lightDeleteBtn,
-  pointLightsSaveAllBtn,
-  pointLightsLoadAllBtn,
-  pointLightsLoadInput,
-  clamp,
-  hexToRgb01,
-  hasLightEditDraft: () => pointLightRuntime.hasLightEditDraft(),
-  setLightEditDraftColor: (value) => pointLightRuntime.setLightEditDraftColor(value),
-  setLightEditDraftStrength: (value) => pointLightRuntime.setLightEditDraftStrength(value),
-  setLightEditDraftIntensity: (value) => pointLightRuntime.setLightEditDraftIntensity(value),
-  setLightEditDraftHeightOffset: (value) => pointLightRuntime.setLightEditDraftHeightOffset(value),
-  setLightEditDraftFlicker: (value) => pointLightRuntime.setLightEditDraftFlicker(value),
-  setLightEditDraftFlickerSpeed: (value) => pointLightRuntime.setLightEditDraftFlickerSpeed(value),
-  updatePointLightStrengthLabel,
-  updatePointLightIntensityLabel,
-  updatePointLightHeightOffsetLabel,
-  updatePointLightFlickerLabel,
-  updatePointLightFlickerSpeedLabel,
-  rebakeIfPointLightLiveUpdateEnabled,
-  requestOverlayDraw,
-  applyDraftToSelectedPointLight,
-  bakePointLightsTexture,
-  dispatchCoreCommand,
-  syncPointLightsStateToStore,
-  updateLightEditorUi,
-  getSelectedPointLight,
-  deletePointLightById: (id) => pointLightRuntime.deletePointLightById(id),
-  clearLightEditSelection,
-  isPointLightsSaveConfirmArmed,
-  armPointLightsSaveConfirmation,
-  resetPointLightsSaveConfirmation,
-  savePointLightsJson,
-  loadPointLightsFromAssetsOrPrompt,
-  applyLoadedPointLights,
-  setStatus,
-});
-
-bindRenderFxRuntime({
-  parallaxStrengthInput,
-  parallaxBandsInput,
-  parallaxToggle,
-  shadowsToggle,
-  heightScaleInput,
-  shadowStrengthInput,
-  shadowBlurInput,
-  ambientInput,
-  diffuseInput,
-  volumetricStrengthInput,
-  volumetricDensityInput,
-  volumetricAnisotropyInput,
-  volumetricLengthInput,
-  volumetricSamplesInput,
-  volumetricToggle,
-  pointFlickerStrengthInput,
-  pointFlickerSpeedInput,
-  pointFlickerSpatialInput,
-  pointFlickerToggle,
-  fogMinAlphaInput,
-  fogMaxAlphaInput,
-  fogFalloffInput,
-  fogStartOffsetInput,
-  fogToggle,
-  fogColorInput,
-  cloudCoverageInput,
-  cloudSoftnessInput,
-  cloudOpacityInput,
-  cloudScaleInput,
-  cloudSpeed1Input,
-  cloudSpeed2Input,
-  cloudSunParallaxInput,
-  cloudSunProjectToggle,
-  cloudToggle,
-  cloudTimeRoutingInput,
-  waterFlowDirectionInput,
-  waterLocalFlowMixInput,
-  waterDownhillBoostInput,
-  waterFlowRadius1Input,
-  waterFlowRadius2Input,
-  waterFlowRadius3Input,
-  waterFlowWeight1Input,
-  waterFlowWeight2Input,
-  waterFlowWeight3Input,
-  waterFlowStrengthInput,
-  waterFlowSpeedInput,
-  waterFlowScaleInput,
-  waterShimmerStrengthInput,
-  waterGlintStrengthInput,
-  waterGlintSharpnessInput,
-  waterShoreFoamStrengthInput,
-  waterShoreWidthInput,
-  waterReflectivityInput,
-  waterTintColorInput,
-  waterTintStrengthInput,
-  waterFxToggle,
-  waterFlowDownhillToggle,
-  waterFlowInvertDownhillToggle,
-  waterFlowDebugToggle,
-  waterTimeRoutingInput,
-  dispatchCoreCommand,
-  updateParallaxStrengthLabel,
-  updateParallaxBandsLabel,
-  updateParallaxUi,
-  updateShadowBlurLabel,
-  updateVolumetricLabels,
-  updateVolumetricUi,
-  updatePointFlickerLabels,
-  updatePointFlickerUi,
-  updateFogAlphaLabels,
-  updateFogFalloffLabel,
-  updateFogStartOffsetLabel,
-  updateFogUi,
-  markFogColorManual: () => {
-    fogColorManual = true;
+setupMainBindingsRuntime({
+  canvasBinding: {
+    canvas,
+    windowEl: window,
+    dispatchCoreCommand,
+    updateSwarmCursorFromPointer,
+    updateCursorLightFromPointer,
+    updatePathPreviewFromPointer,
+    isMiddleDragging: () => isMiddleDragging,
+    isCursorLightEnabled: () => getCursorLightSnapshot().enabled,
+    getInteractionMode: () => getInteractionModeSnapshot(),
+    requestOverlayDraw,
+    clientToNdc,
+    worldFromNdc,
+    worldToUv,
+    uvToMapPixelIndex,
+    swarmCursorState,
+    cursorLightState,
+    movePreviewState,
   },
-  updateCloudLabels,
-  updateCloudUi,
-  updateWaterLabels,
-  updateWaterUi,
-  rebuildFlowMapTexture,
-});
-
-async function tryAutoLoadDefaultMap() {
-  await mapLifecycleRuntime.tryAutoLoadDefaultMap();
-}
-
-bindMapIoRuntime({
-  mapPathInput,
-  mapPathLoadBtn,
-  mapFolderInput,
-  mapSaveAllBtn,
-  normalizeMapFolderPath,
-  tauriInvoke,
-  pickMapFolderViaTauri,
-  loadMapFromPath,
-  loadMapFromFolderSelection,
-  saveAllMapDataFiles,
-  setStatus,
+  pathfindingBinding: {
+    pathfindingRangeInput,
+    pathWeightSlopeInput,
+    pathWeightHeightInput,
+    pathWeightWaterInput,
+    pathSlopeCutoffInput,
+    pathBaseCostInput,
+    dispatchCoreCommand,
+  },
+  swarmPanelBinding: {
+    swarmShowTerrainToggle,
+    swarmLitModeToggle,
+    swarmFollowZoomToggle,
+    swarmFollowZoomInInput,
+    swarmFollowZoomOutInput,
+    swarmFollowHawkRangeGizmoToggle,
+    swarmFollowAgentSpeedSmoothingInput,
+    swarmFollowAgentZoomSmoothingInput,
+    swarmStatsPanelToggle,
+    swarmBackgroundColorInput,
+    swarmAgentCountInput,
+    swarmUpdateIntervalInput,
+    swarmMaxSpeedInput,
+    swarmSteeringMaxInput,
+    swarmVariationStrengthInput,
+    swarmNeighborRadiusInput,
+    swarmMinHeightInput,
+    swarmMaxHeightInput,
+    swarmSeparationRadiusInput,
+    swarmAlignmentWeightInput,
+    swarmCohesionWeightInput,
+    swarmSeparationWeightInput,
+    swarmWanderWeightInput,
+    swarmRestChanceInput,
+    swarmRestTicksInput,
+    swarmBreedingThresholdInput,
+    swarmBreedingSpawnChanceInput,
+    swarmCursorModeInput,
+    swarmCursorStrengthInput,
+    swarmCursorRadiusInput,
+    swarmHawkEnabledToggle,
+    swarmHawkCountInput,
+    swarmHawkColorInput,
+    swarmHawkSpeedInput,
+    swarmHawkSteeringInput,
+    swarmHawkTargetRangeInput,
+    swarmTimeRoutingInput,
+    swarmEnabledToggle,
+    dispatchCoreCommand,
+    swarmState,
+    swarmCursorState,
+    swarmFollowState,
+    clamp,
+    getSwarmSettings,
+    updateSwarmUi,
+    updateSwarmLabels,
+    updateSwarmStatsPanel,
+    normalizeSwarmFollowZoomInputs,
+    normalizeSwarmHeightRangeInputs,
+    reseedSwarmAgents,
+    resetSwarmFollowSpeedSmoothing,
+    updateSwarmFollowButtonUi,
+    requestOverlayDraw,
+    setStatus,
+  },
+  swarmFollowBinding: {
+    swarmFollowToggleBtn,
+    swarmFollowTargetInput,
+    dispatchCoreCommand,
+  },
+  topicPanelBinding: {
+    topicButtons,
+    topicPanelCloseBtn,
+    windowEl: window,
+    setActiveTopic,
+    canUseTopic: canUseTopicInCurrentMode,
+    setStatus,
+  },
+  interactionCycleBinding: {
+    windowEl: window,
+    dockLightingModeToggle,
+    dockPathfindingModeToggle,
+    cycleSpeedInput,
+    cycleHourInput,
+    simTickHoursInput,
+    dispatchCoreCommand,
+    getInteractionMode: () => getInteractionModeSnapshot(),
+    canUseInteractionMode: canUseInteractionInCurrentMode,
+    movePreviewState,
+    rebuildMovementField,
+    requestOverlayDraw,
+    setStatus,
+  },
+  cursorLightBinding: {
+    cursorLightModeToggle,
+    cursorLightFollowHeightToggle,
+    cursorLightColorInput,
+    cursorLightStrengthInput,
+    cursorLightHeightOffsetInput,
+    cursorLightGizmoToggle,
+    dispatchCoreCommand,
+    setStatus,
+  },
+  pointLightEditorBinding: {
+    pointLightColorInput,
+    pointLightStrengthInput,
+    pointLightIntensityInput,
+    pointLightHeightOffsetInput,
+    pointLightFlickerInput,
+    pointLightFlickerSpeedInput,
+    pointLightLiveUpdateToggle,
+    lightSaveBtn,
+    lightCancelBtn,
+    lightDeleteBtn,
+    pointLightsSaveAllBtn,
+    pointLightsLoadAllBtn,
+    pointLightsLoadInput,
+    clamp,
+    hexToRgb01,
+    hasLightEditDraft: () => pointLightRuntime.hasLightEditDraft(),
+    setLightEditDraftColor: (value) => pointLightRuntime.setLightEditDraftColor(value),
+    setLightEditDraftStrength: (value) => pointLightRuntime.setLightEditDraftStrength(value),
+    setLightEditDraftIntensity: (value) => pointLightRuntime.setLightEditDraftIntensity(value),
+    setLightEditDraftHeightOffset: (value) => pointLightRuntime.setLightEditDraftHeightOffset(value),
+    setLightEditDraftFlicker: (value) => pointLightRuntime.setLightEditDraftFlicker(value),
+    setLightEditDraftFlickerSpeed: (value) => pointLightRuntime.setLightEditDraftFlickerSpeed(value),
+    updatePointLightStrengthLabel,
+    updatePointLightIntensityLabel,
+    updatePointLightHeightOffsetLabel,
+    updatePointLightFlickerLabel,
+    updatePointLightFlickerSpeedLabel,
+    rebakeIfPointLightLiveUpdateEnabled,
+    requestOverlayDraw,
+    applyDraftToSelectedPointLight,
+    bakePointLightsTexture,
+    dispatchCoreCommand,
+    syncPointLightsStateToStore,
+    updateLightEditorUi,
+    getSelectedPointLight,
+    deletePointLightById: (id) => pointLightRuntime.deletePointLightById(id),
+    clearLightEditSelection,
+    isPointLightsSaveConfirmArmed,
+    armPointLightsSaveConfirmation,
+    resetPointLightsSaveConfirmation,
+    savePointLightsJson,
+    loadPointLightsFromAssetsOrPrompt,
+    applyLoadedPointLights,
+    setStatus,
+  },
+  renderFxBinding: {
+    parallaxStrengthInput,
+    parallaxBandsInput,
+    parallaxToggle,
+    shadowsToggle,
+    heightScaleInput,
+    shadowStrengthInput,
+    shadowBlurInput,
+    ambientInput,
+    diffuseInput,
+    volumetricStrengthInput,
+    volumetricDensityInput,
+    volumetricAnisotropyInput,
+    volumetricLengthInput,
+    volumetricSamplesInput,
+    volumetricToggle,
+    pointFlickerStrengthInput,
+    pointFlickerSpeedInput,
+    pointFlickerSpatialInput,
+    pointFlickerToggle,
+    fogMinAlphaInput,
+    fogMaxAlphaInput,
+    fogFalloffInput,
+    fogStartOffsetInput,
+    fogToggle,
+    fogColorInput,
+    cloudCoverageInput,
+    cloudSoftnessInput,
+    cloudOpacityInput,
+    cloudScaleInput,
+    cloudSpeed1Input,
+    cloudSpeed2Input,
+    cloudSunParallaxInput,
+    cloudSunProjectToggle,
+    cloudToggle,
+    cloudTimeRoutingInput,
+    waterFlowDirectionInput,
+    waterLocalFlowMixInput,
+    waterDownhillBoostInput,
+    waterFlowRadius1Input,
+    waterFlowRadius2Input,
+    waterFlowRadius3Input,
+    waterFlowWeight1Input,
+    waterFlowWeight2Input,
+    waterFlowWeight3Input,
+    waterFlowStrengthInput,
+    waterFlowSpeedInput,
+    waterFlowScaleInput,
+    waterShimmerStrengthInput,
+    waterGlintStrengthInput,
+    waterGlintSharpnessInput,
+    waterShoreFoamStrengthInput,
+    waterShoreWidthInput,
+    waterReflectivityInput,
+    waterTintColorInput,
+    waterTintStrengthInput,
+    waterFxToggle,
+    waterFlowDownhillToggle,
+    waterFlowInvertDownhillToggle,
+    waterFlowDebugToggle,
+    waterTimeRoutingInput,
+    dispatchCoreCommand,
+    updateParallaxStrengthLabel,
+    updateParallaxBandsLabel,
+    updateParallaxUi,
+    updateShadowBlurLabel,
+    updateVolumetricLabels,
+    updateVolumetricUi,
+    updatePointFlickerLabels,
+    updatePointFlickerUi,
+    updateFogAlphaLabels,
+    updateFogFalloffLabel,
+    updateFogStartOffsetLabel,
+    updateFogUi,
+    markFogColorManual: () => {
+      fogColorManual = true;
+    },
+    updateCloudLabels,
+    updateCloudUi,
+    updateWaterLabels,
+    updateWaterUi,
+    rebuildFlowMapTexture,
+  },
+  mapIoBinding: {
+    mapPathInput,
+    mapPathLoadBtn,
+    mapFolderInput,
+    mapSaveAllBtn,
+    normalizeMapFolderPath,
+    tauriInvoke,
+    pickMapFolderViaTauri,
+    loadMapFromPath,
+    loadMapFromFolderSelection,
+    saveAllMapDataFiles,
+    setStatus,
+  },
+  runtimeBinding: {
+    windowEl: window,
+    heightScaleInput,
+    schedulePointLightBake,
+    resize,
+  },
 });
 
 function resize() {
@@ -4021,58 +4057,61 @@ bindRuntimeBindingRuntime({
   resize,
 });
 
-void tryAutoLoadDefaultMap().catch((error) => {
-  console.error("Default map auto-load failed:", error);
-  const message = error instanceof Error ? error.message : String(error);
-  setStatus(`Default map auto-load failed: ${message}`);
-});
-runStartupUiSyncRuntime({
-  setSwarmDefaults,
-  normalizeSwarmHeightRangeInputs,
-  updatePathfindingRangeLabel,
-  updatePathWeightLabels,
-  updatePathSlopeCutoffLabel,
-  updatePathBaseCostLabel,
-  updateSwarmLabels,
-  updateSwarmUi,
-  updateSwarmStatsPanel,
-  updateSwarmFollowButtonUi,
-  updateParallaxStrengthLabel,
-  updateParallaxBandsLabel,
-  updateShadowBlurLabel,
-  updateVolumetricLabels,
-  updatePointFlickerLabels,
-  updateSimTickLabel,
-  updateFogAlphaLabels,
-  updateFogFalloffLabel,
-  updateFogStartOffsetLabel,
-  updateCloudLabels,
-  updateWaterLabels,
-  updatePointLightStrengthLabel,
-  updatePointLightIntensityLabel,
-  updatePointLightHeightOffsetLabel,
-  updatePointLightFlickerLabel,
-  updatePointLightFlickerSpeedLabel,
-  updateCursorLightStrengthLabel,
-  updateCursorLightHeightOffsetLabel,
-  setCycleHourSliderFromState,
-  updateCycleHourLabel,
-  mapPathInput,
-  currentMapFolderPath: mapLifecycleRuntime.getCurrentMapFolderPath(),
-  updateLightEditorUi,
-  updateCursorLightModeUi,
-  updateParallaxUi,
-  updateVolumetricUi,
-  updatePointFlickerUi,
-  updateFogUi,
-  updateCloudUi,
-  updateWaterUi,
-  setActiveTopic,
-  setInteractionMode,
-  updateModeCapabilitiesUi,
-  reseedSwarmAgents,
-  getSwarmSettings,
+void tryAutoLoadDefaultMapRuntime({
+  tryAutoLoadDefaultMap: () => mapLifecycleRuntime.tryAutoLoadDefaultMap(),
   setStatus,
-  statusTextEl: statusEl,
 });
-requestAnimationFrame(render);
+runAppStartupRuntime({
+  startupUiSync: {
+    setSwarmDefaults,
+    normalizeSwarmHeightRangeInputs,
+    updatePathfindingRangeLabel,
+    updatePathWeightLabels,
+    updatePathSlopeCutoffLabel,
+    updatePathBaseCostLabel,
+    updateSwarmLabels,
+    updateSwarmUi,
+    updateSwarmStatsPanel,
+    updateSwarmFollowButtonUi,
+    updateParallaxStrengthLabel,
+    updateParallaxBandsLabel,
+    updateShadowBlurLabel,
+    updateVolumetricLabels,
+    updatePointFlickerLabels,
+    updateSimTickLabel,
+    updateFogAlphaLabels,
+    updateFogFalloffLabel,
+    updateFogStartOffsetLabel,
+    updateCloudLabels,
+    updateWaterLabels,
+    updatePointLightStrengthLabel,
+    updatePointLightIntensityLabel,
+    updatePointLightHeightOffsetLabel,
+    updatePointLightFlickerLabel,
+    updatePointLightFlickerSpeedLabel,
+    updateCursorLightStrengthLabel,
+    updateCursorLightHeightOffsetLabel,
+    setCycleHourSliderFromState,
+    updateCycleHourLabel,
+    mapPathInput,
+    currentMapFolderPath: mapLifecycleRuntime.getCurrentMapFolderPath(),
+    updateLightEditorUi,
+    updateCursorLightModeUi,
+    updateParallaxUi,
+    updateVolumetricUi,
+    updatePointFlickerUi,
+    updateFogUi,
+    updateCloudUi,
+    updateWaterUi,
+    setActiveTopic,
+    setInteractionMode,
+    updateModeCapabilitiesUi,
+    reseedSwarmAgents,
+    getSwarmSettings,
+    setStatus,
+    statusTextEl: statusEl,
+  },
+  resize,
+  requestAnimationFrame: (cb) => window.requestAnimationFrame(cb),
+  render,
+});

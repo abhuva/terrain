@@ -11,6 +11,7 @@ export function createSwarmRuntime(deps) {
     return buildSwarmRuntimeStateSnapshot({
       isSwarmEnabled: deps.isSwarmEnabled,
       swarmState: deps.swarmState,
+      swarmFollowState: deps.swarmFollowState,
       getSwarmFollowSnapshot: deps.getSwarmFollowSnapshot,
     });
   }

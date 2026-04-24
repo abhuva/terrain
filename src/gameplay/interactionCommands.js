@@ -103,11 +103,24 @@ export function registerInteractionCommands(commandBus, deps) {
     }));
   }
 
+  function updatePathfindingStoreField(ctx, patch) {
+    ctx.store.update((prev) => ({
+      ...prev,
+      gameplay: {
+        ...prev.gameplay,
+        pathfinding: {
+          ...prev.gameplay.pathfinding,
+          ...patch,
+        },
+      },
+    }));
+  }
+
   commandBus.register("core/pathfinding/setRange", (command, ctx) => {
-    if (deps.pathfindingRangeInput && Number.isFinite(Number(command.value))) {
-      deps.pathfindingRangeInput.value = String(Math.round(deps.clamp(Number(command.value), 30, 300)));
-    }
-    deps.updatePathfindingRangeLabel();
+    updatePathfindingStoreField(ctx, {
+      range: Math.round(deps.clamp(Number(command.value), 30, 300)),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
@@ -115,10 +128,10 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setWeightSlope", (command, ctx) => {
-    if (deps.pathWeightSlopeInput && Number.isFinite(Number(command.value))) {
-      deps.pathWeightSlopeInput.value = String(deps.clamp(Number(command.value), 0, 10));
-    }
-    deps.updatePathWeightLabels();
+    updatePathfindingStoreField(ctx, {
+      weightSlope: deps.clamp(Number(command.value), 0, 10),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
@@ -126,10 +139,10 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setWeightHeight", (command, ctx) => {
-    if (deps.pathWeightHeightInput && Number.isFinite(Number(command.value))) {
-      deps.pathWeightHeightInput.value = String(deps.clamp(Number(command.value), 0, 10));
-    }
-    deps.updatePathWeightLabels();
+    updatePathfindingStoreField(ctx, {
+      weightHeight: deps.clamp(Number(command.value), 0, 10),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
@@ -137,10 +150,10 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setWeightWater", (command, ctx) => {
-    if (deps.pathWeightWaterInput && Number.isFinite(Number(command.value))) {
-      deps.pathWeightWaterInput.value = String(deps.clamp(Number(command.value), 0, 100));
-    }
-    deps.updatePathWeightLabels();
+    updatePathfindingStoreField(ctx, {
+      weightWater: deps.clamp(Number(command.value), 0, 100),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
@@ -148,10 +161,10 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setSlopeCutoff", (command, ctx) => {
-    if (deps.pathSlopeCutoffInput && Number.isFinite(Number(command.value))) {
-      deps.pathSlopeCutoffInput.value = String(Math.round(deps.clamp(Number(command.value), 0, 90)));
-    }
-    deps.updatePathSlopeCutoffLabel();
+    updatePathfindingStoreField(ctx, {
+      slopeCutoff: Math.round(deps.clamp(Number(command.value), 0, 90)),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
@@ -159,10 +172,10 @@ export function registerInteractionCommands(commandBus, deps) {
   });
 
   commandBus.register("core/pathfinding/setBaseCost", (command, ctx) => {
-    if (deps.pathBaseCostInput && Number.isFinite(Number(command.value))) {
-      deps.pathBaseCostInput.value = String(deps.clamp(Number(command.value), 0, 2));
-    }
-    deps.updatePathBaseCostLabel();
+    updatePathfindingStoreField(ctx, {
+      baseCost: deps.clamp(Number(command.value), 0, 2),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }

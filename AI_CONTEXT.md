@@ -144,6 +144,18 @@ No game engine is used.
 - Map-IO helper runtime composition (`createMapIoHelpers` deps composition) is now extracted to `src/gameplay/mapIoHelpersRuntime.js`.
 - Map-path binding runtime composition (map path/url utility wrappers) is now extracted to `src/gameplay/mapPathBindingRuntime.js`.
 - Settings-apply binding runtime composition (settings serialize/apply/normalize/default-access wrappers) is now extracted to `src/core/settingsApplyBindingRuntime.js`.
+- Settings runtime facade (canonical serialize/apply/default access for lighting/fog/parallax/cloud/water/interaction/swarm settings) is now extracted to `src/core/settingsRuntimeBinding.js`.
+- Lazy settings facade wiring that bridges legacy serializers/appliers with canonical settings access is now extracted to `src/core/settingsFacadeRuntime.js`, so `main.js` no longer owns the long serialize/apply/get-defaults shim block inline.
+- Legacy settings/UI composition (swarm/interaction/lighting/render-FX appliers plus legacy serializers) is now extracted to `src/ui/settingsLegacyRuntimeBinding.js`.
+- Render-FX command-side UI reflection is now grouped behind `src/ui/renderFxSettingsSyncRuntime.js` instead of being expanded inline inside `src/core/registerMainCommands.js`.
+- Swarm command-side panel reflection is now grouped behind `src/ui/swarmSettingsSyncRuntime.js`, and time-routing/cycle-speed/sim-tick input reflection is now grouped behind `src/ui/timeRoutingSettingsSyncRuntime.js`.
+- Main command dependency assembly is now extracted to `src/core/mainCommandDepsRuntime.js`, so `main.js` no longer shapes the `registerMainCommands(...)` dependency object inline at the call site.
+- Scheduler/system registration plus initial runtime-store synchronization is now extracted to `src/core/runtimeSystemSetup.js`, so `main.js` no longer owns the full system-add/init block inline.
+- App startup orchestration for default-map auto-load error handling and startup UI/render kickoff is now extracted to `src/core/appStartupRuntime.js`.
+- Store-backed gameplay/runtime state accessors for swarm/pathfinding/cursor-light/point-light map sync are now grouped behind `src/gameplay/mainRuntimeStateBinding.js` instead of remaining as separate inline wrappers in `main.js`.
+- Swarm state/UI composition is now grouped behind `src/ui/swarmUiRuntimeBinding.js`, which composes main-runtime swarm state access, swarm panel reflection, swarm input normalization, and routing-input sync instead of leaving that integration block inline in `main.js`.
+- Bottom-of-file binding composition is now grouped behind `src/ui/mainBindingsRuntime.js` instead of leaving the full bind-* setup block inline in `main.js`.
+- Remaining camera/player/interaction/info-panel facade wrappers are now grouped behind `src/gameplay/mainFacadeRuntime.js` instead of staying as individual adapter functions in `main.js`.
 - Map-image runtime binding composition (`createMapImageRuntime` deps composition) is now extracted to `src/gameplay/mapImageRuntimeBinding.js`.
 - Map-sampling runtime binding composition (`createMapSampling` deps composition) is now extracted to `src/gameplay/mapSamplingRuntimeBinding.js`.
 - Shadow-occlusion runtime binding composition (`createShadowOcclusion` deps composition) is now extracted to `src/gameplay/shadowOcclusionRuntimeBinding.js`.
@@ -154,9 +166,14 @@ No game engine is used.
 - Interaction-mode snapshot binding runtime composition (`createInteractionModeSnapshotRuntime` deps composition + wrapper) is now extracted to `src/gameplay/interactionModeSnapshotBindingRuntime.js`.
 - Cursor-light pointer binding runtime composition (`createCursorLightPointerRuntime` deps composition + wrapper) is now extracted to `src/gameplay/cursorLightPointerBindingRuntime.js`.
 - Light interaction runtime composition (cursor-light state/pointer/ui plus point-light editor UI/action wrapper methods) is now extracted to `src/gameplay/lightInteractionRuntimeBinding.js`.
+- Optional map sidecar URL loads now treat missing JSON files as expected/quiet while still warning on malformed JSON or unexpected load failures; browser startup favicon noise is removed via `assets/favicon.svg`.
 - Swarm-cursor pointer binding runtime composition (`createSwarmCursorPointerRuntime` deps composition + wrapper) is now extracted to `src/gameplay/swarmCursorPointerBindingRuntime.js`.
 - Camera-view binding runtime composition (`createCameraViewRuntime` deps composition + wrapper methods) is now extracted to `src/gameplay/cameraViewRuntimeBinding.js`.
 - Camera runtime composition (camera-view binding plus coordinate/camera transform wrapper methods) is now extracted to `src/gameplay/cameraRuntimeBinding.js`.
+- Startup ordering hardening is still in progress after recent extractions:
+  - camera/pathfinding/render-fx/light-editor wrapper surfaces in `main.js` now use hoisted lazy accessors instead of late alias bindings where early startup paths needed them
+  - swarm follow/store-sync startup paths are hardened against missing early deps (`store`, follow snapshot state, optional enable getter)
+- Pathfinding command-side UI reflection is now routed through `src/ui/pathfindingSettingsApplier.js` instead of direct DOM writes inside `src/gameplay/interactionCommands.js`.
 - Player-state runtime binding composition (`createPlayerStateRuntime` deps composition + wrapper) is now extracted to `src/gameplay/playerStateRuntimeBinding.js`.
 - Player runtime composition (player-state binding, NPC persistence, and player store-sync wrapper methods) is now extracted to `src/gameplay/playerRuntimeBinding.js`.
 - Pathfinding cost-model binding runtime composition (`createPathfindingCostModel` deps composition + wrapper methods) is now extracted to `src/gameplay/pathfindingCostModelBindingRuntime.js`.
@@ -439,6 +456,7 @@ Targeted architecture tests:
 - No georeferenced sun position.
 - No animated movement yet (currently instant click-to-move).
 - Full modularization is still in progress; `src/main.js` remains the largest integration surface, but core/render/sim/ui/gameplay modules are now established and wired.
+- After the latest extraction pass, `src/main.js` is down to roughly 3708 lines, but it is still the largest integration surface and Phase 5/6 are not yet complete.
 
 ## Render Module Breakdown
 

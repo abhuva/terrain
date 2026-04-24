@@ -61,11 +61,11 @@ export function createLightInteractionRuntimeBinding(deps) {
       cursorLightPointerBindingRuntime.updateCursorLightFromPointer(clientX, clientY),
     updateCursorLightModeUi: () => cursorLightModeUiBindingRuntime.updateCursorLightModeUi(),
     updateLightEditorUi: () => pointLightEditorUiBindingRuntime.updateLightEditorUi(),
-    beginLightEdit: (light) => deps.pointLightRuntime.beginLightEdit(light),
-    applyDraftToSelectedPointLight: () => deps.pointLightRuntime.applyDraftToSelectedPointLight(),
-    rebakeIfPointLightLiveUpdateEnabled: () => deps.pointLightRuntime.rebakeIfPointLightLiveUpdateEnabled(),
+    beginLightEdit: (light) => deps.getPointLightRuntime().beginLightEdit(light),
+    applyDraftToSelectedPointLight: () => deps.getPointLightRuntime().applyDraftToSelectedPointLight(),
+    rebakeIfPointLightLiveUpdateEnabled: () => deps.getPointLightRuntime().rebakeIfPointLightLiveUpdateEnabled(),
     findPointLightAtPixel: (pixelX, pixelY, radiusPx) =>
-      deps.pointLightRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx),
-    createPointLight: (pixelX, pixelY) => deps.pointLightRuntime.createPointLight(pixelX, pixelY),
+      deps.getPointLightRuntime().findPointLightAtPixel(pixelX, pixelY, radiusPx),
+    createPointLight: (pixelX, pixelY) => deps.getPointLightRuntime().createPointLight(pixelX, pixelY),
   };
 }

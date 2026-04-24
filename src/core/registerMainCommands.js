@@ -150,9 +150,7 @@ export function registerMainCommands(commandBus, deps) {
         parallaxStrength: deps.clamp(Number(nextParallax.parallaxStrength), 0, 1),
         parallaxBands: clampRound(nextParallax.parallaxBands, 2, 256),
       });
-      deps.updateParallaxStrengthLabel();
-      deps.updateParallaxBandsLabel();
-      deps.updateParallaxUi();
+      deps.syncRenderFxParallaxUi();
       return;
     }
 
@@ -177,11 +175,7 @@ export function registerMainCommands(commandBus, deps) {
         pointFlickerSpeed: deps.clamp(Number(nextLighting.pointFlickerSpeed), 0.1, 12),
         pointFlickerSpatial: deps.clamp(Number(nextLighting.pointFlickerSpatial), 0, 4),
       });
-      deps.updateShadowBlurLabel();
-      deps.updateVolumetricLabels();
-      deps.updateVolumetricUi();
-      deps.updatePointFlickerLabels();
-      deps.updatePointFlickerUi();
+      deps.syncRenderFxLightingUi();
       if (typeof deps.schedulePointLightBake === "function" && patch && Object.prototype.hasOwnProperty.call(patch, "heightScale")) {
         deps.schedulePointLightBake();
       }
@@ -202,10 +196,7 @@ export function registerMainCommands(commandBus, deps) {
       if (command.markFogColorManual) {
         deps.markFogColorManual();
       }
-      deps.updateFogAlphaLabels();
-      deps.updateFogFalloffLabel();
-      deps.updateFogStartOffsetLabel();
-      deps.updateFogUi();
+      deps.syncRenderFxFogUi();
       return;
     }
 
@@ -223,8 +214,7 @@ export function registerMainCommands(commandBus, deps) {
         cloudSunParallax: deps.clamp(Number(nextClouds.cloudSunParallax), 0, 2),
         cloudUseSunProjection: Boolean(nextClouds.cloudUseSunProjection),
       });
-      deps.updateCloudLabels();
-      deps.updateCloudUi();
+      deps.syncRenderFxCloudUi();
       return;
     }
 
@@ -257,8 +247,7 @@ export function registerMainCommands(commandBus, deps) {
         waterTintColor: normalizeHexColor(nextWater.waterTintColor, deps.serializeWaterSettings().waterTintColor),
         waterTintStrength: deps.clamp(Number(nextWater.waterTintStrength), 0, 1),
       });
-      deps.updateWaterLabels();
-      deps.updateWaterUi();
+      deps.syncRenderFxWaterUi();
       if (command.rebuildFlowMap) {
         deps.rebuildFlowMapTexture();
       }
@@ -305,13 +294,12 @@ export function registerMainCommands(commandBus, deps) {
         updateSwarmSettings({
           cursorMode: command.value === "attract" || command.value === "repel" ? command.value : "none",
         });
-        deps.updateSwarmUi();
+        deps.syncSwarmPanelUi();
         deps.requestOverlayDraw();
         break;
       case "followZoomToggleChanged":
         updateSwarmSettings({ followZoomBySpeed: Boolean(command.value) });
-        deps.updateSwarmUi();
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       case "followZoomInChanged": {
         const settings = deps.getSwarmSettings();
@@ -321,10 +309,8 @@ export function registerMainCommands(commandBus, deps) {
           deps.zoomMax,
         );
         const zoomIn = Math.max(zoomOut, deps.clamp(Number(command.zoomIn), deps.zoomMin, deps.zoomMax));
-        deps.swarmFollowZoomOutInput.value = zoomOut.toFixed(1);
-        deps.swarmFollowZoomInInput.value = zoomIn.toFixed(1);
         updateSwarmSettings({ followZoomOut: zoomOut, followZoomIn: zoomIn });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "followZoomOutChanged": {
@@ -335,177 +321,153 @@ export function registerMainCommands(commandBus, deps) {
           deps.zoomMax,
         );
         const zoomOut = Math.min(zoomIn, deps.clamp(Number(command.zoomOut), deps.zoomMin, deps.zoomMax));
-        deps.swarmFollowZoomOutInput.value = zoomOut.toFixed(1);
-        deps.swarmFollowZoomInInput.value = zoomIn.toFixed(1);
         updateSwarmSettings({ followZoomOut: zoomOut, followZoomIn: zoomIn });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "followHawkRangeGizmoChanged":
         updateSwarmSettings({ followHawkRangeGizmo: Boolean(command.value) });
-        deps.updateSwarmUi();
+        deps.syncSwarmPanelUi();
         deps.requestOverlayDraw();
         break;
       case "followAgentSpeedSmoothingChanged": {
         const value = deps.clamp(Number(command.value), 0.01, 0.25);
-        deps.swarmFollowAgentSpeedSmoothingInput.value = value.toFixed(2);
         updateSwarmSettings({ followAgentSpeedSmoothing: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "followAgentZoomSmoothingChanged": {
         const value = deps.clamp(Number(command.value), 0.01, 0.25);
-        deps.swarmFollowAgentZoomSmoothingInput.value = value.toFixed(2);
         updateSwarmSettings({ followAgentZoomSmoothing: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "simulationSpeedChanged": {
         const value = deps.clamp(Number(command.value), 0.1, 20);
-        deps.swarmUpdateIntervalInput.value = String(value);
         updateSwarmSettings({ simulationSpeed: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "neighborRadiusChanged": {
         const value = deps.clamp(Number(command.value), 10, 200);
-        deps.swarmNeighborRadiusInput.value = String(value);
         updateSwarmSettings({ neighborRadius: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "separationRadiusChanged": {
         const value = deps.clamp(Number(command.value), 6, 120);
-        deps.swarmSeparationRadiusInput.value = String(value);
         updateSwarmSettings({ separationRadius: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "alignmentWeightChanged": {
         const value = deps.clamp(Number(command.value), 0, 4);
-        deps.swarmAlignmentWeightInput.value = String(value);
         updateSwarmSettings({ alignmentWeight: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "cohesionWeightChanged": {
         const value = deps.clamp(Number(command.value), 0, 4);
-        deps.swarmCohesionWeightInput.value = String(value);
         updateSwarmSettings({ cohesionWeight: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "separationWeightChanged": {
         const value = deps.clamp(Number(command.value), 0, 6);
-        deps.swarmSeparationWeightInput.value = String(value);
         updateSwarmSettings({ separationWeight: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "wanderWeightChanged": {
         const value = deps.clamp(Number(command.value), 0, 2);
-        deps.swarmWanderWeightInput.value = String(value);
         updateSwarmSettings({ wanderWeight: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "restChanceChanged": {
         const value = deps.clamp(Number(command.value), 0, 0.002);
-        deps.swarmRestChanceInput.value = String(value);
         updateSwarmSettings({ restChancePct: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "restTicksChanged": {
         const value = Math.round(deps.clamp(Number(command.value), 100, 10000));
-        deps.swarmRestTicksInput.value = String(value);
         updateSwarmSettings({ restTicks: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "breedingThresholdChanged": {
         const value = Math.round(deps.clamp(Number(command.value), 0, 1000));
-        deps.swarmBreedingThresholdInput.value = String(value);
         updateSwarmSettings({ breedingThreshold: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "breedingSpawnChanceChanged": {
         const value = deps.clamp(Number(command.value), 0, 1);
-        deps.swarmBreedingSpawnChanceInput.value = String(value);
         updateSwarmSettings({ breedingSpawnChance: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "cursorStrengthChanged": {
         const value = deps.clamp(Number(command.value), 0, 8);
-        deps.swarmCursorStrengthInput.value = String(value);
         updateSwarmSettings({ cursorStrength: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "cursorRadiusChanged": {
         const value = deps.clamp(Number(command.value), 20, 260);
-        deps.swarmCursorRadiusInput.value = String(value);
         updateSwarmSettings({ cursorRadius: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "hawkSpeedChanged": {
         const value = deps.clamp(Number(command.value), 30, 420);
-        deps.swarmHawkSpeedInput.value = String(value);
         updateSwarmSettings({ hawkSpeed: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "hawkSteeringChanged": {
         const value = deps.clamp(Number(command.value), 20, 700);
-        deps.swarmHawkSteeringInput.value = String(value);
         updateSwarmSettings({ hawkSteering: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "hawkTargetRangeChanged": {
         const value = Math.round(deps.clamp(Number(command.value), 20, 500));
-        deps.swarmHawkTargetRangeInput.value = String(value);
         updateSwarmSettings({ hawkTargetRange: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         break;
       }
       case "statsPanelChanged":
         updateSwarmSettings({ showStatsPanel: Boolean(command.value) });
-        deps.updateSwarmUi();
+        deps.syncSwarmPanelUi();
         deps.updateSwarmStatsPanel();
         break;
       case "agentCountChanged": {
         const value = Math.round(deps.clamp(Number(command.value), 100, 1000));
-        deps.swarmAgentCountInput.value = String(value);
         updateSwarmSettings({ agentCount: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.getSwarmSettings().agentCount);
         break;
       }
       case "maxSpeedChanged": {
         const value = deps.clamp(Number(command.value), 30, 300);
-        deps.swarmMaxSpeedInput.value = String(value);
         updateSwarmSettings({ maxSpeed: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
         break;
       }
       case "maxSteeringChanged": {
         const value = deps.clamp(Number(command.value), 10, 500);
-        deps.swarmSteeringMaxInput.value = String(value);
         updateSwarmSettings({ maxSteering: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
         break;
       }
       case "variationChanged": {
         const value = Math.round(deps.clamp(Number(command.value), 0, 50));
-        deps.swarmVariationStrengthInput.value = String(value);
         updateSwarmSettings({ variationStrengthPct: value });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
         break;
       }
@@ -516,10 +478,8 @@ export function registerMainCommands(commandBus, deps) {
         if (minHeight > maxHeight) {
           maxHeight = minHeight;
         }
-        deps.swarmMinHeightInput.value = String(minHeight);
-        deps.swarmMaxHeightInput.value = String(maxHeight);
         updateSwarmSettings({ minHeight, maxHeight });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count);
         break;
       }
@@ -530,32 +490,27 @@ export function registerMainCommands(commandBus, deps) {
         if (minHeight > maxHeight) {
           minHeight = maxHeight;
         }
-        deps.swarmMinHeightInput.value = String(minHeight);
-        deps.swarmMaxHeightInput.value = String(maxHeight);
         updateSwarmSettings({ minHeight, maxHeight });
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count);
         break;
       }
       case "hawkEnabledChanged": {
         updateSwarmSettings({ useHawk: Boolean(command.value) });
-        deps.updateSwarmUi();
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
         break;
       }
       case "hawkCountChanged": {
         const value = Math.round(deps.clamp(Number(command.value), 0, 20));
-        deps.swarmHawkCountInput.value = String(value);
         updateSwarmSettings({ hawkCount: value });
-        deps.updateSwarmUi();
-        deps.updateSwarmLabels();
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
         break;
       }
       case "enabledToggleChanged":
         updateSwarmSettings({ useAgentSwarm: Boolean(command.value) });
-        deps.updateSwarmUi();
+        deps.syncSwarmPanelUi();
         deps.swarmState.lastUpdateMs = null;
         deps.swarmCursorState.active = false;
         if (deps.getSwarmSettings().useAgentSwarm) {
@@ -649,9 +604,7 @@ export function registerMainCommands(commandBus, deps) {
 
   commandBus.register("core/time/setCycleSpeed", (command, ctx) => {
     const nextSpeed = deps.clamp(Number(command.cycleSpeed), 0, 1);
-    if (deps.cycleSpeedInput) {
-      deps.cycleSpeedInput.value = String(nextSpeed);
-    }
+    deps.syncCycleSpeedInput(nextSpeed);
     ctx.store.update((prev) => ({
       ...prev,
       clock: {
@@ -670,9 +623,7 @@ export function registerMainCommands(commandBus, deps) {
 
   commandBus.register("core/time/setSimTickHours", (command, ctx) => {
     const nextTick = deps.clamp(Number(command.simTickHours), 0.001, 0.1);
-    if (deps.simTickHoursInput) {
-      deps.simTickHoursInput.value = String(nextTick);
-    }
+    deps.syncSimTickHoursInput(nextTick);
     ctx.store.update((prev) => ({
       ...prev,
       systems: {
@@ -693,15 +644,7 @@ export function registerMainCommands(commandBus, deps) {
     const mode = command.mode === "detached" ? "detached" : "global";
     const allowedTargets = new Set(["movement", "swarm", "clouds", "water", "weather"]);
     if (!allowedTargets.has(target)) return;
-    if (target === "swarm" && deps.swarmTimeRoutingInput) {
-      deps.swarmTimeRoutingInput.value = mode;
-    }
-    if (target === "clouds" && deps.cloudTimeRoutingInput) {
-      deps.cloudTimeRoutingInput.value = mode;
-    }
-    if (target === "water" && deps.waterTimeRoutingInput) {
-      deps.waterTimeRoutingInput.value = mode;
-    }
+    deps.syncRoutingInput(target, mode);
     ctx.store.update((prev) => ({
       ...prev,
       systems: {

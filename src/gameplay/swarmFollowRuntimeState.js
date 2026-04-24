@@ -7,13 +7,25 @@ function normalizeFollowTargetType(value) {
 }
 
 export function createSwarmFollowRuntimeState(deps) {
+  function getStore() {
+    if (typeof deps.getStore === "function") {
+      return deps.getStore();
+    }
+    return deps.store || null;
+  }
+
   function getCoreSwarm() {
-    const state = deps.store.getState();
+    const store = getStore();
+    const state = store && typeof store.getState === "function" ? store.getState() : null;
     return state && state.gameplay && state.gameplay.swarm ? state.gameplay.swarm : {};
   }
 
   function updateCoreSwarm(patch) {
-    deps.store.update((prev) => ({
+    const store = getStore();
+    if (!store || typeof store.update !== "function") {
+      return;
+    }
+    store.update((prev) => ({
       ...prev,
       gameplay: {
         ...prev.gameplay,

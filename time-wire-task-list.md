@@ -318,6 +318,27 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Clarified player ownership for manual reposition by making `setPlayerPosition(...)` publish canonical player state immediately rather than relying on a second sync call afterward.
   - Reduced duplicated swarm ownership by extracting follow apply/stop plus swarm runtime/store sync composition into `src/gameplay/swarmRuntime.js`, and by removing inline swarm store snapshot assembly from `registerMainCommands.js`.
   - Reduced another swarm ownership hotspot by moving follow target-index/smoothing mutations behind `src/gameplay/swarmFollowRuntimeState.js` instead of scattering direct `swarmFollowState` writes across reseed, remove, serialization, and follow-camera paths.
+- 2026-04-25:
+  - Hardened several recent extraction-order regressions in startup/runtime wiring:
+    - camera/pathfinding/render-fx/light-editor wrapper surfaces in `main.js` now resolve through hoisted lazy accessors instead of late alias bindings
+    - swarm store-sync and follow-runtime paths now tolerate missing early deps (`store`, follow snapshot state, `isSwarmEnabled`) during startup sequencing
+  - Reduced normal startup noise:
+    - optional map sidecar JSON loads now fail quietly when files are absent and only warn on malformed JSON/unexpected load failures
+    - added `assets/favicon.svg` and linked it from `index.html`
+  - Continued Phase 2/5 migration work by extracting a canonical settings facade into `src/core/settingsRuntimeBinding.js`, removing another long settings serialize/apply/default ownership block from `main.js`.
+  - Continued the same ownership reduction by extracting the remaining legacy settings/UI composition block into `src/ui/settingsLegacyRuntimeBinding.js`.
+  - Reduced one remaining command-to-DOM write-back hotspot by moving pathfinding input reflection behind `src/ui/pathfindingSettingsApplier.js`, so pathfinding command handlers no longer mutate those input elements directly.
+  - Reduced another command-to-UI write-back hotspot by grouping render-FX UI reflection behind `src/ui/renderFxSettingsSyncRuntime.js`, so `registerMainCommands.js` no longer expands those label/UI updates inline for parallax/lighting/fog/cloud/water changes.
+  - Reduced the remaining swarm command-to-UI write-back hotspot by grouping swarm panel reflection behind `src/ui/swarmSettingsSyncRuntime.js`, so swarm settings commands no longer write a long list of swarm inputs inline.
+  - Reduced another small command-to-input write-back hotspot by grouping routing/cycle-speed/sim-tick input reflection behind `src/ui/timeRoutingSettingsSyncRuntime.js`.
+  - Continued Phase 5 extraction by moving command dependency assembly out of the `registerMainCommands(...)` call site into `src/core/mainCommandDepsRuntime.js`.
+  - Continued Phase 5 extraction by moving scheduler/system registration plus initial runtime-store synchronization out of `main.js` into `src/core/runtimeSystemSetup.js`.
+  - Continued Phase 5 extraction by grouping store-backed gameplay/runtime state accessors behind `src/gameplay/mainRuntimeStateBinding.js` instead of keeping those wrappers inline in `main.js`.
+  - Continued Phase 5 extraction by moving the long settings serialize/apply/default shim surface behind `src/core/settingsFacadeRuntime.js`, so `main.js` no longer owns that facade inline.
+  - Continued Phase 5 extraction by grouping swarm state/UI composition behind `src/ui/swarmUiRuntimeBinding.js`, so `main.js` no longer owns the inline block that assembled swarm runtime-state access, swarm panel reflection, swarm normalization, and routing-input sync.
+  - Continued Phase 5 extraction by grouping the bottom-of-file bind/setup orchestration behind `src/ui/mainBindingsRuntime.js` and startup kickoff/error handling behind `src/core/appStartupRuntime.js`.
+  - Continued Phase 5 extraction by grouping the remaining camera/player/interaction/info-panel adapter surface behind `src/gameplay/mainFacadeRuntime.js`.
+  - `main.js` is reduced further to roughly 3708 lines, but it still remains too large to honestly mark Phase 5/6 complete.
   - Reduced `main.js` further by extracting swarm interpolation/update/follow-camera composition into `src/gameplay/swarmLoopRuntime.js`.
   - Moved swarm follow target indices into canonical `gameplay.swarm` state (`followAgentIndex`, `followHawkIndex`) so follow target ownership no longer lives only in runtime locals.
   - Reduced `main.js` further by extracting swarm gameplay composition (environment, targeting, mutator, reseed, swarm data apply/serialize) into `src/gameplay/swarmGameplayRuntime.js`.
