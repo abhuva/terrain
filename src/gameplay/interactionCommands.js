@@ -87,7 +87,6 @@ export function registerInteractionCommands(commandBus, deps) {
     deps.movePreviewState.hoverPixel = null;
     deps.movePreviewState.pathPixels = [];
     deps.setStatus(`Player moved to (${deps.playerState.pixelX}, ${deps.playerState.pixelY})`);
-    syncPlayerToStore(ctx);
     deps.requestOverlayDraw();
   });
 

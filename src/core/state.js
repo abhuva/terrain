@@ -46,6 +46,7 @@ export const DEFAULT_GAMEPLAY_MOVEMENT = {
 
 export const DEFAULT_GAMEPLAY_POINT_LIGHTS = {
   liveUpdate: false,
+  saveConfirmArmed: false,
 };
 
 export const DEFAULT_TIME_ROUTING = {

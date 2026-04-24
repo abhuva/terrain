@@ -27,6 +27,7 @@ export function createPointLightIoRuntime(deps) {
     clearPointLightsLoadInput: deps.clearPointLightsLoadInput,
     openPointLightsLoadInput: deps.openPointLightsLoadInput,
     setSaveButtonText: deps.setSaveButtonText,
+    syncPointLightsStateToStore: deps.syncPointLightsStateToStore,
     setTimeout: deps.setTimeout,
     clearTimeout: deps.clearTimeout,
   });

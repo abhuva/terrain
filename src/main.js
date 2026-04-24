@@ -2290,6 +2290,7 @@ const pointLightIoRuntime = createPointLightIoRuntime({
   setSaveButtonText: (text) => {
     pointLightsSaveAllBtn.textContent = text;
   },
+  syncPointLightsStateToStore,
   setTimeout: (fn, ms) => window.setTimeout(fn, ms),
   clearTimeout: (id) => window.clearTimeout(id),
 });
@@ -3129,11 +3130,12 @@ function syncPlayerStateToStore() {
   });
 }
 
-function syncPointLightsStateToStore(nextLiveUpdate = null) {
+function syncPointLightsStateToStore(nextLiveUpdate = null, nextSaveConfirmArmed = null) {
   syncPointLightsState({
     store: runtimeCore.store,
     isPointLightLiveUpdateEnabled,
     nextLiveUpdate,
+    nextSaveConfirmArmed,
   });
 }
 
@@ -3149,6 +3151,10 @@ function isPointLightLiveUpdateEnabled() {
   return getPointLightLiveUpdateEnabled({
     getCorePointLights: () => runtimeCore.store.getState().gameplay.pointLights || null,
   });
+}
+
+function isPointLightsSaveConfirmArmed() {
+  return Boolean(runtimeCore.store.getState().gameplay.pointLights?.saveConfirmArmed);
 }
 
 function setSwarmDefaults() {
@@ -3839,6 +3845,19 @@ function getPlayerStateRuntimeBinding() {
     playerState,
     clamp,
     splatSize,
+    setPlayerSnapshot: ({ pixelX, pixelY }) => {
+      runtimeCore.store.update((prev) => ({
+        ...prev,
+        gameplay: {
+          ...prev.gameplay,
+          player: {
+            ...prev.gameplay.player,
+            pixelX,
+            pixelY,
+          },
+        },
+      }));
+    },
   });
   return playerStateRuntimeBinding;
 }
@@ -4322,7 +4341,7 @@ bindPointLightEditorRuntime({
   getSelectedPointLight,
   deletePointLightById: (id) => pointLightEditorRuntime.deletePointLightById(id),
   clearLightEditSelection,
-  isPointLightsSaveConfirmArmed: () => pointLightIoRuntime.isPointLightsSaveConfirmArmed(),
+  isPointLightsSaveConfirmArmed,
   armPointLightsSaveConfirmation,
   resetPointLightsSaveConfirmation,
   savePointLightsJson,

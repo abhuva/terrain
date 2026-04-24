@@ -314,6 +314,8 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Reduced one remaining DOM-as-truth pattern in the point-light editor path by letting label updates consume explicit draft/state values instead of rereading input elements after UI reflection.
   - Reduced another DOM-primary pattern in swarm startup/apply normalization by letting swarm range/zoom normalization helpers accept explicit state values instead of only rereading paired input elements.
   - Reduced a remaining DOM-primary pattern in swarm panel bindings by sourcing paired follow-zoom and min/max-height values from canonical swarm settings instead of sibling input elements.
+  - Clarified point-light editor ownership by syncing save-confirm armed state into canonical `gameplay.pointLights` state instead of leaving it only in controller-local memory.
+  - Clarified player ownership for manual reposition by making `setPlayerPosition(...)` publish canonical player state immediately rather than relying on a second sync call afterward.
   - Current recommended next sequence remains:
     - close remaining Phase 2 command-surface/state-contract work
     - close Phase 4 ownership boundaries for swarm/player/point-light runtime

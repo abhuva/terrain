@@ -27,6 +27,7 @@ export function syncPlayerState(deps) {
 
 export function syncPointLightsState(deps) {
   const liveUpdate = deps.nextLiveUpdate == null ? deps.isPointLightLiveUpdateEnabled() : Boolean(deps.nextLiveUpdate);
+  const nextSaveConfirmArmed = deps.nextSaveConfirmArmed;
   deps.store.update((prev) => ({
     ...prev,
     gameplay: {
@@ -34,6 +35,9 @@ export function syncPointLightsState(deps) {
       pointLights: {
         ...(prev.gameplay && prev.gameplay.pointLights ? prev.gameplay.pointLights : {}),
         liveUpdate,
+        saveConfirmArmed: nextSaveConfirmArmed == null
+          ? Boolean(prev.gameplay && prev.gameplay.pointLights && prev.gameplay.pointLights.saveConfirmArmed)
+          : Boolean(nextSaveConfirmArmed),
       },
     },
   }));
