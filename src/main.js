@@ -128,6 +128,7 @@ import { createPathfindingPreviewRuntime } from "./gameplay/pathfindingPreviewRu
 import { createCursorLightPointerRuntime } from "./gameplay/cursorLightPointerRuntime.js";
 import { createSwarmCursorPointerRuntime } from "./gameplay/swarmCursorPointerRuntime.js";
 import { createPlayerStateRuntime } from "./gameplay/playerStateRuntime.js";
+import { createCameraViewRuntime } from "./gameplay/cameraViewRuntime.js";
 import { setInteractionMode as applyInteractionMode } from "./gameplay/interactionModeController.js";
 import { createPathfindingCostModel } from "./gameplay/pathfindingCostModel.js";
 import {
@@ -2997,15 +2998,26 @@ syncSwarmRuntimeStateToStore();
 syncPointLightsStateToStore();
 
 function resetCamera() {
-  dispatchCoreCommand({ type: "core/camera/reset" });
+  getCameraViewRuntime().resetCamera();
 }
 
 function getScreenAspect() {
-  return canvas.width > 0 && canvas.height > 0 ? canvas.width / canvas.height : 1;
+  return getCameraViewRuntime().getScreenAspect();
 }
 
 function getMapAspect() {
-  return splatSize.width / splatSize.height;
+  return getCameraViewRuntime().getMapAspect();
+}
+
+let cameraViewRuntime = null;
+function getCameraViewRuntime() {
+  if (cameraViewRuntime) return cameraViewRuntime;
+  cameraViewRuntime = createCameraViewRuntime({
+    dispatchCoreCommand,
+    canvas,
+    splatSize,
+  });
+  return cameraViewRuntime;
 }
 
 function getSwarmCursorMode() {

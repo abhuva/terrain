@@ -1099,3 +1099,10 @@ Recommended next sequence:
     - `node --check src/ui/overlays/overlayDirtyRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued camera-view runtime extraction:
+    - extracted camera view/command helpers (`resetCamera`, `getScreenAspect`, `getMapAspect`) from `src/main.js` into `src/gameplay/cameraViewRuntime.js`
+    - `main.js` now keeps these helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/cameraViewRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
