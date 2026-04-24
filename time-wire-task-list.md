@@ -1500,3 +1500,10 @@ Recommended next sequence:
     - `node --check src/gameplay/pointLightEditorActionBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm-overlay binding runtime extraction:
+    - extracted swarm-overlay binding runtime composition (`createSwarmOverlayRuntime` deps composition + wrapper methods) from `src/main.js` into `src/ui/swarmOverlayBindingRuntime.js`
+    - `main.js` now delegates `drawSwarmUnlitOverlay(...)` and `drawSwarmGizmos(...)` through this runtime binding
+  - Validation:
+    - `node --check src/ui/swarmOverlayBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

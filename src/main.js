@@ -184,7 +184,7 @@ import { createPointLightEditorUiBindingRuntime } from "./ui/pointLightEditorUiB
 import { createCursorLightModeUiBindingRuntime } from "./ui/cursorLightModeUiBindingRuntime.js";
 import { createTimeUiBindingRuntime } from "./ui/timeUiBindingRuntime.js";
 import { runStartupUiSyncRuntime } from "./ui/startupUiSyncRuntime.js";
-import { createSwarmOverlayRuntime } from "./ui/swarmOverlayRuntime.js";
+import { createSwarmOverlayBindingRuntime } from "./ui/swarmOverlayBindingRuntime.js";
 import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
 import * as pathfindingLabelUi from "./ui/pathfindingLabelUi.js";
 
@@ -3632,14 +3632,14 @@ const updateSwarmFollowCamera = createSwarmFollowCameraUpdater({
 });
 
 function drawSwarmUnlitOverlay(settings) {
-  swarmOverlayRuntime.drawSwarmUnlitOverlay(settings);
+  swarmOverlayBindingRuntime.drawSwarmUnlitOverlay(settings);
 }
 
 function drawSwarmGizmos(settings) {
-  swarmOverlayRuntime.drawSwarmGizmos(settings);
+  swarmOverlayBindingRuntime.drawSwarmGizmos(settings);
 }
 
-const swarmOverlayRuntime = createSwarmOverlayRuntime({
+const swarmOverlayBindingRuntime = createSwarmOverlayBindingRuntime({
   swarmState,
   swarmOverlayAgentScratch,
   swarmOverlayHawkScratch,
