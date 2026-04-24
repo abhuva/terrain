@@ -1269,3 +1269,10 @@ Recommended next sequence:
     - `node --check src/ui/runtimeBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued startup UI sync runtime extraction:
+    - extracted startup UI sync orchestration (`runStartupUiSync` deps composition) from `src/main.js` into `src/ui/startupUiSyncRuntime.js`
+    - `main.js` now delegates to `runStartupUiSyncRuntime(...)`
+  - Validation:
+    - `node --check src/ui/startupUiSyncRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

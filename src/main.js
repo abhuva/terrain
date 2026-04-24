@@ -189,7 +189,7 @@ import { createPointLightEditorRuntime as createPointLightEditorUiRuntime } from
 import { createCursorLightModeUiRuntime } from "./ui/cursorLightModeUiRuntime.js";
 import { createTopicPanelRuntime } from "./ui/topicPanelRuntime.js";
 import { createTimeUiRuntime } from "./ui/timeUiRuntime.js";
-import { runStartupUiSync } from "./ui/startupUiSync.js";
+import { runStartupUiSyncRuntime } from "./ui/startupUiSyncRuntime.js";
 import { createSwarmOverlayRuntime } from "./ui/swarmOverlayRuntime.js";
 import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
 import * as pathfindingLabelUi from "./ui/pathfindingLabelUi.js";
@@ -4522,7 +4522,7 @@ void tryAutoLoadDefaultMap().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   setStatus(`Default map auto-load failed: ${message}`);
 });
-runStartupUiSync({
+runStartupUiSyncRuntime({
   setSwarmDefaults,
   normalizeSwarmHeightRangeInputs,
   updatePathfindingRangeLabel,

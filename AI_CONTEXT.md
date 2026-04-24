@@ -117,6 +117,7 @@ No game engine is used.
 - Swarm-panel binding orchestration (`bindSwarmPanelControls` deps composition) is now extracted to `src/ui/swarmPanelBindingRuntime.js`.
 - Canvas binding orchestration (`bindCanvasControls` deps composition) is now extracted to `src/ui/canvasBindingRuntime.js`.
 - Runtime binding orchestration (`bindRuntimeControls` deps composition) is now extracted to `src/ui/runtimeBindingRuntime.js`.
+- Startup UI sync orchestration (`runStartupUiSync` deps composition) is now extracted to `src/ui/startupUiSyncRuntime.js`.
 - Camera/coordinate transform helpers (camera state, view extents, world/uv/map/screen conversions) are now extracted to `src/gameplay/cameraTransforms.js`.
 - Camera view/command helpers (`resetCamera`, `getScreenAspect`, `getMapAspect`) are now extracted to `src/gameplay/cameraViewRuntime.js`.
 - Pathfinding label helper updates are now extracted to `src/ui/pathfindingLabelUi.js`.
