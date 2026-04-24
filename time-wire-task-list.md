@@ -777,3 +777,17 @@ Recommended next sequence:
     - `node --check src/gameplay/pathfindingCostModel.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued mode-capability UI extraction:
+    - extracted topic-panel/mode-capability UI orchestration from `src/main.js` into `src/ui/modeCapabilitiesUi.js`
+    - `main.js` now composes this module and keeps `setTopicPanelVisible(...)`, `setActiveTopic(...)`, and `updateModeCapabilitiesUi(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/ui/modeCapabilitiesUi.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued map-path utility extraction:
+    - extracted map-path/file-URL helper utilities from `src/main.js` into `src/gameplay/mapPathUtils.js`
+    - `main.js` now keeps `normalizeMapFolderPath(...)`, `isAbsoluteFsPath(...)`, `joinFsPath(...)`, `buildMapAssetPath(...)`, and `toAbsoluteFileUrl(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/mapPathUtils.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

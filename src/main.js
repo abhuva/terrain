@@ -47,6 +47,13 @@ import { createPointLightIoController } from "./gameplay/pointLightIoController.
 import { createMapDataSaveController } from "./gameplay/mapDataSaveController.js";
 import { createMapSidecarLoader } from "./gameplay/mapSidecarLoader.js";
 import { createMapLoader } from "./gameplay/mapLoader.js";
+import {
+  normalizeMapFolderPath as normalizeMapFolderPathUtil,
+  isAbsoluteFsPath as isAbsoluteFsPathUtil,
+  joinFsPath as joinFsPathUtil,
+  buildMapAssetPath as buildMapAssetPathUtil,
+  toAbsoluteFileUrl as toAbsoluteFileUrlUtil,
+} from "./gameplay/mapPathUtils.js";
 import { parsePointLightsPayload, serializePointLightsPayload } from "./gameplay/pointLightsPersistence.js";
 import { createSwarmFollowCameraUpdater } from "./gameplay/swarmFollowCamera.js";
 import { createSwarmUpdateLoop } from "./gameplay/swarmUpdateLoop.js";
@@ -113,6 +120,7 @@ import { createInteractionSettingsApplier } from "./ui/interactionSettingsApplie
 import { createLightingSettingsApplier } from "./ui/lightingSettingsApplier.js";
 import { createRenderFxSettingsApplier } from "./ui/renderFxSettingsApplier.js";
 import { createInfoPanelRuntime } from "./ui/infoPanelRuntime.js";
+import { createModeCapabilitiesUi } from "./ui/modeCapabilitiesUi.js";
 import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
 import * as pathfindingLabelUi from "./ui/pathfindingLabelUi.js";
 
@@ -1328,9 +1336,7 @@ async function loadImageFromFile(file) {
 }
 
 function normalizeMapFolderPath(path) {
-  const text = String(path || "").trim();
-  if (!text) return DEFAULT_MAP_FOLDER;
-  return text.replace(/[\\/]+$/, "");
+  return normalizeMapFolderPathUtil(path, DEFAULT_MAP_FOLDER);
 }
 
 function getTauriInvoke() {
@@ -1344,35 +1350,15 @@ function getTauriInvoke() {
 const tauriInvoke = getTauriInvoke();
 
 function isAbsoluteFsPath(path) {
-  const text = String(path || "").trim();
-  if (!text) return false;
-  return /^[a-zA-Z]:[\\/]/.test(text) || text.startsWith("/") || text.startsWith("\\\\");
+  return isAbsoluteFsPathUtil(path);
 }
 
 function joinFsPath(folder, fileName) {
-  const base = String(folder || "").replace(/[\\/]+$/, "");
-  if (base.includes("\\")) {
-    return `${base}\\${fileName}`;
-  }
-  return `${base}/${fileName}`;
+  return joinFsPathUtil(folder, fileName);
 }
 
 function buildMapAssetPath(folder, fileName) {
-  const base = String(folder || "").replace(/[\\/]+$/, "");
-  if (base.startsWith("file://")) {
-    return `${base}/${fileName}`;
-  }
-  if (isAbsoluteFsPath(base)) {
-    const normalized = base.replace(/\\/g, "/");
-    if (/^[a-zA-Z]:\//.test(normalized)) {
-      return `file:///${encodeURI(normalized)}/${fileName}`;
-    }
-    if (normalized.startsWith("//")) {
-      return `file:${encodeURI(normalized)}/${fileName}`;
-    }
-    return `file://${encodeURI(normalized)}/${fileName}`;
-  }
-  return `${base}/${fileName}`;
+  return buildMapAssetPathUtil(folder, fileName);
 }
 
 async function invokeTauri(command, args) {
@@ -1383,16 +1369,7 @@ async function invokeTauri(command, args) {
 }
 
 function toAbsoluteFileUrl(path) {
-  const normalized = String(path || "").trim().replace(/\\/g, "/");
-  if (!normalized) return "";
-  if (normalized.startsWith("file://")) return normalized;
-  if (/^[a-zA-Z]:\//.test(normalized)) {
-    return `file:///${encodeURI(normalized)}`;
-  }
-  if (normalized.startsWith("//")) {
-    return `file:${encodeURI(normalized)}`;
-  }
-  return `file://${encodeURI(normalized)}`;
+  return toAbsoluteFileUrlUtil(path);
 }
 
 async function pickMapFolderViaTauri() {
@@ -2840,10 +2817,6 @@ function updateCursorLightModeUi() {
   cursorLightHeightOffsetInput.disabled = !followTerrain;
 }
 
-function setTopicPanelVisible(visible) {
-  topicPanelEl.classList.toggle("hidden", !visible);
-}
-
 function getRuntimeMode() {
   return normalizeRuntimeMode(runtimeCore.store.getState().mode);
 }
@@ -2856,47 +2829,34 @@ function canUseInteractionInCurrentMode(mode) {
   return canUseModeInteraction(getRuntimeMode(), mode);
 }
 
+const modeCapabilitiesUi = createModeCapabilitiesUi({
+  topicButtons,
+  topicCards,
+  topicPanelEl,
+  topicPanelTitleEl,
+  dockLightingModeToggle,
+  dockPathfindingModeToggle,
+  getRuntimeMode,
+  canUseModeTopic,
+  canUseModeInteraction,
+  getInteractionModeSnapshot,
+  setInteractionMode,
+});
+
+function setTopicPanelVisible(visible) {
+  modeCapabilitiesUi.setTopicPanelVisible(visible);
+}
+
 function setActiveTopic(topicName) {
   if (topicName && !canUseTopicInCurrentMode(topicName)) {
     setStatus(`'${topicName}' panel is unavailable in ${getRuntimeMode()} mode.`);
     topicName = "";
   }
-  let opened = false;
-  for (const btn of topicButtons) {
-    const active = btn.dataset.topic === topicName;
-    btn.classList.toggle("active", active);
-    if (active) opened = true;
-  }
-  for (const card of topicCards) {
-    const active = card.dataset.topic === topicName;
-    card.classList.toggle("active", active);
-    if (active) {
-      topicPanelTitleEl.textContent = card.dataset.title || "Settings";
-    }
-  }
-  setTopicPanelVisible(opened);
+  modeCapabilitiesUi.setActiveTopic(topicName);
 }
 
 function updateModeCapabilitiesUi() {
-  const mode = getRuntimeMode();
-  for (const btn of topicButtons) {
-    const topic = btn.dataset.topic || "";
-    const enabled = canUseModeTopic(mode, topic);
-    btn.disabled = !enabled;
-    btn.classList.toggle("disabled", !enabled);
-  }
-  const activeTopicButton = topicButtons.find((btn) => btn.classList.contains("active"));
-  const activeTopic = activeTopicButton ? activeTopicButton.dataset.topic || "" : "";
-  if (activeTopic && !canUseModeTopic(mode, activeTopic)) {
-    setActiveTopic("");
-  }
-  const canLighting = canUseModeInteraction(mode, "lighting");
-  const canPathfinding = canUseModeInteraction(mode, "pathfinding");
-  dockLightingModeToggle.disabled = !canLighting;
-  dockPathfindingModeToggle.disabled = !canPathfinding;
-  if (!canUseModeInteraction(mode, getInteractionModeSnapshot())) {
-    setInteractionMode("none");
-  }
+  modeCapabilitiesUi.updateModeCapabilitiesUi();
 }
 
 function getInteractionModeSnapshot() {

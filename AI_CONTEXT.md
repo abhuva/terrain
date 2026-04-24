@@ -51,6 +51,8 @@ No game engine is used.
 - Swarm runtime/store synchronization helpers are now extracted to `src/gameplay/swarmStoreSync.js`.
 - Swarm follow-state apply/stop controller logic is now extracted to `src/gameplay/swarmFollowStateController.js`.
 - Pathfinding movement-window and step-cost helpers are now extracted to `src/gameplay/pathfindingCostModel.js`.
+- Mode/topic capability UI orchestration is now extracted to `src/ui/modeCapabilitiesUi.js`.
+- Map-path/file-URL helper utilities are now extracted to `src/gameplay/mapPathUtils.js`.
 - Pathfinding preview runtime helpers (movement-field rebuild, preview/path extraction, pointer preview update, path metrics) are now extracted to `src/gameplay/pathfindingPreviewRuntime.js`.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.
