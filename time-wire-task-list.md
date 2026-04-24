@@ -1493,3 +1493,10 @@ Recommended next sequence:
     - `node --check src/render/shadowPipelineBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued point-light-editor action binding runtime extraction:
+    - extracted point-light-editor action binding runtime composition (point-light editor action wrappers) from `src/main.js` into `src/gameplay/pointLightEditorActionBindingRuntime.js`
+    - `main.js` now delegates `beginLightEdit` / draft-apply / live-update rebake / hit-test / create-light wrappers through this binding runtime
+  - Validation:
+    - `node --check src/gameplay/pointLightEditorActionBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

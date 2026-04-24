@@ -85,6 +85,7 @@ import { createMovementSystem } from "./gameplay/movementSystem.js";
 import { createPointLightEditorState } from "./gameplay/pointLightEditorState.js";
 import { createPointLightEditorController } from "./gameplay/pointLightEditorController.js";
 import { createPointLightEditorRuntime } from "./gameplay/pointLightEditorRuntime.js";
+import { createPointLightEditorActionBindingRuntime } from "./gameplay/pointLightEditorActionBindingRuntime.js";
 import { createPointLightIoRuntime } from "./gameplay/pointLightIoRuntime.js";
 import { createMapDataSaveRuntime } from "./gameplay/mapDataSaveRuntime.js";
 import { createMapLoadingRuntime } from "./gameplay/mapLoadingRuntime.js";
@@ -1980,6 +1981,9 @@ const pointLightEditorController = createPointLightEditorController({
 const pointLightEditorRuntime = createPointLightEditorRuntime({
   pointLightEditorController,
 });
+const pointLightEditorActionBindingRuntime = createPointLightEditorActionBindingRuntime({
+  pointLightEditorRuntime,
+});
 const overlayDirtyRuntime = createOverlayDirtyRuntime(true);
 const DEFAULT_MAP_FOLDER = "assets/Map 1/";
 let currentMapFolderPath = DEFAULT_MAP_FOLDER;
@@ -2533,23 +2537,23 @@ function updateLightEditorUi() {
 }
 
 function beginLightEdit(light) {
-  pointLightEditorRuntime.beginLightEdit(light);
+  pointLightEditorActionBindingRuntime.beginLightEdit(light);
 }
 
 function applyDraftToSelectedPointLight() {
-  return pointLightEditorRuntime.applyDraftToSelectedPointLight();
+  return pointLightEditorActionBindingRuntime.applyDraftToSelectedPointLight();
 }
 
 function rebakeIfPointLightLiveUpdateEnabled() {
-  pointLightEditorRuntime.rebakeIfPointLightLiveUpdateEnabled();
+  pointLightEditorActionBindingRuntime.rebakeIfPointLightLiveUpdateEnabled();
 }
 
 function findPointLightAtPixel(pixelX, pixelY, radiusPx = POINT_LIGHT_SELECT_RADIUS) {
-  return pointLightEditorRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx);
+  return pointLightEditorActionBindingRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx);
 }
 
 function createPointLight(pixelX, pixelY) {
-  pointLightEditorRuntime.createPointLight(pixelX, pixelY);
+  pointLightEditorActionBindingRuntime.createPointLight(pixelX, pixelY);
 }
 
 function applyMapSizeChangeIfNeeded(changed) {

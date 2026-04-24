@@ -149,6 +149,7 @@ No game engine is used.
 - GL-resource binding runtime composition (`createGlResourceRuntime` deps composition + wrapper methods) is now extracted to `src/render/glResourceBindingRuntime.js`.
 - Flow-map binding runtime composition (`createFlowMapRuntime` deps composition + wrapper method) is now extracted to `src/render/flowMapBindingRuntime.js`.
 - Shadow-pipeline binding runtime composition (`createShadowPipelineRuntime` deps composition + wrapper methods) is now extracted to `src/render/shadowPipelineBindingRuntime.js`.
+- Point-light-editor action binding runtime composition (point-light editor action wrappers) is now extracted to `src/gameplay/pointLightEditorActionBindingRuntime.js`.
 - Camera/coordinate transform helpers (camera state, view extents, world/uv/map/screen conversions) are now extracted to `src/gameplay/cameraTransforms.js`.
 - Camera view/command helpers (`resetCamera`, `getScreenAspect`, `getMapAspect`) are now extracted to `src/gameplay/cameraViewRuntime.js`.
 - Pathfinding label helper updates are now extracted to `src/ui/pathfindingLabelUi.js`.
