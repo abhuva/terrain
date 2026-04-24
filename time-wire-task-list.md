@@ -805,3 +805,17 @@ Recommended next sequence:
     - `node --check src/gameplay/mapIoHelpers.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued time-state access extraction:
+    - extracted time-routing/time-config state-access helper logic from `src/main.js` into `src/core/timeStateAccess.js`
+    - `main.js` now composes this module and keeps `getDefaultTimeRouting(...)`, `getConfiguredSimTickHours(...)`, `getCurrentTimeRoutingFromStoreOrDefaults(...)`, `getConfiguredSimTickHoursFromStoreOrDefaults(...)`, and `getInterpolatedRoutedTimeSec(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/core/timeStateAccess.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued color-helper extraction:
+    - extracted color conversion helpers from `src/main.js` into `src/core/colorUtils.js`
+    - `main.js` now keeps `rgbToHex(...)` and `hexToRgb01(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/core/colorUtils.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

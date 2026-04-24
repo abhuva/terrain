@@ -55,6 +55,8 @@ No game engine is used.
 - Map-path/file-URL helper utilities are now extracted to `src/gameplay/mapPathUtils.js`.
 - Tauri runtime invoke/folder-picker/folder-validation helpers are now extracted to `src/gameplay/tauriRuntime.js`.
 - Map IO helpers for folder-selection file lookup and JSON load (Tauri+fetch fallback) are now extracted to `src/gameplay/mapIoHelpers.js`.
+- Time-routing/time-config state-access helpers are now extracted to `src/core/timeStateAccess.js`.
+- Color conversion helpers are now extracted to `src/core/colorUtils.js`.
 - Pathfinding preview runtime helpers (movement-field rebuild, preview/path extraction, pointer preview update, path metrics) are now extracted to `src/gameplay/pathfindingPreviewRuntime.js`.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.

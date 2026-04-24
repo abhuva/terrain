@@ -9,6 +9,8 @@ import {
   normalizeSimTickHours,
   normalizeTimeRouting,
 } from "./core/timeRouter.js";
+import { createTimeStateAccess } from "./core/timeStateAccess.js";
+import { rgbToHex as rgbToHexUtil, hexToRgb01 as hexToRgb01Util } from "./core/colorUtils.js";
 import { normalizeRuntimeMode, canUseInteractionMode as canUseModeInteraction, canUseTopic as canUseModeTopic } from "./core/modeCapabilities.js";
 import {
   DEFAULT_LIGHTING_SETTINGS,
@@ -1433,54 +1435,37 @@ const SWARM_TERRAIN_CLEARANCE = 1;
 const SWARM_Z_NEIGHBOR_SCALE = 1;
 const LIGHTING_SAVE_PRECISION = 2;
 
+const timeStateAccess = createTimeStateAccess({
+  getSettingsDefaults,
+  defaultLightingSettings: DEFAULT_LIGHTING_SETTINGS,
+  defaultCloudSettings: DEFAULT_CLOUD_SETTINGS,
+  defaultWaterSettings: DEFAULT_WATER_SETTINGS,
+  normalizeTimeRouting,
+  normalizeRoutingMode,
+  normalizeSimTickHours,
+  getCoreState: () => runtimeCore.store.getState(),
+  clamp,
+  simSecondsPerHour: SIM_SECONDS_PER_HOUR,
+});
+
 function getDefaultTimeRouting() {
-  const lightingDefaults = getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
-  const cloudDefaults = getSettingsDefaults("clouds", DEFAULT_CLOUD_SETTINGS);
-  const waterDefaults = getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS);
-  return normalizeTimeRouting({
-    movement: "global",
-    swarm: normalizeRoutingMode(lightingDefaults.swarmTimeRouting ?? "global", "global"),
-    clouds: normalizeRoutingMode(cloudDefaults.timeRouting ?? "global", "global"),
-    water: normalizeRoutingMode(waterDefaults.timeRouting ?? "detached", "detached"),
-    weather: "global",
-  });
+  return timeStateAccess.getDefaultTimeRouting();
 }
 
 function getConfiguredSimTickHours() {
-  const lightingDefaults = getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
-  return normalizeSimTickHours(lightingDefaults.simTickHours);
+  return timeStateAccess.getConfiguredSimTickHours();
 }
 
 function getCurrentTimeRoutingFromStoreOrDefaults() {
-  const state = runtimeCore.store.getState();
-  const routing = state && state.systems && state.systems.time ? state.systems.time.routing : null;
-  if (routing && typeof routing === "object") {
-    return normalizeTimeRouting(routing);
-  }
-  return getDefaultTimeRouting();
+  return timeStateAccess.getCurrentTimeRoutingFromStoreOrDefaults();
 }
 
 function getConfiguredSimTickHoursFromStoreOrDefaults() {
-  const state = runtimeCore.store.getState();
-  const simTick = state && state.systems && state.systems.time ? state.systems.time.simTickHours : null;
-  if (Number.isFinite(Number(simTick))) {
-    return normalizeSimTickHours(simTick);
-  }
-  return getConfiguredSimTickHours();
+  return timeStateAccess.getConfiguredSimTickHoursFromStoreOrDefaults();
 }
 
 function getInterpolatedRoutedTimeSec(systemTiming) {
-  const baseTime = Number(systemTiming && systemTiming.timeSec);
-  if (!Number.isFinite(baseTime)) {
-    return 0;
-  }
-  const route = String(systemTiming && systemTiming.route ? systemTiming.route : "global");
-  if (route !== "global") {
-    return Math.max(0, baseTime);
-  }
-  const alpha = clamp(Number(systemTiming && systemTiming.interpolationAlpha), 0, 1);
-  const simTickHours = normalizeSimTickHours(systemTiming && systemTiming.simTickHours);
-  return Math.max(0, baseTime + alpha * simTickHours * SIM_SECONDS_PER_HOUR);
+  return timeStateAccess.getInterpolatedRoutedTimeSec(systemTiming);
 }
 
 function serializeLightingSettingsLegacy() {
@@ -4463,22 +4448,11 @@ const overlayHooks = createOverlayHooks({
 });
 
 function rgbToHex(rgb) {
-  const r = Math.round(clamp(rgb[0], 0, 1) * 255);
-  const g = Math.round(clamp(rgb[1], 0, 1) * 255);
-  const b = Math.round(clamp(rgb[2], 0, 1) * 255);
-  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+  return rgbToHexUtil(rgb, clamp);
 }
 
 function hexToRgb01(hex) {
-  const text = String(hex || "").trim();
-  const match = /^#?([0-9a-fA-F]{6})$/.exec(text);
-  if (!match) return [0.5, 0.5, 0.5];
-  const value = match[1];
-  return [
-    parseInt(value.slice(0, 2), 16) / 255,
-    parseInt(value.slice(2, 4), 16) / 255,
-    parseInt(value.slice(4, 6), 16) / 255,
-  ];
+  return hexToRgb01Util(hex);
 }
 
 const drawOverlay = createOverlayDrawer({
