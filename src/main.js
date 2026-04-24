@@ -69,6 +69,7 @@ import { createMapDataSaveController } from "./gameplay/mapDataSaveController.js
 import { createMapSidecarLoader } from "./gameplay/mapSidecarLoader.js";
 import { createMapLoader } from "./gameplay/mapLoader.js";
 import { createMapImageRuntime } from "./gameplay/mapImageRuntime.js";
+import { createMapSampling } from "./gameplay/mapSampling.js";
 import {
   normalizeMapFolderPath as normalizeMapFolderPathUtil,
   isAbsoluteFsPath as isAbsoluteFsPathUtil,
@@ -1436,6 +1437,20 @@ function getMapImageRuntime() {
   return mapImageRuntime;
 }
 
+let mapSamplingRuntime = null;
+function getMapSamplingRuntime() {
+  if (mapSamplingRuntime) return mapSamplingRuntime;
+  mapSamplingRuntime = createMapSampling({
+    clamp,
+    getSplatSize: () => splatSize,
+    getNormalsSize: () => normalsSize,
+    getHeightSize: () => heightSize,
+    getNormalsImageData: () => normalsImageData,
+    getHeightImageData: () => heightImageData,
+  });
+  return mapSamplingRuntime;
+}
+
 async function applyMapImages(splatImage, normalsImage, heightImage, slopeImage, waterImage) {
   await getMapImageRuntime().applyMapImages(splatImage, normalsImage, heightImage, slopeImage, waterImage);
 }
@@ -2472,43 +2487,19 @@ function ensurePointLightBakeSize() {
 }
 
 function normalize3(x, y, z) {
-  const len = Math.hypot(x, y, z);
-  if (len < 0.000001) return [0, 0, 1];
-  return [x / len, y / len, z / len];
+  return getMapSamplingRuntime().normalize3(x, y, z);
 }
 
 function sampleNormalAtMapPixel(pixelX, pixelY) {
-  if (!normalsImageData || !normalsImageData.data) {
-    return [0, 0, 1];
-  }
-  const nx = clamp(Math.round((pixelX + 0.5) / splatSize.width * normalsSize.width - 0.5), 0, normalsSize.width - 1);
-  const ny = clamp(Math.round((pixelY + 0.5) / splatSize.height * normalsSize.height - 0.5), 0, normalsSize.height - 1);
-  const idx = (ny * normalsSize.width + nx) * 4;
-  const d = normalsImageData.data;
-  const vx = (d[idx] / 255) * 2 - 1;
-  const vy = (d[idx + 1] / 255) * 2 - 1;
-  const vz = (d[idx + 2] / 255) * 2 - 1;
-  return normalize3(vx, vy, vz);
+  return getMapSamplingRuntime().sampleNormalAtMapPixel(pixelX, pixelY);
 }
 
 function sampleHeightAtMapPixel(pixelX, pixelY) {
-  if (!heightImageData || !heightImageData.data) {
-    return 0;
-  }
-  const hx = clamp(Math.round((pixelX + 0.5) / splatSize.width * heightSize.width - 0.5), 0, heightSize.width - 1);
-  const hy = clamp(Math.round((pixelY + 0.5) / splatSize.height * heightSize.height - 0.5), 0, heightSize.height - 1);
-  const idx = (hy * heightSize.width + hx) * 4;
-  return heightImageData.data[idx] / 255;
+  return getMapSamplingRuntime().sampleHeightAtMapPixel(pixelX, pixelY);
 }
 
 function sampleHeightAtMapCoord(mapX, mapY) {
-  if (!heightImageData || !heightImageData.data) {
-    return 0;
-  }
-  const hx = clamp(Math.round((mapX + 0.5) / splatSize.width * heightSize.width - 0.5), 0, heightSize.width - 1);
-  const hy = clamp(Math.round((mapY + 0.5) / splatSize.height * heightSize.height - 0.5), 0, heightSize.height - 1);
-  const idx = (hy * heightSize.width + hx) * 4;
-  return heightImageData.data[idx] / 255;
+  return getMapSamplingRuntime().sampleHeightAtMapCoord(mapX, mapY);
 }
 
 function computeSwarmDirectionalShadow(mapX, mapY, sourceHeight, lightDir, blockedShadowFactor) {

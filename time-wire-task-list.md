@@ -855,3 +855,11 @@ Recommended next sequence:
     - `node --check src/sim/sunModel.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued map-sampling extraction:
+    - extracted map normal/height sampling helpers from `src/main.js` into `src/gameplay/mapSampling.js`
+    - `main.js` now keeps `normalize3(...)`, `sampleNormalAtMapPixel(...)`, `sampleHeightAtMapPixel(...)`, and `sampleHeightAtMapCoord(...)` as thin pass-through wrappers
+    - runtime wiring uses lazy `getMapSamplingRuntime()` composition to avoid initialization-order regressions
+  - Validation:
+    - `node --check src/gameplay/mapSampling.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
