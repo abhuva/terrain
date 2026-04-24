@@ -52,6 +52,7 @@ import { createBlurPass } from "./render/passes/blurPass.js";
 import { applyPointLightUsagePass } from "./render/passes/pointLightUsagePass.js";
 import { rebuildFlowMapTexture as rebuildFlowMapTexturePrecompute } from "./render/precompute/flowMap.js";
 import { createPointLightBakeOrchestrator } from "./render/precompute/pointLightBake.js";
+import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvasRuntime.js";
 import { createTimeSystem } from "./sim/timeSystem.js";
 import { createLightingSystem } from "./sim/lightingSystem.js";
 import { createFogSystem } from "./sim/fogSystem.js";
@@ -2323,6 +2324,16 @@ const swarmFollowState = {
 let movementField = null;
 const pointLightBakeTempCanvas = document.createElement("canvas");
 const pointLightBakeTempCtx = pointLightBakeTempCanvas.getContext("2d");
+const pointLightBakeCanvasRuntime = createPointLightBakeCanvasRuntime({
+  getMapSize: () => splatSize,
+  pointLightBakeCanvas,
+  pointLightBakeCtx,
+  pointLightBakeTempCanvas,
+  pointLightBakeTempCtx,
+  pointLightTex,
+  uploadImageToTexture,
+  requestOverlayDraw,
+});
 let pointLightBakeWorker = null;
 try {
   pointLightBakeWorker = new Worker(new URL("./pointLightBakeWorker.js", import.meta.url), { type: "module" });
@@ -2491,12 +2502,7 @@ async function loadPointLightsFromAssetsOrPrompt() {
 }
 
 function ensurePointLightBakeSize() {
-  const w = Math.max(1, Math.floor(splatSize.width));
-  const h = Math.max(1, Math.floor(splatSize.height));
-  if (pointLightBakeCanvas.width !== w || pointLightBakeCanvas.height !== h) {
-    pointLightBakeCanvas.width = w;
-    pointLightBakeCanvas.height = h;
-  }
+  pointLightBakeCanvasRuntime.ensurePointLightBakeSize();
 }
 
 function normalize3(x, y, z) {
@@ -2532,20 +2538,7 @@ function hasLineOfSightToLight(surfaceX, surfaceY, surfaceH, lightX, lightY, lig
 }
 
 function applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight) {
-  if (sourceWidth === pointLightBakeCanvas.width && sourceHeight === pointLightBakeCanvas.height) {
-    pointLightBakeCtx.putImageData(new ImageData(rgba, sourceWidth, sourceHeight), 0, 0);
-  } else if (pointLightBakeTempCtx) {
-    pointLightBakeTempCanvas.width = sourceWidth;
-    pointLightBakeTempCanvas.height = sourceHeight;
-    pointLightBakeTempCtx.putImageData(new ImageData(rgba, sourceWidth, sourceHeight), 0, 0);
-    pointLightBakeCtx.imageSmoothingEnabled = false;
-    pointLightBakeCtx.clearRect(0, 0, pointLightBakeCanvas.width, pointLightBakeCanvas.height);
-    pointLightBakeCtx.drawImage(pointLightBakeTempCanvas, 0, 0, pointLightBakeCanvas.width, pointLightBakeCanvas.height);
-  } else {
-    pointLightBakeCtx.putImageData(new ImageData(rgba, sourceWidth, sourceHeight), 0, 0);
-  }
-  uploadImageToTexture(pointLightTex, pointLightBakeCanvas);
-  requestOverlayDraw();
+  pointLightBakeCanvasRuntime.applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight);
 }
 
 function schedulePointLightBake() {

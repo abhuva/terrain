@@ -871,3 +871,10 @@ Recommended next sequence:
     - `node --check src/gameplay/shadowOcclusion.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued point-light bake-canvas extraction:
+    - extracted point-light bake canvas sizing and RGBA apply/upload helpers from `src/main.js` into `src/render/pointLightBakeCanvasRuntime.js`
+    - `main.js` now keeps `ensurePointLightBakeSize(...)` and `applyPointLightBakeRgba(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/render/pointLightBakeCanvasRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
