@@ -14,6 +14,7 @@ import { createAppliedSettingsStoreSync } from "./core/appliedSettingsStoreSync.
 import { createSimulationKnobAccess } from "./core/simulationKnobAccess.js";
 import { createSettingsRegistryBridge } from "./core/settingsRegistryBridge.js";
 import { createSettingsDefaultsAccess } from "./core/settingsDefaultsAccess.js";
+import { createSettingsApplyBindingRuntime } from "./core/settingsApplyBindingRuntime.js";
 import { createModeStateRuntimeBinding } from "./core/modeStateRuntimeBinding.js";
 import { rgbToHex as rgbToHexUtil, hexToRgb01 as hexToRgb01Util } from "./core/colorUtils.js";
 import {
@@ -1453,6 +1454,11 @@ const settingsRegistryBridge = createSettingsRegistryBridge({
 const settingsDefaultsAccess = createSettingsDefaultsAccess({
   settingsRegistry: runtimeCore.settingsRegistry,
 });
+const settingsApplyBindingRuntime = createSettingsApplyBindingRuntime({
+  settingsRegistryBridge,
+  appliedSettingsStoreSync,
+  settingsDefaultsAccess,
+});
 
 let frameUiRuntime = null;
 function getFrameUiRuntime() {
@@ -1533,19 +1539,19 @@ function applyInteractionSettingsLegacy(rawData) {
 }
 
 function serializeSettingsByKey(key, fallbackSerialize) {
-  return settingsRegistryBridge.serializeSettingsByKey(key, fallbackSerialize);
+  return settingsApplyBindingRuntime.serializeSettingsByKey(key, fallbackSerialize);
 }
 
 function applySettingsByKey(key, rawData, fallbackApply) {
-  settingsRegistryBridge.applySettingsByKey(key, rawData, fallbackApply);
+  settingsApplyBindingRuntime.applySettingsByKey(key, rawData, fallbackApply);
 }
 
 function normalizeAppliedSettings(key, rawData, fallbackDefaults) {
-  return appliedSettingsStoreSync.normalizeAppliedSettings(key, rawData, fallbackDefaults);
+  return settingsApplyBindingRuntime.normalizeAppliedSettings(key, rawData, fallbackDefaults);
 }
 
 function updateStoreFromAppliedSettings(key, normalized) {
-  appliedSettingsStoreSync.updateStoreFromAppliedSettings(key, normalized);
+  settingsApplyBindingRuntime.updateStoreFromAppliedSettings(key, normalized);
 }
 
 function serializeLightingSettings() {
@@ -1613,7 +1619,7 @@ function applySwarmSettings(rawData) {
 }
 
 function getSettingsDefaults(key, fallback) {
-  return settingsDefaultsAccess.getSettingsDefaults(key, fallback);
+  return settingsApplyBindingRuntime.getSettingsDefaults(key, fallback);
 }
 
 function setCurrentMapFolderPath(nextPath) {

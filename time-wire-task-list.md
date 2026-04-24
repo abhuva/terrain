@@ -1360,3 +1360,10 @@ Recommended next sequence:
     - `node --check src/gameplay/mapPathBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued settings-apply binding runtime extraction:
+    - extracted settings-apply binding runtime composition (settings serialize/apply/normalize/default-access wrappers) from `src/main.js` into `src/core/settingsApplyBindingRuntime.js`
+    - `main.js` now delegates `serializeSettingsByKey` / `applySettingsByKey` / applied-settings normalization and defaults access through this runtime
+  - Validation:
+    - `node --check src/core/settingsApplyBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
