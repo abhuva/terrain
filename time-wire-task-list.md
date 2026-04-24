@@ -791,3 +791,17 @@ Recommended next sequence:
     - `node --check src/gameplay/mapPathUtils.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued Tauri runtime helper extraction:
+    - extracted Tauri invoke/folder-picker/folder-validation helper logic from `src/main.js` into `src/gameplay/tauriRuntime.js`
+    - `main.js` now resolves `tauriInvoke` via the module and keeps `invokeTauri(...)`, `pickMapFolderViaTauri(...)`, and `validateMapFolderViaTauri(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/tauriRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued map-IO helper extraction:
+    - extracted folder-selection file lookup and JSON load helper logic from `src/main.js` into `src/gameplay/mapIoHelpers.js`
+    - `main.js` now keeps `getFileFromFolderSelection(...)` and `tryLoadJsonFromUrl(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/mapIoHelpers.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

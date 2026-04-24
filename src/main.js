@@ -54,6 +54,8 @@ import {
   buildMapAssetPath as buildMapAssetPathUtil,
   toAbsoluteFileUrl as toAbsoluteFileUrlUtil,
 } from "./gameplay/mapPathUtils.js";
+import { resolveTauriInvoke, createTauriRuntimeHelpers } from "./gameplay/tauriRuntime.js";
+import { getFileFromFolderSelection as selectFileFromFolder, createMapIoHelpers } from "./gameplay/mapIoHelpers.js";
 import { parsePointLightsPayload, serializePointLightsPayload } from "./gameplay/pointLightsPersistence.js";
 import { createSwarmFollowCameraUpdater } from "./gameplay/swarmFollowCamera.js";
 import { createSwarmUpdateLoop } from "./gameplay/swarmUpdateLoop.js";
@@ -1339,15 +1341,7 @@ function normalizeMapFolderPath(path) {
   return normalizeMapFolderPathUtil(path, DEFAULT_MAP_FOLDER);
 }
 
-function getTauriInvoke() {
-  const tauriCore = window.__TAURI__ && window.__TAURI__.core;
-  if (!tauriCore || typeof tauriCore.invoke !== "function") {
-    return null;
-  }
-  return tauriCore.invoke.bind(tauriCore);
-}
-
-const tauriInvoke = getTauriInvoke();
+const tauriInvoke = resolveTauriInvoke(window);
 
 function isAbsoluteFsPath(path) {
   return isAbsoluteFsPathUtil(path);
@@ -1361,11 +1355,14 @@ function buildMapAssetPath(folder, fileName) {
   return buildMapAssetPathUtil(folder, fileName);
 }
 
+const tauriRuntimeHelpers = createTauriRuntimeHelpers({
+  tauriInvoke,
+  normalizeMapFolderPath,
+  isAbsoluteFsPath,
+});
+
 async function invokeTauri(command, args) {
-  if (!tauriInvoke) {
-    throw new Error("Tauri invoke is unavailable in this runtime.");
-  }
-  return tauriInvoke(command, args);
+  return tauriRuntimeHelpers.invokeTauri(command, args);
 }
 
 function toAbsoluteFileUrl(path) {
@@ -1373,17 +1370,11 @@ function toAbsoluteFileUrl(path) {
 }
 
 async function pickMapFolderViaTauri() {
-  if (!tauriInvoke) return null;
-  const selected = await invokeTauri("pick_map_folder");
-  if (!selected) return null;
-  return normalizeMapFolderPath(selected);
+  return tauriRuntimeHelpers.pickMapFolderViaTauri();
 }
 
 async function validateMapFolderViaTauri(folderPath) {
-  if (!tauriInvoke || !isAbsoluteFsPath(folderPath)) {
-    return { is_valid: true, missing_files: [] };
-  }
-  return invokeTauri("validate_map_folder", { path: folderPath });
+  return tauriRuntimeHelpers.validateMapFolderViaTauri(folderPath);
 }
 
 async function applyMapImages(splatImage, normalsImage, heightImage, slopeImage, waterImage) {
@@ -1423,37 +1414,18 @@ function syncPointLightWorkerMapData() {
 }
 
 function getFileFromFolderSelection(files, fileName) {
-  const lower = fileName.toLowerCase();
-  for (const file of files) {
-    if (String(file.name || "").toLowerCase() === lower) {
-      return file;
-    }
-  }
-  return null;
+  return selectFileFromFolder(files, fileName);
 }
 
+const mapIoHelpers = createMapIoHelpers({
+  tauriInvoke,
+  isAbsoluteFsPath,
+  invokeTauri,
+  toAbsoluteFileUrl,
+});
+
 async function tryLoadJsonFromUrl(path) {
-  if (tauriInvoke && isAbsoluteFsPath(path)) {
-    try {
-      const text = await invokeTauri("load_json_file", { path });
-      return JSON.parse(text);
-    } catch (error) {
-      console.warn(`Tauri JSON load failed for ${path}, trying fetch fallback.`, error);
-      const fileUrl = toAbsoluteFileUrl(path);
-      if (fileUrl) {
-        const response = await fetch(fileUrl, { cache: "no-store" });
-        if (response.ok) {
-          return response.json();
-        }
-      }
-      throw error;
-    }
-  }
-  const response = await fetch(path, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return response.json();
+  return mapIoHelpers.tryLoadJsonFromUrl(path);
 }
 
 const SWARM_Z_MAX = 256;
