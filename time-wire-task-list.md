@@ -1225,6 +1225,13 @@ Recommended next sequence:
     - `node --check src/ui/pointLightEditorBindingRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued render-FX binding runtime extraction:
+    - extracted render-FX binding orchestration (`bindRenderFxControls` deps composition) from `src/main.js` into `src/ui/renderFxBindingRuntime.js`
+    - `main.js` now delegates to `bindRenderFxRuntime(...)`
+  - Validation:
+    - `node --check src/ui/renderFxBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
   - Continued point-light runtime binding hardening:
     - added `deletePointLightById(...)` binding to `src/gameplay/pointLightEditorRuntime.js`
     - added `isPointLightsSaveConfirmArmed(...)` binding to `src/gameplay/pointLightIoRuntime.js`

@@ -166,10 +166,10 @@ import { bindPathfindingControls } from "./ui/bindings/pathfindingBinding.js";
 import { bindCursorLightControls } from "./ui/bindings/cursorLightBinding.js";
 import { bindSwarmFollowControls } from "./ui/bindings/swarmFollowBinding.js";
 import { bindMapIoControls } from "./ui/bindings/mapIoBinding.js";
-import { bindRenderFxControls } from "./ui/bindings/renderFxBinding.js";
 import { bindSwarmPanelControls } from "./ui/bindings/swarmPanelBinding.js";
 import { bindRuntimeControls } from "./ui/bindings/runtimeBinding.js";
 import { bindPointLightEditorRuntime } from "./ui/pointLightEditorBindingRuntime.js";
+import { bindRenderFxRuntime } from "./ui/renderFxBindingRuntime.js";
 import { getRequiredElementById, getRequiredElements } from "./ui/domElementLookup.js";
 import { createOverlayHooks } from "./ui/overlays/overlayHooks.js";
 import { createOverlayAnimationRuntime } from "./ui/overlays/overlayAnimationRuntime.js";
@@ -4335,7 +4335,7 @@ bindPointLightEditorRuntime({
   setStatus,
 });
 
-bindRenderFxControls({
+bindRenderFxRuntime({
   parallaxStrengthInput,
   parallaxBandsInput,
   parallaxToggle,
