@@ -878,3 +878,11 @@ Recommended next sequence:
     - `node --check src/render/pointLightBakeCanvasRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued point-light bake-sync extraction:
+    - extracted point-light bake-sync accumulation/occlusion/packing logic from `src/main.js` into `src/render/pointLightBakeSync.js`
+    - `main.js` now keeps `bakePointLightsTextureSync(...)` as a thin pass-through wrapper
+    - runtime wiring uses lazy `getPointLightBakeSyncRuntime()` composition to avoid initialization-order regressions
+  - Validation:
+    - `node --check src/render/pointLightBakeSync.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
