@@ -154,6 +154,7 @@ import { createInfoPanelRuntime } from "./ui/infoPanelRuntime.js";
 import { createModeCapabilitiesUi } from "./ui/modeCapabilitiesUi.js";
 import { createLightLabelRuntime } from "./ui/lightLabelRuntime.js";
 import { createTimeUiRuntime } from "./ui/timeUiRuntime.js";
+import { runStartupUiSync } from "./ui/startupUiSync.js";
 import * as renderFxUiRuntime from "./ui/renderFxUiRuntime.js";
 import * as pathfindingLabelUi from "./ui/pathfindingLabelUi.js";
 
@@ -4808,48 +4809,53 @@ void tryAutoLoadDefaultMap().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   setStatus(`Default map auto-load failed: ${message}`);
 });
-setSwarmDefaults();
-normalizeSwarmHeightRangeInputs("min");
-updatePathfindingRangeLabel();
-updatePathWeightLabels();
-updatePathSlopeCutoffLabel();
-updatePathBaseCostLabel();
-updateSwarmLabels();
-updateSwarmUi();
-updateSwarmStatsPanel();
-updateSwarmFollowButtonUi();
-updateParallaxStrengthLabel();
-updateParallaxBandsLabel();
-updateShadowBlurLabel();
-updateVolumetricLabels();
-updatePointFlickerLabels();
-updateSimTickLabel();
-updateFogAlphaLabels();
-updateFogFalloffLabel();
-updateFogStartOffsetLabel();
-updateCloudLabels();
-updateWaterLabels();
-updatePointLightStrengthLabel();
-updatePointLightIntensityLabel();
-updatePointLightHeightOffsetLabel();
-updatePointLightFlickerLabel();
-updatePointLightFlickerSpeedLabel();
-updateCursorLightStrengthLabel();
-updateCursorLightHeightOffsetLabel();
-setCycleHourSliderFromState();
-updateCycleHourLabel();
-mapPathInput.value = currentMapFolderPath;
-updateLightEditorUi();
-updateCursorLightModeUi();
-updateParallaxUi();
-updateVolumetricUi();
-updatePointFlickerUi();
-updateFogUi();
-updateCloudUi();
-updateWaterUi();
-setActiveTopic("");
-setInteractionMode("none");
-updateModeCapabilitiesUi();
-reseedSwarmAgents(getSwarmSettings().agentCount);
-setStatus(`${statusEl.textContent} | Load maps by folder/path, use left dock mode toggles (LM/PF), wheel zoom + middle-drag pan for terrain, and Agent Swarm panel toggle for boid testing.`);
+runStartupUiSync({
+  setSwarmDefaults,
+  normalizeSwarmHeightRangeInputs,
+  updatePathfindingRangeLabel,
+  updatePathWeightLabels,
+  updatePathSlopeCutoffLabel,
+  updatePathBaseCostLabel,
+  updateSwarmLabels,
+  updateSwarmUi,
+  updateSwarmStatsPanel,
+  updateSwarmFollowButtonUi,
+  updateParallaxStrengthLabel,
+  updateParallaxBandsLabel,
+  updateShadowBlurLabel,
+  updateVolumetricLabels,
+  updatePointFlickerLabels,
+  updateSimTickLabel,
+  updateFogAlphaLabels,
+  updateFogFalloffLabel,
+  updateFogStartOffsetLabel,
+  updateCloudLabels,
+  updateWaterLabels,
+  updatePointLightStrengthLabel,
+  updatePointLightIntensityLabel,
+  updatePointLightHeightOffsetLabel,
+  updatePointLightFlickerLabel,
+  updatePointLightFlickerSpeedLabel,
+  updateCursorLightStrengthLabel,
+  updateCursorLightHeightOffsetLabel,
+  setCycleHourSliderFromState,
+  updateCycleHourLabel,
+  mapPathInput,
+  currentMapFolderPath,
+  updateLightEditorUi,
+  updateCursorLightModeUi,
+  updateParallaxUi,
+  updateVolumetricUi,
+  updatePointFlickerUi,
+  updateFogUi,
+  updateCloudUi,
+  updateWaterUi,
+  setActiveTopic,
+  setInteractionMode,
+  updateModeCapabilitiesUi,
+  reseedSwarmAgents,
+  getSwarmSettings,
+  setStatus,
+  statusTextEl: statusEl,
+});
 requestAnimationFrame(render);

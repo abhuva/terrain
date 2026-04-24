@@ -925,3 +925,10 @@ Recommended next sequence:
     - `node --check src/sim/lightingParamsRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued startup-UI sync extraction:
+    - extracted startup UI synchronization call sequence from `src/main.js` into `src/ui/startupUiSync.js`
+    - `main.js` now performs startup UI sync through one composed runtime call
+  - Validation:
+    - `node --check src/ui/startupUiSync.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
