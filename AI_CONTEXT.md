@@ -82,6 +82,7 @@ No game engine is used.
 - Shadow/occlusion helpers (`computeSwarmDirectionalShadow`, `hasLineOfSightToLight`) are now extracted to `src/gameplay/shadowOcclusion.js`.
 - Point-light bake canvas sizing and RGBA apply/upload helpers are now extracted to `src/render/pointLightBakeCanvasRuntime.js`.
 - Point-light bake-sync accumulation/occlusion/packing logic (`bakePointLightsTextureSync`) is now extracted to `src/render/pointLightBakeSync.js`.
+- Point-light bake-sync lazy runtime composition/binding is now extracted to `src/render/pointLightBakeSyncBindingRuntime.js`.
 - Point-light worker + bake-orchestrator runtime wiring is now extracted to `src/render/pointLightBakeRuntime.js`.
 - Cycle-hour slider/label UI helpers are now extracted to `src/ui/timeUiRuntime.js`.
 - Runtime mode state-access helpers (`getRuntimeMode`, capability checks) are now extracted to `src/core/modeStateAccess.js`.

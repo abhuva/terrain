@@ -1162,3 +1162,10 @@ Recommended next sequence:
     - `node --check src/gameplay/pointLightSelectionRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued point-light bake-sync binding extraction:
+    - extracted point-light bake-sync lazy runtime composition/binding (`getPointLightBakeSyncRuntime`, `bakePointLightsTextureSync`) from `src/main.js` into `src/render/pointLightBakeSyncBindingRuntime.js`
+    - `main.js` now keeps these helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/render/pointLightBakeSyncBindingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

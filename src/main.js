@@ -59,7 +59,7 @@ import { rebuildFlowMapTexture as rebuildFlowMapTexturePrecompute } from "./rend
 import { createFlowMapRuntime } from "./render/flowMapRuntime.js";
 import { createDefaultMapImageRuntime } from "./render/defaultMapImageRuntime.js";
 import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvasRuntime.js";
-import { createPointLightBakeSync } from "./render/pointLightBakeSync.js";
+import { createPointLightBakeSyncBindingRuntime } from "./render/pointLightBakeSyncBindingRuntime.js";
 import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
 import { createFrameUiRuntime } from "./render/frameUiRuntime.js";
 import { updateWeatherFieldMeta } from "./render/weatherFieldRuntime.js";
@@ -2349,29 +2349,28 @@ function bakePointLightsTexture() {
   pointLightBakeRuntime.bakeNow();
 }
 
-let pointLightBakeSyncRuntime = null;
+const pointLightBakeSyncBindingRuntime = createPointLightBakeSyncBindingRuntime({
+  getFullBakeSize: () => ({ width: pointLightBakeCanvas.width, height: pointLightBakeCanvas.height }),
+  pointLightBakeLiveScale: POINT_LIGHT_BAKE_LIVE_SCALE,
+  getLightingSettings: () => getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
+  getLights: () => pointLights,
+  clamp,
+  defaultPointLightFlicker: DEFAULT_POINT_LIGHT_FLICKER,
+  defaultPointLightFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
+  sampleHeightAtMapPixel,
+  hasLineOfSightToLight,
+  sampleNormalAtMapPixel,
+  normalize3,
+  pointLightBlendExposure: POINT_LIGHT_BLEND_EXPOSURE,
+  applyPointLightBakeRgba,
+});
+
 function getPointLightBakeSyncRuntime() {
-  if (pointLightBakeSyncRuntime) return pointLightBakeSyncRuntime;
-  pointLightBakeSyncRuntime = createPointLightBakeSync({
-    getFullBakeSize: () => ({ width: pointLightBakeCanvas.width, height: pointLightBakeCanvas.height }),
-    pointLightBakeLiveScale: POINT_LIGHT_BAKE_LIVE_SCALE,
-    getLightingSettings: () => getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
-    getLights: () => pointLights,
-    clamp,
-    defaultPointLightFlicker: DEFAULT_POINT_LIGHT_FLICKER,
-    defaultPointLightFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-    sampleHeightAtMapPixel,
-    hasLineOfSightToLight,
-    sampleNormalAtMapPixel,
-    normalize3,
-    pointLightBlendExposure: POINT_LIGHT_BLEND_EXPOSURE,
-    applyPointLightBakeRgba,
-  });
-  return pointLightBakeSyncRuntime;
+  return pointLightBakeSyncBindingRuntime.getPointLightBakeSyncRuntime();
 }
 
 function bakePointLightsTextureSync(useReducedResolution = false) {
-  getPointLightBakeSyncRuntime().bakePointLightsTextureSync(useReducedResolution);
+  pointLightBakeSyncBindingRuntime.bakePointLightsTextureSync(useReducedResolution);
 }
 
 const lightLabelRuntime = createLightLabelRuntime({
