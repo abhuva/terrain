@@ -1106,3 +1106,10 @@ Recommended next sequence:
     - `node --check src/gameplay/cameraViewRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm-follow smoothing extraction:
+    - extracted swarm follow-camera smoothing reset helper (`resetSwarmFollowSpeedSmoothing`) from `src/main.js` into `src/gameplay/swarmFollowSmoothingRuntime.js`
+    - `main.js` now keeps this helper as a thin pass-through wrapper
+  - Validation:
+    - `node --check src/gameplay/swarmFollowSmoothingRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

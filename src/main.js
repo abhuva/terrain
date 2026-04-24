@@ -110,6 +110,7 @@ import { createSwarmTargeting } from "./gameplay/swarmTargeting.js";
 import { createSwarmEnvironment } from "./gameplay/swarmEnvironment.js";
 import { createSwarmAgentStateMutator } from "./gameplay/swarmAgentStateMutator.js";
 import { createSwarmFollowStateController } from "./gameplay/swarmFollowStateController.js";
+import { createSwarmFollowSmoothingRuntime } from "./gameplay/swarmFollowSmoothingRuntime.js";
 import { createSwarmDataApplier } from "./gameplay/swarmDataApplier.js";
 import { createSwarmDataSerializer } from "./gameplay/swarmDataSerializer.js";
 import { createInteractionDataSerializer } from "./gameplay/interactionDataSerializer.js";
@@ -2104,6 +2105,9 @@ const swarmFollowState = {
   hawkIndex: -1,
   speedNormFiltered: null,
 };
+const swarmFollowSmoothingRuntime = createSwarmFollowSmoothingRuntime({
+  swarmFollowState,
+});
 let movementField = null;
 const pointLightBakeTempCanvas = document.createElement("canvas");
 const pointLightBakeTempCtx = pointLightBakeTempCanvas.getContext("2d");
@@ -3257,7 +3261,7 @@ const applySwarmSettingsLegacyImpl = createSwarmSettingsApplier({
 });
 
 function resetSwarmFollowSpeedSmoothing() {
-  swarmFollowState.speedNormFiltered = null;
+  swarmFollowSmoothingRuntime.resetSwarmFollowSpeedSmoothing();
 }
 
 const swarmEnvironment = createSwarmEnvironment({
