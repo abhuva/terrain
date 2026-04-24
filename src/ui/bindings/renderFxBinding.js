@@ -10,7 +10,12 @@ export function bindRenderFxControls(deps) {
 
     if (section === "lighting") {
       return {
+        useShadows: Boolean(deps.shadowsToggle.checked),
+        heightScale: Number(deps.heightScaleInput.value),
+        shadowStrength: Number(deps.shadowStrengthInput.value),
         shadowBlur: Number(deps.shadowBlurInput.value),
+        ambient: Number(deps.ambientInput.value),
+        diffuse: Number(deps.diffuseInput.value),
         useVolumetric: Boolean(deps.volumetricToggle.checked),
         volumetricStrength: Number(deps.volumetricStrengthInput.value),
         volumetricDensity: Number(deps.volumetricDensityInput.value),
@@ -99,7 +104,12 @@ export function bindRenderFxControls(deps) {
     { element: deps.parallaxStrengthInput, eventType: "input", section: "parallax" },
     { element: deps.parallaxBandsInput, eventType: "input", section: "parallax" },
     { element: deps.parallaxToggle, eventType: "change", section: "parallax" },
+    { element: deps.shadowsToggle, eventType: "change", section: "lighting" },
+    { element: deps.heightScaleInput, eventType: "input", section: "lighting" },
+    { element: deps.shadowStrengthInput, eventType: "input", section: "lighting" },
     { element: deps.shadowBlurInput, eventType: "input", section: "lighting" },
+    { element: deps.ambientInput, eventType: "input", section: "lighting" },
+    { element: deps.diffuseInput, eventType: "input", section: "lighting" },
     { element: deps.volumetricStrengthInput, eventType: "input", section: "lighting" },
     { element: deps.volumetricDensityInput, eventType: "input", section: "lighting" },
     { element: deps.volumetricAnisotropyInput, eventType: "input", section: "lighting" },
