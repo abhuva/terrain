@@ -184,7 +184,7 @@ import { createStatusRuntime } from "./ui/statusRuntime.js";
 import { createInfoPanelRuntime } from "./ui/infoPanelRuntime.js";
 import { createModeCapabilitiesUi } from "./ui/modeCapabilitiesUi.js";
 import { createLightLabelRuntime } from "./ui/lightLabelRuntime.js";
-import { createPointLightEditorRuntime } from "./ui/pointLightEditorRuntime.js";
+import { createPointLightEditorRuntime as createPointLightEditorUiRuntime } from "./ui/pointLightEditorRuntime.js";
 import { createCursorLightModeUiRuntime } from "./ui/cursorLightModeUiRuntime.js";
 import { createTopicPanelRuntime } from "./ui/topicPanelRuntime.js";
 import { createTimeUiRuntime } from "./ui/timeUiRuntime.js";
@@ -2515,7 +2515,7 @@ function updateCursorLightFromPointer(clientX, clientY) {
   getCursorLightPointerRuntime().updateCursorLightFromPointer(clientX, clientY);
 }
 
-const pointLightEditorRuntime = createPointLightEditorRuntime({
+const pointLightEditorUiRuntime = createPointLightEditorUiRuntime({
   syncPointLightEditorUi,
   getSelectedPointLight,
   getLightEditDraft: () => pointLightEditorState.getDraft(),
@@ -2538,7 +2538,7 @@ const pointLightEditorRuntime = createPointLightEditorRuntime({
 });
 
 function updateLightEditorUi() {
-  pointLightEditorRuntime.updateLightEditorUi();
+  pointLightEditorUiRuntime.updateLightEditorUi();
 }
 
 function beginLightEdit(light) {
