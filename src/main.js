@@ -156,6 +156,7 @@ import { bindMapIoControls } from "./ui/bindings/mapIoBinding.js";
 import { bindRenderFxControls } from "./ui/bindings/renderFxBinding.js";
 import { bindSwarmPanelControls } from "./ui/bindings/swarmPanelBinding.js";
 import { bindRuntimeControls } from "./ui/bindings/runtimeBinding.js";
+import { getRequiredElementById, getRequiredElements } from "./ui/domElementLookup.js";
 import { createOverlayHooks } from "./ui/overlays/overlayHooks.js";
 import { createOverlayAnimationRuntime } from "./ui/overlays/overlayAnimationRuntime.js";
 import { createOverlayDrawer } from "./ui/overlays/drawOverlay.js";
@@ -178,21 +179,6 @@ const runtimeCore = createRuntimeCore();
 const dispatchCoreCommand = createCoreCommandDispatch(runtimeCore);
 const entityStore = createEntityStore();
 
-function getRequiredElementById(id) {
-  const el = document.getElementById(id);
-  if (!el) {
-    throw new Error(`Missing required element with id '${id}'.`);
-  }
-  return el;
-}
-
-function getRequiredElements(selector) {
-  const els = Array.from(document.querySelectorAll(selector));
-  if (els.length === 0) {
-    throw new Error(`Missing required elements for selector '${selector}'.`);
-  }
-  return els;
-}
 const canvas = getRequiredElementById("glCanvas");
 const overlayCanvas = getRequiredElementById("overlayCanvas");
 const topicButtons = getRequiredElements(".topic-btn");

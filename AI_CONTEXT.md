@@ -40,6 +40,7 @@ No game engine is used.
 - Swarm panel UI reflection (labels, enable/disable state, follow button text, stats panel updates) is now extracted to `src/ui/swarmPanelUi.js`.
 - Swarm settings UI-apply reflection path is now extracted to `src/ui/swarmSettingsApplier.js`.
 - Interaction-sidecar serialization (`interaction.json`) is now extracted to `src/gameplay/interactionDataSerializer.js`.
+- Required DOM element lookup helpers (`getRequiredElementById`, `getRequiredElements`) are now extracted to `src/ui/domElementLookup.js`.
 - Interaction settings UI-apply reflection path is now extracted to `src/ui/interactionSettingsApplier.js`.
 - NPC persistence helpers (`serializeNpcState`, `parseNpcPlayer`, `applyLoadedNpc`) are now extracted to `src/gameplay/npcPersistence.js`.
 - Lighting settings UI-apply reflection path is now extracted to `src/ui/lightingSettingsApplier.js`.

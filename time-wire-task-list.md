@@ -1048,3 +1048,10 @@ Recommended next sequence:
     - `node --check src/core/simulationKnobAccess.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued DOM lookup helper extraction:
+    - extracted required DOM element lookup helpers (`getRequiredElementById`, `getRequiredElements`) from `src/main.js` into `src/ui/domElementLookup.js`
+    - `main.js` now imports these helpers directly
+  - Validation:
+    - `node --check src/ui/domElementLookup.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
