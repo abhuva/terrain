@@ -995,3 +995,11 @@ Recommended next sequence:
     - `node --check src/render/cloudNoiseRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued shadow-pipeline runtime extraction:
+    - extracted shadow-target sizing/framebuffer attach and shadow-pass draw orchestration from `src/main.js` into `src/render/shadowPipelineRuntime.js`
+    - `main.js` now keeps `ensureShadowTargets(...)` and `renderShadowPipeline(...)` as thin pass-through wrappers
+    - runtime wiring uses lazy `getShadowPipelineRuntime()` composition to avoid initialization-order regressions
+  - Validation:
+    - `node --check src/render/shadowPipelineRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
