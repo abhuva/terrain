@@ -82,11 +82,7 @@ import { createLightingParamsBindingRuntime } from "./sim/lightingParamsBindingR
 import { createEntityStore } from "./gameplay/entityStore.js";
 import { createCursorLightRuntimeState } from "./gameplay/cursorLightState.js";
 import { createMovementSystem } from "./gameplay/movementSystem.js";
-import { createPointLightEditorState } from "./gameplay/pointLightEditorState.js";
-import { createPointLightEditorController } from "./gameplay/pointLightEditorController.js";
-import { createPointLightEditorRuntime } from "./gameplay/pointLightEditorRuntime.js";
-import { createPointLightEditorActionBindingRuntime } from "./gameplay/pointLightEditorActionBindingRuntime.js";
-import { createPointLightIoRuntime } from "./gameplay/pointLightIoRuntime.js";
+import { createPointLightRuntime } from "./gameplay/pointLightRuntime.js";
 import { createMapDataSaveRuntime } from "./gameplay/mapDataSaveRuntime.js";
 import { createMapLoadingRuntime } from "./gameplay/mapLoadingRuntime.js";
 import { createMapImageRuntimeBinding } from "./gameplay/mapImageRuntimeBinding.js";
@@ -121,8 +117,6 @@ import { createPathfindingPreviewRuntime } from "./gameplay/pathfindingPreviewRu
 import { createCursorLightPointerBindingRuntime } from "./gameplay/cursorLightPointerBindingRuntime.js";
 import { createCursorLightPointerStateRuntime } from "./gameplay/cursorLightPointerStateRuntime.js";
 import { createSwarmCursorPointerBindingRuntime } from "./gameplay/swarmCursorPointerBindingRuntime.js";
-import { createPointLightSelectionRuntime } from "./gameplay/pointLightSelectionRuntime.js";
-import { createPointLightDraftRuntime } from "./gameplay/pointLightDraftRuntime.js";
 import { createInteractionModeSnapshotBindingRuntime } from "./gameplay/interactionModeSnapshotBindingRuntime.js";
 import { createPlayerStateRuntimeBinding } from "./gameplay/playerStateRuntimeBinding.js";
 import { createCameraViewRuntimeBinding } from "./gameplay/cameraViewRuntimeBinding.js";
@@ -1940,14 +1934,6 @@ if (!pointLightBakeCtx) {
 const DEFAULT_POINT_LIGHT_FLICKER = 0.7;
 const DEFAULT_POINT_LIGHT_FLICKER_SPEED = 0.5;
 const pointLights = [];
-const pointLightEditorState = createPointLightEditorState({
-  clamp,
-  defaultFlicker: DEFAULT_POINT_LIGHT_FLICKER,
-  defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-});
-const pointLightDraftRuntime = createPointLightDraftRuntime({
-  pointLightEditorState,
-});
 let nextPointLightId = 1;
 let normalsImageData = null;
 let heightImageData = null;
@@ -1958,26 +1944,6 @@ const POINT_LIGHT_SELECT_RADIUS = 3;
 const POINT_LIGHT_BAKE_LIVE_SCALE = 0.5;
 const POINT_LIGHT_BAKE_DEBOUNCE_MS = 80;
 const SWARM_POINT_LIGHT_EDGE_MIN = 0.08;
-const pointLightEditorController = createPointLightEditorController({
-  pointLights,
-  editorState: pointLightEditorState,
-  selectRadiusPx: POINT_LIGHT_SELECT_RADIUS,
-  defaultFlicker: DEFAULT_POINT_LIGHT_FLICKER,
-  defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-  nextLightId: () => nextPointLightId++,
-  hexToRgb01,
-  bakePointLightsTexture,
-  schedulePointLightBake,
-  isPointLightLiveUpdateEnabled,
-  onSelectionChanged: updateLightEditorUi,
-  setStatus,
-});
-const pointLightEditorRuntime = createPointLightEditorRuntime({
-  pointLightEditorController,
-});
-const pointLightEditorActionBindingRuntime = createPointLightEditorActionBindingRuntime({
-  pointLightEditorRuntime,
-});
 const overlayDirtyRuntime = createOverlayDirtyRuntime(true);
 const DEFAULT_MAP_FOLDER = "assets/Map 1/";
 let currentMapFolderPath = DEFAULT_MAP_FOLDER;
@@ -2238,36 +2204,23 @@ createDefaultMapImageRuntime({
   },
 }).initializeDefaultMapImages();
 
-const pointLightSelectionRuntime = createPointLightSelectionRuntime({
-  pointLightEditorController,
-});
-
-function getSelectedPointLight() {
-  return pointLightSelectionRuntime.getSelectedPointLight();
-}
-
-function clearLightEditSelection() {
-  pointLightSelectionRuntime.clearLightEditSelection();
-}
-
-function setLightEditSelection(light) {
-  pointLightSelectionRuntime.setLightEditSelection(light);
-}
-
-const pointLightIoRuntime = createPointLightIoRuntime({
+const pointLightRuntime = createPointLightRuntime({
   pointLights,
-  splatSize,
   clamp,
+  splatSize,
+  selectRadiusPx: POINT_LIGHT_SELECT_RADIUS,
   defaultFlicker: DEFAULT_POINT_LIGHT_FLICKER,
   defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-  parsePointLightsPayload,
-  serializePointLightsPayload,
   nextPointLightId: () => nextPointLightId++,
-  clearLightEditSelection,
+  hexToRgb01,
   bakePointLightsTexture,
+  schedulePointLightBake,
+  isPointLightLiveUpdateEnabled,
   updateLightEditorUi,
   requestOverlayDraw,
   setStatus,
+  parsePointLightsPayload,
+  serializePointLightsPayload,
   tauriInvoke,
   isAbsoluteFsPath,
   joinFsPath,
@@ -2292,32 +2245,44 @@ const pointLightIoRuntime = createPointLightIoRuntime({
   clearTimeout: (id) => window.clearTimeout(id),
 });
 
+function getSelectedPointLight() {
+  return pointLightRuntime.getSelectedPointLight();
+}
+
+function clearLightEditSelection() {
+  pointLightRuntime.clearLightEditSelection();
+}
+
+function setLightEditSelection(light) {
+  pointLightRuntime.setLightEditSelection(light);
+}
+
 function clearPointLights() {
-  pointLightIoRuntime.clearPointLights();
+  pointLightRuntime.clearPointLights();
 }
 
 function resetPointLightsSaveConfirmation() {
-  pointLightIoRuntime.resetPointLightsSaveConfirmation();
+  pointLightRuntime.resetPointLightsSaveConfirmation();
 }
 
 function armPointLightsSaveConfirmation() {
-  pointLightIoRuntime.armPointLightsSaveConfirmation();
+  pointLightRuntime.armPointLightsSaveConfirmation();
 }
 
 function serializePointLights() {
-  return pointLightIoRuntime.serializePointLights();
+  return pointLightRuntime.serializePointLights();
 }
 
 function applyLoadedPointLights(rawData, sourceLabel, options = {}) {
-  return pointLightIoRuntime.applyLoadedPointLights(rawData, sourceLabel, options);
+  return pointLightRuntime.applyLoadedPointLights(rawData, sourceLabel, options);
 }
 
 async function savePointLightsJson() {
-  await pointLightIoRuntime.savePointLightsJson();
+  await pointLightRuntime.savePointLightsJson();
 }
 
 async function loadPointLightsFromAssetsOrPrompt() {
-  await pointLightIoRuntime.loadPointLightsFromAssetsOrPrompt();
+  await pointLightRuntime.loadPointLightsFromAssetsOrPrompt();
 }
 
 function ensurePointLightBakeSize() {
@@ -2516,7 +2481,7 @@ function updateCursorLightFromPointer(clientX, clientY) {
 const pointLightEditorUiBindingRuntime = createPointLightEditorUiBindingRuntime({
   syncPointLightEditorUi,
   getSelectedPointLight,
-  getLightEditDraft: () => pointLightEditorState.getDraft(),
+  getLightEditDraft: () => pointLightRuntime.getDraft(),
   lightEditorEmptyEl,
   lightEditorFieldsEl,
   lightCoordEl,
@@ -2540,23 +2505,23 @@ function updateLightEditorUi() {
 }
 
 function beginLightEdit(light) {
-  pointLightEditorActionBindingRuntime.beginLightEdit(light);
+  pointLightRuntime.beginLightEdit(light);
 }
 
 function applyDraftToSelectedPointLight() {
-  return pointLightEditorActionBindingRuntime.applyDraftToSelectedPointLight();
+  return pointLightRuntime.applyDraftToSelectedPointLight();
 }
 
 function rebakeIfPointLightLiveUpdateEnabled() {
-  pointLightEditorActionBindingRuntime.rebakeIfPointLightLiveUpdateEnabled();
+  pointLightRuntime.rebakeIfPointLightLiveUpdateEnabled();
 }
 
 function findPointLightAtPixel(pixelX, pixelY, radiusPx = POINT_LIGHT_SELECT_RADIUS) {
-  return pointLightEditorActionBindingRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx);
+  return pointLightRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx);
 }
 
 function createPointLight(pixelX, pixelY) {
-  pointLightEditorActionBindingRuntime.createPointLight(pixelX, pixelY);
+  pointLightRuntime.createPointLight(pixelX, pixelY);
 }
 
 function applyMapSizeChangeIfNeeded(changed) {
@@ -4090,9 +4055,9 @@ const drawOverlay = createOverlayDrawerRuntime({
   getMapAspect,
   splatSize,
   getInteractionMode: () => getInteractionModeSnapshot(),
-  getLightEditDraft: () => pointLightEditorState.getDraft(),
+  getLightEditDraft: () => pointLightRuntime.getDraft(),
   getPointLights: () => pointLights,
-  isPointLightSelected: (light) => pointLightEditorState.isSelectedLight(light),
+  isPointLightSelected: (light) => pointLightRuntime.isSelectedLight(light),
   mapPixelToWorld,
   worldToScreen,
   clamp,
@@ -4250,13 +4215,13 @@ bindPointLightEditorRuntime({
   pointLightsLoadInput,
   clamp,
   hexToRgb01,
-  hasLightEditDraft: () => pointLightDraftRuntime.hasLightEditDraft(),
-  setLightEditDraftColor: (value) => pointLightDraftRuntime.setLightEditDraftColor(value),
-  setLightEditDraftStrength: (value) => pointLightDraftRuntime.setLightEditDraftStrength(value),
-  setLightEditDraftIntensity: (value) => pointLightDraftRuntime.setLightEditDraftIntensity(value),
-  setLightEditDraftHeightOffset: (value) => pointLightDraftRuntime.setLightEditDraftHeightOffset(value),
-  setLightEditDraftFlicker: (value) => pointLightDraftRuntime.setLightEditDraftFlicker(value),
-  setLightEditDraftFlickerSpeed: (value) => pointLightDraftRuntime.setLightEditDraftFlickerSpeed(value),
+  hasLightEditDraft: () => pointLightRuntime.hasLightEditDraft(),
+  setLightEditDraftColor: (value) => pointLightRuntime.setLightEditDraftColor(value),
+  setLightEditDraftStrength: (value) => pointLightRuntime.setLightEditDraftStrength(value),
+  setLightEditDraftIntensity: (value) => pointLightRuntime.setLightEditDraftIntensity(value),
+  setLightEditDraftHeightOffset: (value) => pointLightRuntime.setLightEditDraftHeightOffset(value),
+  setLightEditDraftFlicker: (value) => pointLightRuntime.setLightEditDraftFlicker(value),
+  setLightEditDraftFlickerSpeed: (value) => pointLightRuntime.setLightEditDraftFlickerSpeed(value),
   updatePointLightStrengthLabel,
   updatePointLightIntensityLabel,
   updatePointLightHeightOffsetLabel,
@@ -4270,7 +4235,7 @@ bindPointLightEditorRuntime({
   syncPointLightsStateToStore,
   updateLightEditorUi,
   getSelectedPointLight,
-  deletePointLightById: (id) => pointLightEditorRuntime.deletePointLightById(id),
+  deletePointLightById: (id) => pointLightRuntime.deletePointLightById(id),
   clearLightEditSelection,
   isPointLightsSaveConfirmArmed,
   armPointLightsSaveConfirmation,

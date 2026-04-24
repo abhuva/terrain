@@ -28,6 +28,7 @@ No game engine is used.
 - Point-light draft-state binding helpers (has/set draft fields) are now extracted to `src/gameplay/pointLightDraftRuntime.js`.
 - Point-light save/load/confirmation I/O orchestration is now extracted to `src/gameplay/pointLightIoController.js`.
 - Point-light I/O runtime binding (controller composition + wrapper methods, including save-confirm armed-state access) is now extracted to `src/gameplay/pointLightIoRuntime.js`.
+- Point-light transient runtime composition (editor selection/draft state, editor actions, selection helpers, and IO composition) is now extracted to `src/gameplay/pointLightRuntime.js`.
 - Map-level JSON "Save All" file-generation/save orchestration is now extracted to `src/gameplay/mapDataSaveController.js`.
 - Map-sidecar JSON load/apply orchestration for URL/folder-selection paths is now extracted to `src/gameplay/mapSidecarLoader.js`.
 - Map-load orchestration for path/folder-selection flows is now extracted to `src/gameplay/mapLoader.js` and composed from `main.js`.

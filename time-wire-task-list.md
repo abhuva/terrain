@@ -321,6 +321,8 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Reduced `main.js` further by extracting swarm interpolation/update/follow-camera composition into `src/gameplay/swarmLoopRuntime.js`.
   - Moved swarm follow target indices into canonical `gameplay.swarm` state (`followAgentIndex`, `followHawkIndex`) so follow target ownership no longer lives only in runtime locals.
   - Reduced `main.js` further by extracting swarm gameplay composition (environment, targeting, mutator, reseed, swarm data apply/serialize) into `src/gameplay/swarmGameplayRuntime.js`.
+  - Clarified point-light ownership by keeping editor selection/draft explicitly transient-only runtime state while persisted point-light data and save-confirm state stay canonical/store-backed.
+  - Reduced `main.js` further by extracting point-light editor/selection/draft/io composition into `src/gameplay/pointLightRuntime.js`.
   - Current recommended next sequence remains:
     - close remaining Phase 2 command-surface/state-contract work
     - close Phase 4 ownership boundaries for swarm/player/point-light runtime
