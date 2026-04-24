@@ -1092,3 +1092,10 @@ Recommended next sequence:
     - `node --check src/core/settingsDefaultsAccess.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued overlay-dirty state extraction:
+    - extracted overlay dirty-flag state ownership from `src/main.js` into `src/ui/overlays/overlayDirtyRuntime.js`
+    - `main.js` now keeps `requestOverlayDraw(...)` as a thin pass-through wrapper and delegates overlay hook dirty checks/clears
+  - Validation:
+    - `node --check src/ui/overlays/overlayDirtyRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

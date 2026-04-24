@@ -163,6 +163,7 @@ import { bindRuntimeControls } from "./ui/bindings/runtimeBinding.js";
 import { getRequiredElementById, getRequiredElements } from "./ui/domElementLookup.js";
 import { createOverlayHooks } from "./ui/overlays/overlayHooks.js";
 import { createOverlayAnimationRuntime } from "./ui/overlays/overlayAnimationRuntime.js";
+import { createOverlayDirtyRuntime } from "./ui/overlays/overlayDirtyRuntime.js";
 import { createOverlayDrawer } from "./ui/overlays/drawOverlay.js";
 import { createSwarmInputNormalization } from "./ui/swarmInputNormalization.js";
 import { createSwarmPanelUi } from "./ui/swarmPanelUi.js";
@@ -1959,7 +1960,7 @@ const pointLightEditorController = createPointLightEditorController({
   onSelectionChanged: updateLightEditorUi,
   setStatus,
 });
-let overlayDirty = true;
+const overlayDirtyRuntime = createOverlayDirtyRuntime(true);
 const DEFAULT_MAP_FOLDER = "assets/Map 1/";
 let currentMapFolderPath = DEFAULT_MAP_FOLDER;
 const DEFAULT_MAP_FOLDER_CANDIDATES = ["assets/Map 1/", "assets/"];
@@ -4041,7 +4042,7 @@ function updateCycleHourLabel() {
 }
 
 function requestOverlayDraw() {
-  overlayDirty = true;
+  overlayDirtyRuntime.requestOverlayDraw();
 }
 
 const overlayAnimationRuntime = createOverlayAnimationRuntime({
@@ -4056,10 +4057,8 @@ const overlayHooks = createOverlayHooks({
   updateSwarmFollowCamera,
   drawOverlay: (...args) => drawOverlay(...args),
   shouldAnimateOverlay: () => overlayAnimationRuntime.shouldAnimateOverlay(),
-  isOverlayDirty: () => overlayDirty,
-  clearOverlayDirty: () => {
-    overlayDirty = false;
-  },
+  isOverlayDirty: () => overlayDirtyRuntime.isOverlayDirty(),
+  clearOverlayDirty: () => overlayDirtyRuntime.clearOverlayDirty(),
 });
 
 function rgbToHex(rgb) {
