@@ -161,7 +161,6 @@ import {
 import { bindCanvasControls } from "./ui/bindings/canvasBinding.js";
 import { updatePointLightEditorUi as syncPointLightEditorUi } from "./ui/pointLightEditorUi.js";
 import { bindTopicPanelControls } from "./ui/bindings/topicPanelBinding.js";
-import { bindInteractionAndCycleControls } from "./ui/bindings/interactionBinding.js";
 import { bindPathfindingControls } from "./ui/bindings/pathfindingBinding.js";
 import { bindCursorLightControls } from "./ui/bindings/cursorLightBinding.js";
 import { bindSwarmFollowControls } from "./ui/bindings/swarmFollowBinding.js";
@@ -170,6 +169,7 @@ import { bindSwarmPanelControls } from "./ui/bindings/swarmPanelBinding.js";
 import { bindRuntimeControls } from "./ui/bindings/runtimeBinding.js";
 import { bindPointLightEditorRuntime } from "./ui/pointLightEditorBindingRuntime.js";
 import { bindRenderFxRuntime } from "./ui/renderFxBindingRuntime.js";
+import { bindInteractionCycleRuntime } from "./ui/interactionCycleBindingRuntime.js";
 import { getRequiredElementById, getRequiredElements } from "./ui/domElementLookup.js";
 import { createOverlayHooks } from "./ui/overlays/overlayHooks.js";
 import { createOverlayAnimationRuntime } from "./ui/overlays/overlayAnimationRuntime.js";
@@ -4261,7 +4261,7 @@ bindTopicPanelControls({
   setStatus,
 });
 
-bindInteractionAndCycleControls({
+bindInteractionCycleRuntime({
   windowEl: window,
   dockLightingModeToggle,
   dockPathfindingModeToggle,
