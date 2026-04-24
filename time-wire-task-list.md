@@ -1019,3 +1019,11 @@ Recommended next sequence:
     - `node --check src/gameplay/cursorLightPointerRuntime.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued flow-map runtime extraction:
+    - extracted flow-map rebuild orchestration (`rebuildFlowMapTexture`) from `src/main.js` into `src/render/flowMapRuntime.js`
+    - `main.js` now keeps `rebuildFlowMapTexture(...)` as a thin pass-through wrapper
+    - runtime wiring uses lazy `getFlowMapRuntime()` composition to avoid initialization-order regressions
+  - Validation:
+    - `node --check src/render/flowMapRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

@@ -52,6 +52,7 @@ import { createMainTerrainPass } from "./render/passes/mainTerrainPass.js";
 import { createBlurPass } from "./render/passes/blurPass.js";
 import { applyPointLightUsagePass } from "./render/passes/pointLightUsagePass.js";
 import { rebuildFlowMapTexture as rebuildFlowMapTexturePrecompute } from "./render/precompute/flowMap.js";
+import { createFlowMapRuntime } from "./render/flowMapRuntime.js";
 import { createPointLightBakeCanvasRuntime } from "./render/pointLightBakeCanvasRuntime.js";
 import { createPointLightBakeSync } from "./render/pointLightBakeSync.js";
 import { createPointLightBakeRuntime } from "./render/pointLightBakeRuntime.js";
@@ -1189,23 +1190,23 @@ function uploadImageToTexture(tex, image) {
   getGlResourceRuntime().uploadImageToTexture(tex, image);
 }
 
-function rebuildFlowMapTexture() {
-  const waterSettings = getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS);
-  rebuildFlowMapTexturePrecompute({
+let flowMapRuntime = null;
+function getFlowMapRuntime() {
+  if (flowMapRuntime) return flowMapRuntime;
+  flowMapRuntime = createFlowMapRuntime({
+    rebuildFlowMapTexturePrecompute,
     gl,
     flowMapTex,
-    heightImageData,
-    heightSize,
+    getHeightImageData: () => heightImageData,
+    getHeightSize: () => heightSize,
     clamp,
-    settings: {
-      radius1: waterSettings.waterFlowRadius1,
-      radius2: waterSettings.waterFlowRadius2,
-      radius3: waterSettings.waterFlowRadius3,
-      weight1: waterSettings.waterFlowWeight1,
-      weight2: waterSettings.waterFlowWeight2,
-      weight3: waterSettings.waterFlowWeight3,
-    },
+    getWaterSettings: () => getSimulationKnobSectionFromStore("waterFx") || getSettingsDefaults("waterfx", DEFAULT_WATER_SETTINGS),
   });
+  return flowMapRuntime;
+}
+
+function rebuildFlowMapTexture() {
+  getFlowMapRuntime().rebuildFlowMapTexture();
 }
 
 let shadowPipelineRuntime = null;
