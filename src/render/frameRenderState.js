@@ -23,9 +23,9 @@ export function buildFrameRenderState(input) {
       globalTimeHours: Number.isFinite(Number(coreTime.globalTimeHours)) ? Number(coreTime.globalTimeHours) : 0,
     },
     camera: {
-      panX: Number.isFinite(coreCamera.panX) ? coreCamera.panX : (input?.panWorld?.x ?? 0),
-      panY: Number.isFinite(coreCamera.panY) ? coreCamera.panY : (input?.panWorld?.y ?? 0),
-      zoom: Number.isFinite(coreCamera.zoom) ? coreCamera.zoom : (input?.zoom ?? 1),
+      panX: Number.isFinite(coreCamera.panX) ? coreCamera.panX : 0,
+      panY: Number.isFinite(coreCamera.panY) ? coreCamera.panY : 0,
+      zoom: Number.isFinite(coreCamera.zoom) ? coreCamera.zoom : 1,
     },
     map: {
       folderPath: coreMap.folderPath || input?.currentMapFolderPath || "",

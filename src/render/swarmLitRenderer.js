@@ -54,9 +54,9 @@ export function createSwarmLitRenderer(deps) {
       }
     }
 
-    const cameraZoom = frameCamera && Number.isFinite(Number(frameCamera.zoom)) ? Number(frameCamera.zoom) : deps.getZoom();
-    const cameraPanX = frameCamera && Number.isFinite(Number(frameCamera.panX)) ? Number(frameCamera.panX) : deps.panWorld.x;
-    const cameraPanY = frameCamera && Number.isFinite(Number(frameCamera.panY)) ? Number(frameCamera.panY) : deps.panWorld.y;
+    const cameraZoom = frameCamera && Number.isFinite(Number(frameCamera.zoom)) ? Number(frameCamera.zoom) : 1;
+    const cameraPanX = frameCamera && Number.isFinite(Number(frameCamera.panX)) ? Number(frameCamera.panX) : 0;
+    const cameraPanY = frameCamera && Number.isFinite(Number(frameCamera.panY)) ? Number(frameCamera.panY) : 0;
     const viewHalf = deps.getViewHalfExtents(cameraZoom);
     const hawkColor = deps.hexToRgb01(settings.hawkColor);
     const gl = deps.gl;

@@ -1,17 +1,14 @@
 export function createTerrainUniformUploader(deps) {
   return function uploadUniforms(params, frameTime, input, frameCamera = null) {
-    const fallbackCamera = typeof deps.getFallbackCamera === "function"
-      ? deps.getFallbackCamera()
-      : { zoom: 1, panX: 0, panY: 0 };
     const cameraZoom = frameCamera && Number.isFinite(Number(frameCamera.zoom))
       ? Number(frameCamera.zoom)
-      : Number(fallbackCamera.zoom);
+      : 1;
     const cameraPanX = frameCamera && Number.isFinite(Number(frameCamera.panX))
       ? Number(frameCamera.panX)
-      : Number(fallbackCamera.panX);
+      : 0;
     const cameraPanY = frameCamera && Number.isFinite(Number(frameCamera.panY))
       ? Number(frameCamera.panY)
-      : Number(fallbackCamera.panY);
+      : 0;
 
     deps.gl.useProgram(deps.program);
     deps.gl.activeTexture(deps.gl.TEXTURE0);

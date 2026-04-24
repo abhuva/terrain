@@ -2,16 +2,51 @@ import { normalizeRuntimeMode } from "./modeCapabilities.js";
 import { registerInteractionCommands } from "../gameplay/interactionCommands.js";
 
 export function registerMainCommands(commandBus, deps) {
-  function syncCameraToStore(ctx) {
+  function getFallbackCameraPose() {
+    return {
+      panX: 0,
+      panY: 0,
+      zoom: 1,
+    };
+  }
+
+  function getCameraPose(ctx) {
+    const camera = ctx.store.getState().camera || {};
+    const fallback = getFallbackCameraPose();
+    return {
+      panX: Number.isFinite(Number(camera.panX)) ? Number(camera.panX) : fallback.panX,
+      panY: Number.isFinite(Number(camera.panY)) ? Number(camera.panY) : fallback.panY,
+      zoom: Number.isFinite(Number(camera.zoom))
+        ? deps.clamp(Number(camera.zoom), deps.zoomMin, deps.zoomMax)
+        : fallback.zoom,
+    };
+  }
+
+  function applyCameraPose(ctx, pose, options = {}) {
+    const nextPanX = Number.isFinite(Number(pose && pose.panX)) ? Number(pose.panX) : getCameraPose(ctx).panX;
+    const nextPanY = Number.isFinite(Number(pose && pose.panY)) ? Number(pose.panY) : getCameraPose(ctx).panY;
+    const nextZoom = Number.isFinite(Number(pose && pose.zoom))
+      ? deps.clamp(Number(pose.zoom), deps.zoomMin, deps.zoomMax)
+      : getCameraPose(ctx).zoom;
     ctx.store.update((prev) => ({
       ...prev,
       camera: {
         ...prev.camera,
-        panX: deps.panWorld.x,
-        panY: deps.panWorld.y,
-        zoom: deps.getZoom(),
+        panX: nextPanX,
+        panY: nextPanY,
+        zoom: nextZoom,
       },
     }));
+    if (typeof deps.applyCameraPose === "function") {
+      deps.applyCameraPose({
+        panX: nextPanX,
+        panY: nextPanY,
+        zoom: nextZoom,
+      });
+    }
+    if (options.requestOverlay !== false) {
+      deps.requestOverlayDraw();
+    }
   }
 
   function syncCursorLightToStore(ctx) {
@@ -473,23 +508,21 @@ export function registerMainCommands(commandBus, deps) {
   });
 
   commandBus.register("core/camera/reset", (command, ctx) => {
-    deps.setZoom(1);
-    deps.panWorld.x = 0;
-    deps.panWorld.y = 0;
-    syncCameraToStore(ctx);
-    deps.requestOverlayDraw();
+    applyCameraPose(ctx, { zoom: 1, panX: 0, panY: 0 });
   });
 
   commandBus.register("core/camera/zoomAtClient", (command, ctx) => {
+    const camera = getCameraPose(ctx);
     const ndc = deps.clientToNdc(command.clientX, command.clientY);
-    const worldBefore = deps.worldFromNdc(ndc, deps.getZoom(), deps.panWorld);
-    const nextZoom = Math.min(deps.zoomMax, Math.max(deps.zoomMin, deps.getZoom() * Math.exp(-command.deltaY * 0.0015)));
-    const worldAfter = deps.worldFromNdc(ndc, nextZoom, deps.panWorld);
-    deps.panWorld.x += worldBefore.x - worldAfter.x;
-    deps.panWorld.y += worldBefore.y - worldAfter.y;
-    deps.setZoom(nextZoom);
-    syncCameraToStore(ctx);
-    deps.requestOverlayDraw();
+    const pan = { x: camera.panX, y: camera.panY };
+    const worldBefore = deps.worldFromNdc(ndc, camera.zoom, pan);
+    const nextZoom = Math.min(deps.zoomMax, Math.max(deps.zoomMin, camera.zoom * Math.exp(-command.deltaY * 0.0015)));
+    const worldAfter = deps.worldFromNdc(ndc, nextZoom, pan);
+    applyCameraPose(ctx, {
+      panX: camera.panX + (worldBefore.x - worldAfter.x),
+      panY: camera.panY + (worldBefore.y - worldAfter.y),
+      zoom: nextZoom,
+    });
   });
 
   commandBus.register("core/camera/beginMiddleDrag", (command) => {
@@ -503,32 +536,32 @@ export function registerMainCommands(commandBus, deps) {
   });
 
   commandBus.register("core/camera/dragToClient", (command, ctx) => {
+    const camera = getCameraPose(ctx);
     const prevNdc = deps.clientToNdc(deps.lastDragClient.x, deps.lastDragClient.y);
     const currNdc = deps.clientToNdc(command.clientX, command.clientY);
-    const worldPrev = deps.worldFromNdc(prevNdc, deps.getZoom(), deps.panWorld);
-    const worldCurr = deps.worldFromNdc(currNdc, deps.getZoom(), deps.panWorld);
-    deps.panWorld.x += worldPrev.x - worldCurr.x;
-    deps.panWorld.y += worldPrev.y - worldCurr.y;
+    const pan = { x: camera.panX, y: camera.panY };
+    const worldPrev = deps.worldFromNdc(prevNdc, camera.zoom, pan);
+    const worldCurr = deps.worldFromNdc(currNdc, camera.zoom, pan);
     deps.lastDragClient.x = command.clientX;
     deps.lastDragClient.y = command.clientY;
-    syncCameraToStore(ctx);
-    deps.requestOverlayDraw();
+    applyCameraPose(ctx, {
+      panX: camera.panX + (worldPrev.x - worldCurr.x),
+      panY: camera.panY + (worldPrev.y - worldCurr.y),
+      zoom: camera.zoom,
+    });
   });
 
   commandBus.register("core/camera/setPose", (command, ctx) => {
-    if (Number.isFinite(Number(command.panX))) {
-      deps.panWorld.x = Number(command.panX);
-    }
-    if (Number.isFinite(Number(command.panY))) {
-      deps.panWorld.y = Number(command.panY);
-    }
-    if (Number.isFinite(Number(command.zoom))) {
-      deps.setZoom(deps.clamp(Number(command.zoom), deps.zoomMin, deps.zoomMax));
-    }
-    syncCameraToStore(ctx);
-    if (command.requestOverlay !== false) {
-      deps.requestOverlayDraw();
-    }
+    const current = getCameraPose(ctx);
+    applyCameraPose(
+      ctx,
+      {
+        panX: Number.isFinite(Number(command.panX)) ? Number(command.panX) : current.panX,
+        panY: Number.isFinite(Number(command.panY)) ? Number(command.panY) : current.panY,
+        zoom: Number.isFinite(Number(command.zoom)) ? Number(command.zoom) : current.zoom,
+      },
+      { requestOverlay: command.requestOverlay },
+    );
   });
 
   commandBus.register("core/time/setHourScrubbing", (command) => {

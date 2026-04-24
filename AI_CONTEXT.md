@@ -22,9 +22,32 @@ No game engine is used.
 - Rendering backend: WebGL2 terrain pass + 2D overlay canvas for interaction markers
 - Gameplay scaffolding modules now exist under `src/gameplay/` (`entityStore`, `movementSystem`) and are scheduler-driven adapters around existing runtime behavior.
 - Interaction command routing is now extracted to `src/gameplay/interactionCommands.js` and composed into main command registration.
+- Point-light editor orchestration is now extracted to `src/gameplay/pointLightEditorController.js`, with draft state isolated in `src/gameplay/pointLightEditorState.js`.
+- Point-light save/load/confirmation I/O orchestration is now extracted to `src/gameplay/pointLightIoController.js`.
+- Map-level JSON "Save All" file-generation/save orchestration is now extracted to `src/gameplay/mapDataSaveController.js`.
+- Map-sidecar JSON load/apply orchestration for URL/folder-selection paths is now extracted to `src/gameplay/mapSidecarLoader.js`.
+- Map-load orchestration for path/folder-selection flows is now extracted to `src/gameplay/mapLoader.js` and composed from `main.js`.
+- Swarm integration-step behavior is now extracted to `src/gameplay/swarmStep.js` and composed into the swarm update loop.
+- Swarm render interpolation state handling is now extracted to `src/gameplay/swarmInterpolation.js` and composed into follow/overlay/lit-swarm paths.
+- Swarm reseed/reset behavior is now extracted to `src/gameplay/swarmReseed.js` and composed from `main.js`.
+- Swarm target selection/follow targeting helpers are now extracted to `src/gameplay/swarmTargeting.js`.
+- Swarm terrain/water/flyability environment helpers are now extracted to `src/gameplay/swarmEnvironment.js`.
+- Swarm agent-buffer mutation ownership (`ensure`, `append`, `remove`, resting-bird spawn) is now extracted to `src/gameplay/swarmAgentStateMutator.js`.
+- Swarm-data hydration/apply orchestration (`swarm.json` settings+state+follow apply) is now extracted to `src/gameplay/swarmDataApplier.js`.
+- Swarm-data serialization for map save/load is now extracted to `src/gameplay/swarmDataSerializer.js`.
+- Swarm UI input normalization helpers are now extracted to `src/ui/swarmInputNormalization.js`.
+- Swarm panel UI reflection (labels, enable/disable state, follow button text, stats panel updates) is now extracted to `src/ui/swarmPanelUi.js`.
+- Swarm settings UI-apply reflection path is now extracted to `src/ui/swarmSettingsApplier.js`.
+- Interaction-sidecar serialization (`interaction.json`) is now extracted to `src/gameplay/interactionDataSerializer.js`.
+- Interaction settings UI-apply reflection path is now extracted to `src/ui/interactionSettingsApplier.js`.
+- NPC persistence helpers (`serializeNpcState`, `parseNpcPlayer`, `applyLoadedNpc`) are now extracted to `src/gameplay/npcPersistence.js`.
+- Lighting settings UI-apply reflection path is now extracted to `src/ui/lightingSettingsApplier.js`.
 - Overlay/gameplay frame integration now goes through `src/ui/overlays/overlayHooks.js` (gameplay update hook + overlay render hook).
 - The old per-frame `frameSnapshot` / `runtimeParityAdapter` bridge has been removed.
 - Core state is now updated through command handlers, settings apply flows, bootstrap/map-load synchronization, and scheduler-owned system updates.
+- Camera commands (`reset`, `zoomAtClient`, `dragToClient`, `setPose`) now commit canonical camera pose in store first and then apply a runtime camera adapter.
+- Frame render camera inputs now resolve from canonical `coreState.camera` defaults (not local runtime-camera fallbacks) across frame-state assembly and uniform upload.
+- Local runtime camera mirror state (`panWorld`/`zoom`) has been removed; camera ownership is canonical store state.
 - Migration is still in progress:
   - active time/render FX/pathfinding/swarm settings now prefer core state
   - some UI/apply helpers still remain DOM-backed for view synchronization and legacy save/apply paths

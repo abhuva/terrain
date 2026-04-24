@@ -54,6 +54,43 @@ export function createPointLightEditorState(deps) {
     return true;
   }
 
+  function setDraftColor(value) {
+    if (!Array.isArray(value) || value.length < 3) return false;
+    return mutateDraft((draft) => {
+      draft.color = [Number(value[0]) || 0, Number(value[1]) || 0, Number(value[2]) || 0];
+    });
+  }
+
+  function setDraftStrength(value) {
+    return mutateDraft((draft) => {
+      draft.strength = value;
+    });
+  }
+
+  function setDraftIntensity(value) {
+    return mutateDraft((draft) => {
+      draft.intensity = value;
+    });
+  }
+
+  function setDraftHeightOffset(value) {
+    return mutateDraft((draft) => {
+      draft.heightOffset = value;
+    });
+  }
+
+  function setDraftFlicker(value) {
+    return mutateDraft((draft) => {
+      draft.flicker = value;
+    });
+  }
+
+  function setDraftFlickerSpeed(value) {
+    return mutateDraft((draft) => {
+      draft.flickerSpeed = value;
+    });
+  }
+
   function applyDraftToLight(light) {
     if (!light || !lightEditDraft) return null;
     light.color = [...lightEditDraft.color];
@@ -76,6 +113,12 @@ export function createPointLightEditorState(deps) {
     hasDraft,
     getDraft,
     mutateDraft,
+    setDraftColor,
+    setDraftStrength,
+    setDraftIntensity,
+    setDraftHeightOffset,
+    setDraftFlicker,
+    setDraftFlickerSpeed,
     applyDraftToLight,
     isSelectedLight,
   };

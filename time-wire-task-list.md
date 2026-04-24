@@ -1,6 +1,6 @@
 # Time Wire Task List
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 Owner: Codex + Marc
 Branch policy: dedicated implementation branch, no direct commits to `main`
 Primary scope: complete the transition from hybrid time wiring to a fully migrated runtime architecture
@@ -184,11 +184,11 @@ Dependencies: Phase 2, Phase 3
 - [-] P4.2 Move remaining gameplay runtime ownership out of `main.js`
   - [-] P4.2.1 Player/gameplay state snapshots become authoritative state or system-owned runtime.
   - [-] P4.2.2 Swarm settings/runtime ownership boundaries are explicit and non-duplicated.
-  - [-] P4.2.3 Camera state ownership is explicit and does not bounce between runtime and core.
-- [-] P4.3 Stop per-frame snapshot feeding
-  - [ ] P4.3.1 Replace `updateCoreFrameSnapshot(...)` inputs with authoritative state access.
-  - [ ] P4.3.2 Ensure scheduler update context only carries transient frame values (`nowMs`, `dtSec`, routed time), not mirrored runtime state.
-  - [-] P4.3.3 Delete remaining snapshot-only helper functions once no longer needed.
+  - [x] P4.2.3 Camera state ownership is explicit and does not bounce between runtime and core.
+- [x] P4.3 Stop per-frame snapshot feeding
+  - [x] P4.3.1 Replace `updateCoreFrameSnapshot(...)` inputs with authoritative state access.
+  - [x] P4.3.2 Ensure scheduler update context only carries transient frame values (`nowMs`, `dtSec`, routed time), not mirrored runtime state.
+  - [x] P4.3.3 Delete remaining snapshot-only helper functions once no longer needed.
 
 Exit criteria:
 - Scheduler no longer depends on frame-by-frame mirrored runtime state.
@@ -201,9 +201,9 @@ Dependencies: Phase 4
   - [-] P5.1.1 Uniform input construction reads from core/system state.
   - [-] P5.1.2 Frame render state construction reads from core/system state.
   - [-] P5.1.3 Overlay rendering reads canonical gameplay/render state.
-- [ ] P5.2 Remove ad hoc render-time settings assembly where possible
+- [-] P5.2 Remove ad hoc render-time settings assembly where possible
   - [ ] P5.2.1 Avoid recomputing settings snapshots from DOM every frame.
-  - [ ] P5.2.2 Keep only genuinely transient frame calculations in render loop.
+  - [-] P5.2.2 Keep only genuinely transient frame calculations in render loop.
 - [-] P5.3 Reduce `main.js` to orchestration
   - [ ] P5.3.1 Keep boot/setup.
   - [ ] P5.3.2 Keep render loop orchestration.
@@ -216,11 +216,11 @@ Exit criteria:
 
 Dependencies: Phases 3, 4, 5
 
-- [ ] P6.1 Remove runtime-to-core mirroring
-  - [ ] P6.1.1 Delete `src/core/frameSnapshot.js` usage from `src/main.js`.
+- [-] P6.1 Remove runtime-to-core mirroring
+  - [x] P6.1.1 Delete `src/core/frameSnapshot.js` usage from `src/main.js`.
   - [ ] P6.1.2 Remove obsolete snapshot getters whose only role was frame mirroring.
-- [ ] P6.2 Remove core-to-runtime parity writes
-  - [ ] P6.2.1 Delete `src/core/runtimeParityAdapter.js` usage from `src/main.js`.
+- [-] P6.2 Remove core-to-runtime parity writes
+  - [x] P6.2.1 Delete `src/core/runtimeParityAdapter.js` usage from `src/main.js`.
   - [ ] P6.2.2 Remove remaining DOM/runtime write-back assumptions.
 - [ ] P6.3 Simplify interfaces after bridge removal
   - [ ] P6.3.1 Remove dead command/state plumbing that existed only for parity.
@@ -244,9 +244,9 @@ Dependencies: Phase 6
   - [ ] P7.2.1 Check that frame snapshot/parity churn is gone.
   - [ ] P7.2.2 Re-profile periodic hitching after bridge removal.
   - [ ] P7.2.3 Remove any remaining high-frequency DOM/state churn found during validation.
-- [ ] P7.3 Documentation updates
-  - [ ] P7.3.1 Update `README.md` to describe final runtime architecture and controls.
-  - [ ] P7.3.2 Update `AI_CONTEXT.md` to match final ownership model.
+- [-] P7.3 Documentation updates
+  - [-] P7.3.1 Update `README.md` to describe final runtime architecture and controls.
+  - [-] P7.3.2 Update `AI_CONTEXT.md` to match final ownership model.
   - [ ] P7.3.3 Update `AGENTS.md` if workflow/runtime notes changed.
 - [ ] P7.4 Task-list closure
   - [ ] P7.4.1 Replace hybrid-state note with final-state note.
@@ -286,10 +286,9 @@ Recommended next sequence:
   - finish removing remaining DOM-primary dependencies in settings/control flows
   - complete ownership-boundary clarification across core/renderer/DOM
 - [-] N2 Close explicit runtime ownership boundaries in Phase 4:
-  - finish camera ownership migration to command/state-authoritative writes
   - finish swarm/player ownership split so runtime mirrors are minimized and deliberate
+  - complete point-light editor ownership extraction out of `main.js` command flow
 - [-] N3 Continue Phase 5 extraction and reduce `main.js` further:
-  - move remaining point-light editor orchestration out of `main.js`
   - move remaining embedded render/gameplay orchestration out of `main.js`
   - keep `main.js` focused on boot + wiring + frame orchestration
 
@@ -530,3 +529,143 @@ Recommended next sequence:
     - re-ran sanity checks on migration-touched files:
       - `node --check` passed for updated/new runtime modules and bindings
       - `node --test tests/*.test.js` passed (9/9)
+- 2026-04-24:
+  - Continued camera ownership migration:
+    - camera commands in `src/core/registerMainCommands.js` now compute/commit camera pose from canonical store state, then apply a runtime camera adapter from that state
+    - removed camera command-side direct mutation of `panWorld`/`zoom` as the primary write path
+    - `core/camera/reset`, `core/camera/zoomAtClient`, `core/camera/dragToClient`, and `core/camera/setPose` now use one canonical camera-commit path
+  - Continued point-light editor ownership cleanup:
+    - extended `src/gameplay/pointLightEditorState.js` with explicit draft setter methods (`setDraftColor`, `setDraftStrength`, `setDraftIntensity`, `setDraftHeightOffset`, `setDraftFlicker`, `setDraftFlickerSpeed`)
+    - point-light editor binding wiring in `src/main.js` now uses editor-state methods instead of inline draft mutation lambdas
+  - Revalidated bridge-removal status:
+    - confirmed no runtime references remain to `frameSnapshot`, `runtimeParityAdapter`, or `updateCoreFrameSnapshot(...)`
+    - marked P4.3 complete and marked P6.1.1/P6.2.1 complete accordingly
+  - Validation:
+    - `node --check src/core/registerMainCommands.js`
+    - `node --check src/gameplay/pointLightEditorState.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued render-side effect cleanup:
+    - removed fog auto-color DOM write from `computeLightingParams(...)` and kept it as a render-orchestration UI reflection step
+    - lighting computation path now remains side-effect free (state in, params out)
+  - Revalidation:
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued `main.js` ownership extraction:
+    - extracted point-light editor orchestration into `src/gameplay/pointLightEditorController.js`
+    - `main.js` point-light handlers (`find/create/select/apply-draft/rebake-live-update/delete`) now delegate through that controller instead of inline orchestration logic
+    - point-light editor state remains in `src/gameplay/pointLightEditorState.js`, with controller + state now owning editor behavior surface
+    - extracted point-light save/load/confirmation orchestration into `src/gameplay/pointLightIoController.js`
+    - `main.js` now delegates point-light JSON parse/load/save/confirm state behavior through that controller
+    - removed dead local runtime camera mirror (`panWorld`/`zoom`) after camera command/render paths became canonical-store driven
+    - extracted map-level JSON Save-All orchestration into `src/gameplay/mapDataSaveController.js`
+    - `main.js` now delegates map-sidecar file text generation + native/browser save flow through that controller
+    - extracted map-sidecar JSON load/apply orchestration into `src/gameplay/mapSidecarLoader.js`
+    - `main.js` map-load paths now delegate sidecar load/apply behavior (URL + folder-selection) through one composed loader module
+    - extracted map-load path/folder-selection orchestration into `src/gameplay/mapLoader.js`
+    - `main.js` now delegates high-level map load flow through `createMapLoader(...)` instead of embedding both load-path bodies inline
+  - Validation:
+    - `node --check src/gameplay/pointLightEditorController.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Documentation sync started:
+    - updated `README.md` Files section to reflect current modular architecture (`core`, `render`, `gameplay`) and `main.js` orchestration role
+    - updated `AI_CONTEXT.md` runtime overview with point-light editor controller extraction and store-authoritative camera command flow
+  - Continued camera + render decoupling:
+    - removed frame-camera fallback dependency on local runtime camera fields in:
+      - `src/render/frameRenderState.js`
+      - `src/render/uniformUploader.js`
+      - `src/render/swarmLitRenderer.js`
+      - `computeLightingParams(...)` in `src/main.js`
+    - follow-camera zoom source now resolves from canonical active camera state (`coreState.camera`) instead of local zoom mirror
+  - Continued swarm ownership extraction:
+    - extracted swarm integration-step logic (`stepSwarm`) from `src/main.js` into `src/gameplay/swarmStep.js`
+    - `main.js` now composes `createSwarmStepFunction(...)` with explicit dependencies instead of embedding swarm steering/chase/breeding integration inline
+    - extracted swarm render interpolation helpers from `src/main.js` into `src/gameplay/swarmInterpolation.js`
+    - follow-camera updater, overlay draw paths, and lit-swarm renderer now consume interpolation helpers composed from that module
+    - extracted swarm reseed/reset orchestration from `src/main.js` into `src/gameplay/swarmReseed.js`
+    - `main.js` now composes `createSwarmReseeder(...)` for swarm respawn/bootstrap reseed behavior
+    - extracted swarm target-selection/follow-target helpers from `src/main.js` into `src/gameplay/swarmTargeting.js`
+    - `main.js` follow and hawk-target paths now consume composed targeting helpers from that module
+    - extracted swarm terrain/water/flyability environment helpers from `src/main.js` into `src/gameplay/swarmEnvironment.js`
+    - swarm step/reseed/targeting composition now depends on explicit environment helper module instead of inline environment functions
+    - extracted swarm UI input normalization (`min/max height`, `follow zoom in/out`) from `src/main.js` into `src/ui/swarmInputNormalization.js`
+  - Validation:
+    - `node --check src/gameplay/swarmStep.js`
+    - `node --check src/gameplay/swarmInterpolation.js`
+    - `node --check src/gameplay/swarmReseed.js`
+    - `node --check src/gameplay/swarmTargeting.js`
+    - `node --check src/gameplay/swarmEnvironment.js`
+    - `node --check src/gameplay/pointLightIoController.js`
+    - `node --check src/gameplay/mapDataSaveController.js`
+    - `node --check src/gameplay/mapSidecarLoader.js`
+    - `node --check src/gameplay/mapLoader.js`
+    - `node --check src/ui/swarmInputNormalization.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm UI ownership extraction:
+    - extracted swarm panel UI reflection from `src/main.js` into `src/ui/swarmPanelUi.js`
+    - moved swarm label updates, control enable/disable state updates, follow-button text updates, and stats-panel updates into the new module
+    - `main.js` now composes `createSwarmPanelUi(...)` and consumes returned UI update functions
+  - Validation:
+    - `node --check src/ui/swarmPanelUi.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm runtime mutation ownership extraction:
+    - extracted swarm agent-state buffer mutation helpers from `src/main.js` into `src/gameplay/swarmAgentStateMutator.js`
+    - moved `ensureSwarmBuffers`, `removeSwarmAgentAtIndex`, `appendSwarmAgentState`, and `spawnRestingBirdNear` into that module
+    - `main.js` now composes `createSwarmAgentStateMutator(...)` and injects those operations into swarm reseed + swarm step modules
+  - Validation:
+    - `node --check src/gameplay/swarmAgentStateMutator.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm data-apply ownership extraction:
+    - extracted swarm runtime hydration/apply logic from `applySwarmData(...)` in `src/main.js` into `src/gameplay/swarmDataApplier.js`
+    - `main.js` now composes `createSwarmDataApplier(...)` and keeps `applySwarmData(...)` as a thin pass-through
+    - map sidecar loading still calls `applySwarmData(...)`, now routed through the extracted module behavior
+  - Validation:
+    - `node --check src/gameplay/swarmDataApplier.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm data-serialization ownership extraction:
+    - extracted `serializeSwarmDataLegacy(...)` logic from `src/main.js` into `src/gameplay/swarmDataSerializer.js`
+    - `main.js` now composes `createSwarmDataSerializer(...)` and keeps `serializeSwarmDataLegacy(...)` as a thin pass-through
+  - Validation:
+    - `node --check src/gameplay/swarmDataSerializer.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm settings apply-path extraction:
+    - extracted `applySwarmSettingsLegacy(...)` UI reflection logic from `src/main.js` into `src/ui/swarmSettingsApplier.js`
+    - `main.js` now composes `createSwarmSettingsApplier(...)` and keeps `applySwarmSettingsLegacy(...)` as a thin pass-through
+  - Validation:
+    - `node --check src/ui/swarmSettingsApplier.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued interaction-sidecar serialization extraction:
+    - extracted `serializeInteractionSettingsLegacy(...)` logic from `src/main.js` into `src/gameplay/interactionDataSerializer.js`
+    - `main.js` now composes `createInteractionDataSerializer(...)` and keeps `serializeInteractionSettingsLegacy(...)` as a thin pass-through
+  - Validation:
+    - `node --check src/gameplay/interactionDataSerializer.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued interaction settings apply-path extraction:
+    - extracted `applyInteractionSettingsLegacy(...)` UI reflection logic from `src/main.js` into `src/ui/interactionSettingsApplier.js`
+    - `main.js` now composes `createInteractionSettingsApplier(...)` and keeps `applyInteractionSettingsLegacy(...)` as a thin pass-through
+  - Validation:
+    - `node --check src/ui/interactionSettingsApplier.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued NPC persistence extraction:
+    - extracted NPC persistence helpers from `src/main.js` into `src/gameplay/npcPersistence.js`
+    - `main.js` now composes `createNpcPersistence(...)` and keeps `serializeNpcState(...)`, `parseNpcPlayer(...)`, and `applyLoadedNpc(...)` as thin pass-throughs
+  - Validation:
+    - `node --check src/gameplay/npcPersistence.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued lighting settings apply-path extraction:
+    - extracted `applyLightingSettingsLegacy(...)` UI reflection logic from `src/main.js` into `src/ui/lightingSettingsApplier.js`
+    - `main.js` now composes `createLightingSettingsApplier(...)` and keeps `applyLightingSettingsLegacy(...)` as a thin pass-through
+  - Validation:
+    - `node --check src/ui/lightingSettingsApplier.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)

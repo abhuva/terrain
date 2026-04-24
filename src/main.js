@@ -42,9 +42,24 @@ import { createEntityStore } from "./gameplay/entityStore.js";
 import { createCursorLightRuntimeState } from "./gameplay/cursorLightState.js";
 import { createMovementSystem } from "./gameplay/movementSystem.js";
 import { createPointLightEditorState } from "./gameplay/pointLightEditorState.js";
+import { createPointLightEditorController } from "./gameplay/pointLightEditorController.js";
+import { createPointLightIoController } from "./gameplay/pointLightIoController.js";
+import { createMapDataSaveController } from "./gameplay/mapDataSaveController.js";
+import { createMapSidecarLoader } from "./gameplay/mapSidecarLoader.js";
+import { createMapLoader } from "./gameplay/mapLoader.js";
 import { parsePointLightsPayload, serializePointLightsPayload } from "./gameplay/pointLightsPersistence.js";
 import { createSwarmFollowCameraUpdater } from "./gameplay/swarmFollowCamera.js";
 import { createSwarmUpdateLoop } from "./gameplay/swarmUpdateLoop.js";
+import { createSwarmStepFunction } from "./gameplay/swarmStep.js";
+import { createSwarmInterpolation } from "./gameplay/swarmInterpolation.js";
+import { createSwarmReseeder } from "./gameplay/swarmReseed.js";
+import { createSwarmTargeting } from "./gameplay/swarmTargeting.js";
+import { createSwarmEnvironment } from "./gameplay/swarmEnvironment.js";
+import { createSwarmAgentStateMutator } from "./gameplay/swarmAgentStateMutator.js";
+import { createSwarmDataApplier } from "./gameplay/swarmDataApplier.js";
+import { createSwarmDataSerializer } from "./gameplay/swarmDataSerializer.js";
+import { createInteractionDataSerializer } from "./gameplay/interactionDataSerializer.js";
+import { createNpcPersistence } from "./gameplay/npcPersistence.js";
 import { bindCanvasControls } from "./ui/bindings/canvasBinding.js";
 import { updatePointLightEditorUi as syncPointLightEditorUi } from "./ui/pointLightEditorUi.js";
 import { bindTopicPanelControls } from "./ui/bindings/topicPanelBinding.js";
@@ -59,6 +74,11 @@ import { bindSwarmPanelControls } from "./ui/bindings/swarmPanelBinding.js";
 import { bindRuntimeControls } from "./ui/bindings/runtimeBinding.js";
 import { createOverlayHooks } from "./ui/overlays/overlayHooks.js";
 import { createOverlayDrawer } from "./ui/overlays/drawOverlay.js";
+import { createSwarmInputNormalization } from "./ui/swarmInputNormalization.js";
+import { createSwarmPanelUi } from "./ui/swarmPanelUi.js";
+import { createSwarmSettingsApplier } from "./ui/swarmSettingsApplier.js";
+import { createInteractionSettingsApplier } from "./ui/interactionSettingsApplier.js";
+import { createLightingSettingsApplier } from "./ui/lightingSettingsApplier.js";
 
 const runtimeCore = createRuntimeCore();
 const dispatchCoreCommand = createCoreCommandDispatch(runtimeCore);
@@ -1506,38 +1526,7 @@ function serializeLightingSettingsLegacy() {
 }
 
 function applyLightingSettingsLegacy(rawData) {
-  const state = runtimeCore.store.getState();
-  const lighting = getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
-  const timeState = state.systems && state.systems.time ? state.systems.time : {};
-  const uiState = state.ui || {};
-  shadowsToggle.checked = Boolean(lighting.useShadows);
-  heightScaleInput.value = String(Math.round(clamp(Number(lighting.heightScale), 1, 300)));
-  shadowStrengthInput.value = String(clamp(Number(lighting.shadowStrength), 0, 1));
-  shadowBlurInput.value = String(clamp(Number(lighting.shadowBlur), 0, 3));
-  ambientInput.value = String(clamp(Number(lighting.ambient), 0, 1));
-  diffuseInput.value = String(clamp(Number(lighting.diffuse), 0, 2));
-  volumetricToggle.checked = Boolean(lighting.useVolumetric);
-  volumetricStrengthInput.value = String(clamp(Number(lighting.volumetricStrength), 0, 1));
-  volumetricDensityInput.value = String(clamp(Number(lighting.volumetricDensity), 0, 2));
-  volumetricAnisotropyInput.value = String(clamp(Number(lighting.volumetricAnisotropy), 0, 0.95));
-  volumetricLengthInput.value = String(Math.round(clamp(Number(lighting.volumetricLength), 8, 160)));
-  volumetricSamplesInput.value = String(Math.round(clamp(Number(lighting.volumetricSamples), 4, 24)));
-  cycleState.hour = clamp(Number(uiState.cycleHour), 0, 24);
-  cycleSpeedInput.value = String(clamp(Number(timeState.cycleSpeedHoursPerSec), 0, 1));
-  simTickHoursInput.value = String(normalizeSimTickHours(timeState.simTickHours));
-  pointFlickerToggle.checked = Boolean(lighting.pointFlickerEnabled);
-  pointFlickerStrengthInput.value = String(clamp(Number(lighting.pointFlickerStrength), 0, 1));
-  pointFlickerSpeedInput.value = String(clamp(Number(lighting.pointFlickerSpeed), 0.1, 12));
-  pointFlickerSpatialInput.value = String(clamp(Number(lighting.pointFlickerSpatial), 0, 4));
-  updateVolumetricLabels();
-  updateVolumetricUi();
-  updateShadowBlurLabel();
-  updatePointFlickerLabels();
-  updatePointFlickerUi();
-  updateSimTickLabel();
-  setCycleHourSliderFromState();
-  updateCycleHourLabel();
-  schedulePointLightBake();
+  applyLightingSettingsLegacyImpl(rawData);
 }
 
 function serializeFogSettingsLegacy() {
@@ -1616,229 +1605,23 @@ function serializeWaterSettingsLegacy() {
 }
 
 function serializeInteractionSettingsLegacy() {
-  const interaction = getPathfindingStateSnapshot();
-  const cursorLight = getCursorLightSnapshot();
-  const pointLightsState = runtimeCore.store.getState().gameplay.pointLights || {};
-  return {
-    version: 1,
-    pathfindingRange: interaction.range,
-    pathWeightSlope: interaction.weightSlope,
-    pathWeightHeight: interaction.weightHeight,
-    pathWeightWater: interaction.weightWater,
-    pathSlopeCutoff: interaction.slopeCutoff,
-    pathBaseCost: interaction.baseCost,
-    cursorLightEnabled: Boolean(cursorLight.enabled),
-    cursorLightFollowHeight: Boolean(cursorLight.useTerrainHeight),
-    cursorLightColor: cursorLight.colorHex,
-    cursorLightStrength: Math.round(clamp(Number(cursorLight.strength), 1, 200)),
-    cursorLightHeightOffset: Math.round(clamp(Number(cursorLight.heightOffset), 0, 120)),
-    cursorLightGizmo: Boolean(cursorLight.showGizmo),
-    pointLightLiveUpdate: Boolean(pointLightsState.liveUpdate),
-  };
+  return serializeInteractionSettingsImpl();
 }
 
 function serializeNpcState() {
-  return {
-    version: 1,
-    charID: playerState.charID,
-    pixelX: playerState.pixelX,
-    pixelY: playerState.pixelY,
-    color: playerState.color,
-  };
+  return serializeNpcStateImpl();
 }
 
 function serializeSwarmDataLegacy() {
-  const settings = getSwarmSettings();
-  return {
-    version: 1,
-    settings,
-    follow: {
-      enabled: swarmFollowState.enabled,
-      targetType: swarmFollowState.targetType,
-      agentIndex: swarmFollowState.agentIndex,
-      hawkIndex: swarmFollowState.hawkIndex,
-    },
-    state: {
-      count: swarmState.count,
-      stepCount: Math.round(Math.max(0, swarmState.stepCount)),
-      hawkKillIntervalSum: Math.max(0, Number(swarmState.hawkKillIntervalSum) || 0),
-      hawkKillCount: Math.max(0, Math.round(Number(swarmState.hawkKillCount) || 0)),
-      breedingActive: Boolean(swarmState.breedingActive),
-      x: Array.from(swarmState.x),
-      y: Array.from(swarmState.y),
-      z: Array.from(swarmState.z),
-      vx: Array.from(swarmState.vx),
-      vy: Array.from(swarmState.vy),
-      vz: Array.from(swarmState.vz),
-      speedScale: Array.from(swarmState.speedScale),
-      steerScale: Array.from(swarmState.steerScale),
-      isResting: Array.from(swarmState.isResting),
-      restTicksLeft: Array.from(swarmState.restTicksLeft),
-      hawks: swarmState.hawks.map((hawk) => ({
-        x: hawk.x,
-        y: hawk.y,
-        z: hawk.z,
-        vx: hawk.vx,
-        vy: hawk.vy,
-        vz: hawk.vz,
-        ax: hawk.ax,
-        ay: hawk.ay,
-        az: hawk.az,
-        targetIndex: hawk.targetIndex,
-        lastKillTick: Math.round(Math.max(0, Number(hawk.lastKillTick) || 0)),
-      })),
-    },
-  };
+  return serializeSwarmDataImpl();
 }
 
 function applySwarmSettingsLegacy(rawData) {
-  const settings = getSwarmSettings();
-  swarmEnabledToggle.checked = Boolean(settings.useAgentSwarm);
-  swarmLitModeToggle.checked = Boolean(settings.useLitSwarm);
-  swarmFollowZoomToggle.checked = Boolean(settings.followZoomBySpeed);
-  swarmFollowZoomInInput.value = settings.followZoomIn.toFixed(1);
-  swarmFollowZoomOutInput.value = settings.followZoomOut.toFixed(1);
-  swarmFollowHawkRangeGizmoToggle.checked = Boolean(settings.followHawkRangeGizmo);
-  swarmFollowAgentSpeedSmoothingInput.value = settings.followAgentSpeedSmoothing.toFixed(2);
-  swarmFollowAgentZoomSmoothingInput.value = settings.followAgentZoomSmoothing.toFixed(2);
-  swarmStatsPanelToggle.checked = Boolean(settings.showStatsPanel);
-  swarmShowTerrainToggle.checked = Boolean(settings.showTerrainInSwarm);
-  swarmBackgroundColorInput.value = settings.backgroundColor;
-  swarmAgentCountInput.value = String(settings.agentCount);
-  swarmUpdateIntervalInput.value = String(settings.simulationSpeed);
-  swarmMaxSpeedInput.value = String(settings.maxSpeed);
-  swarmSteeringMaxInput.value = String(settings.maxSteering);
-  swarmVariationStrengthInput.value = String(settings.variationStrengthPct);
-  swarmNeighborRadiusInput.value = String(settings.neighborRadius);
-  swarmMinHeightInput.value = String(settings.minHeight);
-  swarmMaxHeightInput.value = String(settings.maxHeight);
-  swarmSeparationRadiusInput.value = String(settings.separationRadius);
-  swarmAlignmentWeightInput.value = String(settings.alignmentWeight);
-  swarmCohesionWeightInput.value = String(settings.cohesionWeight);
-  swarmSeparationWeightInput.value = String(settings.separationWeight);
-  swarmWanderWeightInput.value = String(settings.wanderWeight);
-  swarmRestChanceInput.value = String(settings.restChancePct);
-  swarmRestTicksInput.value = String(settings.restTicks);
-  swarmBreedingThresholdInput.value = String(settings.breedingThreshold);
-  swarmBreedingSpawnChanceInput.value = String(settings.breedingSpawnChance);
-  swarmCursorModeInput.value = settings.cursorMode;
-  swarmCursorStrengthInput.value = String(settings.cursorStrength);
-  swarmCursorRadiusInput.value = String(settings.cursorRadius);
-  swarmHawkEnabledToggle.checked = Boolean(settings.useHawk);
-  swarmHawkCountInput.value = String(settings.hawkCount);
-  swarmHawkColorInput.value = settings.hawkColor;
-  swarmHawkSpeedInput.value = String(settings.hawkSpeed);
-  swarmHawkSteeringInput.value = String(settings.hawkSteering);
-  swarmHawkTargetRangeInput.value = String(settings.hawkTargetRange);
-  if (swarmTimeRoutingInput) {
-    swarmTimeRoutingInput.value = settings.timeRouting;
-  }
-  const defaultFollowTarget = swarmFollowTargetInput && swarmFollowTargetInput.options && swarmFollowTargetInput.options.length > 0
-    ? swarmFollowTargetInput.options[0].value
-    : "agent";
-  applySwarmFollowState({
-    enabled: false,
-    targetType: defaultFollowTarget,
-    agentIndex: -1,
-    hawkIndex: -1,
-  });
-  swarmState.breedingActive = false;
-  normalizeSwarmFollowZoomInputs("out");
-  normalizeSwarmHeightRangeInputs("min");
-  updateSwarmLabels();
-  updateSwarmUi();
-  syncSwarmFollowToStore();
+  applySwarmSettingsLegacyImpl(rawData);
 }
 
 function applySwarmData(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  applySwarmSettings(data.settings && typeof data.settings === "object" ? data.settings : data);
-  const settings = getSwarmSettings();
-  const state = data.state && typeof data.state === "object" ? data.state : null;
-  let loadedState = false;
-  swarmState.stepCount = 0;
-  swarmState.hawkKillIntervalSum = 0;
-  swarmState.hawkKillCount = 0;
-  swarmState.breedingActive = false;
-
-  if (state && Number.isFinite(Number(state.count))) {
-    const count = Math.round(clamp(Number(state.count), 0, 2000));
-    if (count > 0 && Array.isArray(state.x) && Array.isArray(state.y) && Array.isArray(state.z) && state.x.length >= count && state.y.length >= count && state.z.length >= count) {
-      ensureSwarmBuffers(count);
-      const maxX = Math.max(0, splatSize.width - 1);
-      const maxY = Math.max(0, splatSize.height - 1);
-      const maxFlight = settings.maxHeight;
-      const minFlight = settings.minHeight;
-      loadedState = true;
-      for (let i = 0; i < count; i++) {
-        const x = clamp(Number(state.x[i]), 0, maxX);
-        const y = clamp(Number(state.y[i]), 0, maxY);
-        if (!isSwarmCoordFlyable(x, y, maxFlight)) {
-          loadedState = false;
-          break;
-        }
-        const minAllowedZ = Math.max(minFlight, terrainFloorAtSwarmCoord(x, y));
-        swarmState.x[i] = x;
-        swarmState.y[i] = y;
-        swarmState.z[i] = clamp(Number(state.z[i]), minAllowedZ, maxFlight);
-        swarmState.vx[i] = Number.isFinite(Number(state.vx && state.vx[i])) ? Number(state.vx[i]) : 0;
-        swarmState.vy[i] = Number.isFinite(Number(state.vy && state.vy[i])) ? Number(state.vy[i]) : 0;
-        swarmState.vz[i] = Number.isFinite(Number(state.vz && state.vz[i])) ? Number(state.vz[i]) : 0;
-        swarmState.speedScale[i] = clamp(Number.isFinite(Number(state.speedScale && state.speedScale[i])) ? Number(state.speedScale[i]) : 1, 0.5, 1.5);
-        swarmState.steerScale[i] = clamp(Number.isFinite(Number(state.steerScale && state.steerScale[i])) ? Number(state.steerScale[i]) : 1, 0.5, 1.5);
-        swarmState.isResting[i] = Number(state.isResting && state.isResting[i]) ? 1 : 0;
-        swarmState.restTicksLeft[i] = Math.round(clamp(Number(state.restTicksLeft && state.restTicksLeft[i]), 0, 10000));
-      }
-      if (loadedState) {
-        swarmState.count = count;
-        swarmState.stepCount = Math.max(0, Math.round(Number(state.stepCount) || 0));
-        swarmState.hawkKillIntervalSum = Math.max(0, Number(state.hawkKillIntervalSum) || 0);
-        swarmState.hawkKillCount = Math.max(0, Math.round(Number(state.hawkKillCount) || 0));
-        swarmState.breedingActive = Boolean(state.breedingActive);
-        swarmState.hawks = [];
-        const hawks = Array.isArray(state.hawks) ? state.hawks : [];
-        if (settings.useHawk) {
-          for (const rawHawk of hawks.slice(0, 20)) {
-            if (!rawHawk || typeof rawHawk !== "object") continue;
-            const hx = clamp(Number(rawHawk.x), 0, maxX);
-            const hy = clamp(Number(rawHawk.y), 0, maxY);
-            if (!isSwarmCoordFlyable(hx, hy, maxFlight)) continue;
-            const hawkMinZ = Math.max(minFlight, terrainFloorAtSwarmCoord(hx, hy));
-            swarmState.hawks.push({
-              x: hx,
-              y: hy,
-              z: clamp(Number(rawHawk.z), hawkMinZ, maxFlight),
-              vx: Number.isFinite(Number(rawHawk.vx)) ? Number(rawHawk.vx) : 0,
-              vy: Number.isFinite(Number(rawHawk.vy)) ? Number(rawHawk.vy) : 0,
-              vz: Number.isFinite(Number(rawHawk.vz)) ? Number(rawHawk.vz) : 0,
-              ax: Number.isFinite(Number(rawHawk.ax)) ? Number(rawHawk.ax) : 0,
-              ay: Number.isFinite(Number(rawHawk.ay)) ? Number(rawHawk.ay) : 0,
-              az: Number.isFinite(Number(rawHawk.az)) ? Number(rawHawk.az) : 0,
-              targetIndex: Number.isFinite(Number(rawHawk.targetIndex))
-                ? Math.round(clamp(Number(rawHawk.targetIndex), 0, Math.max(0, count - 1)))
-                : chooseRandomSwarmTargetIndexNear(hx, hy, settings.hawkTargetRange),
-              lastKillTick: Math.max(0, Math.round(Number(rawHawk.lastKillTick) || 0)),
-            });
-          }
-        }
-      }
-    }
-  }
-
-  if (!loadedState) {
-    reseedSwarmAgents(settings.agentCount);
-  }
-
-  const follow = data.follow && typeof data.follow === "object" ? data.follow : {};
-  applySwarmFollowState({
-    enabled: settings.useAgentSwarm && Boolean(follow.enabled),
-    targetType: follow.targetType,
-    agentIndex: follow.agentIndex,
-    hawkIndex: follow.hawkIndex,
-  });
-  invalidateSwarmInterpolation();
-  syncSwarmRuntimeStateToStore();
-  requestOverlayDraw();
+  applySwarmDataImpl(rawData);
 }
 
 function applyFogSettingsLegacy(rawData) {
@@ -1917,30 +1700,7 @@ function applyWaterSettingsLegacy(rawData) {
 }
 
 function applyInteractionSettingsLegacy(rawData) {
-  const pathfinding = getPathfindingStateSnapshot();
-  pathfindingRangeInput.value = String(pathfinding.range);
-  pathWeightSlopeInput.value = String(pathfinding.weightSlope);
-  pathWeightHeightInput.value = String(pathfinding.weightHeight);
-  pathWeightWaterInput.value = String(pathfinding.weightWater);
-  pathSlopeCutoffInput.value = String(pathfinding.slopeCutoff);
-  pathBaseCostInput.value = String(pathfinding.baseCost);
-
-  updatePathfindingRangeLabel();
-  updatePathWeightLabels();
-  updatePathSlopeCutoffLabel();
-  updatePathBaseCostLabel();
-  const cursorLight = getCursorLightSnapshot();
-  applyCursorLightConfigSnapshot(cursorLight);
-  cursorLightModeToggle.checked = cursorLightState.enabled;
-  cursorLightFollowHeightToggle.checked = cursorLightState.useTerrainHeight;
-  cursorLightColorInput.value = cursorLightState.colorHex;
-  cursorLightStrengthInput.value = String(cursorLightState.strength);
-  cursorLightHeightOffsetInput.value = String(cursorLightState.heightOffset);
-  cursorLightGizmoToggle.checked = cursorLightState.showGizmo;
-  pointLightLiveUpdateToggle.checked = isPointLightLiveUpdateEnabled();
-  updateCursorLightStrengthLabel();
-  updateCursorLightHeightOffsetLabel();
-  updateCursorLightModeUi();
+  applyInteractionSettingsLegacyImpl(rawData);
 }
 
 function serializeSettingsByKey(key, fallbackSerialize) {
@@ -2224,336 +1984,47 @@ function resetMapRuntimeStateAfterImages() {
   requestOverlayDraw();
 }
 
+const mapDataSaveController = createMapDataSaveController({
+  serializePointLights,
+  serializeLightingSettings,
+  serializeParallaxSettings,
+  serializeInteractionSettings,
+  serializeFogSettings,
+  serializeCloudSettings,
+  serializeWaterSettings,
+  serializeSwarmData,
+  serializeNpcState,
+  normalizeMapFolderPath,
+  getCurrentMapFolderPath: () => currentMapFolderPath,
+  confirm: (text) => window.confirm(text),
+  setStatus,
+  tauriInvoke,
+  isAbsoluteFsPath,
+  pickMapFolderViaTauri,
+  joinFsPath,
+  invokeTauri,
+  showDirectoryPicker:
+    typeof window.showDirectoryPicker === "function" ? window.showDirectoryPicker.bind(window) : null,
+});
+
 function createMapDataFileTexts() {
-  return {
-    "pointlights.json": `${JSON.stringify(serializePointLights(), null, 2)}\n`,
-    "lighting.json": `${JSON.stringify(serializeLightingSettings(), null, 2)}\n`,
-    "parallax.json": `${JSON.stringify(serializeParallaxSettings(), null, 2)}\n`,
-    "interaction.json": `${JSON.stringify(serializeInteractionSettings(), null, 2)}\n`,
-    "fog.json": `${JSON.stringify(serializeFogSettings(), null, 2)}\n`,
-    "clouds.json": `${JSON.stringify(serializeCloudSettings(), null, 2)}\n`,
-    "waterfx.json": `${JSON.stringify(serializeWaterSettings(), null, 2)}\n`,
-    "swarm.json": `${JSON.stringify(serializeSwarmData(), null, 2)}\n`,
-    "npc.json": `${JSON.stringify(serializeNpcState(), null, 2)}\n`,
-  };
+  return mapDataSaveController.createMapDataFileTexts();
 }
 
 function downloadTextFile(fileName, text) {
-  const blob = new Blob([text], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  mapDataSaveController.downloadTextFile(fileName, text);
 }
 
 async function saveAllMapDataFiles() {
-  const files = createMapDataFileTexts();
-  const folder = normalizeMapFolderPath(currentMapFolderPath);
-  const names = Object.keys(files).join(", ");
-  const confirmed = window.confirm(`Save map data files (${names}) for ${folder}?`);
-  if (!confirmed) {
-    setStatus("Save all canceled.");
-    return;
-  }
-
-  if (tauriInvoke) {
-    try {
-      let targetFolder = folder;
-      if (!isAbsoluteFsPath(targetFolder)) {
-        targetFolder = await pickMapFolderViaTauri();
-        if (!targetFolder) {
-          setStatus("Save all canceled.");
-          return;
-        }
-      }
-      for (const [name, text] of Object.entries(files)) {
-        const targetPath = joinFsPath(targetFolder, name);
-        await invokeTauri("save_json_file", { path: targetPath, content: text });
-      }
-      setStatus(`Saved map data (${names}) to ${targetFolder}.`);
-      return;
-    } catch (error) {
-      console.warn("Tauri Save All failed, falling back to browser flow.", error);
-      setStatus("Native Save All failed. Trying browser fallback...");
-    }
-  }
-
-  if (typeof window.showDirectoryPicker === "function") {
-    const dir = await window.showDirectoryPicker();
-    for (const [name, text] of Object.entries(files)) {
-      const handle = await dir.getFileHandle(name, { create: true });
-      const writable = await handle.createWritable();
-      await writable.write(text);
-      await writable.close();
-    }
-    setStatus(`Saved map data (${names}) to selected folder. Recommended map path: ${folder}`);
-    return;
-  }
-
-  for (const [name, text] of Object.entries(files)) {
-    downloadTextFile(name, text);
-  }
-  setStatus(`Downloaded ${names}. Move them to ${folder}.`);
+  await mapDataSaveController.saveAllMapDataFiles();
 }
 
 async function loadMapFromPath(mapFolderPath) {
-  const folder = normalizeMapFolderPath(mapFolderPath);
-  if (tauriInvoke && isAbsoluteFsPath(folder)) {
-    const validation = await validateMapFolderViaTauri(folder);
-    if (!validation.is_valid) {
-      throw new Error(`Missing required files: ${validation.missing_files.join(", ")}`);
-    }
-  }
-
-  const jsonPath = (name) => (isAbsoluteFsPath(folder) ? joinFsPath(folder, name) : `${folder}/${name}`);
-  const [splat, normals, height, slope, water] = await Promise.all([
-    loadImageFromUrl(buildMapAssetPath(folder, "splat.png")),
-    loadImageFromUrl(buildMapAssetPath(folder, "normals.png")),
-    loadImageFromUrl(buildMapAssetPath(folder, "height.png")),
-    loadImageFromUrl(buildMapAssetPath(folder, "slope.png")),
-    loadImageFromUrl(buildMapAssetPath(folder, "water.png")),
-  ]);
-
-  await applyMapImages(splat, normals, height, slope, water);
-  setCurrentMapFolderPath(folder);
-  resetMapRuntimeStateAfterImages();
-
-  let loadedPointLights = false;
-  let loadedLighting = false;
-  let loadedParallax = false;
-  let loadedInteraction = false;
-  let loadedFog = false;
-  let loadedClouds = false;
-  let loadedWaterFx = false;
-  let loadedSwarm = false;
-  let loadedNpc = false;
-
-  try {
-    const pointLightsJsonPath = jsonPath("pointlights.json");
-    const pointLightsJson = await tryLoadJsonFromUrl(pointLightsJsonPath);
-    applyLoadedPointLights(pointLightsJson, pointLightsJsonPath, { suppressStatus: true });
-    loadedPointLights = true;
-  } catch (err) {
-    console.warn(`No pointlights.json found in ${folder}`, err);
-  }
-
-  try {
-    const lightingJson = await tryLoadJsonFromUrl(jsonPath("lighting.json"));
-    applyLightingSettings(lightingJson);
-    loadedLighting = true;
-  } catch (err) {
-    console.warn(`No lighting.json found in ${folder}`, err);
-  }
-
-  try {
-    const parallaxJson = await tryLoadJsonFromUrl(jsonPath("parallax.json"));
-    applyParallaxSettings(parallaxJson);
-    loadedParallax = true;
-  } catch (err) {
-    console.warn(`No parallax.json found in ${folder}`, err);
-  }
-
-  try {
-    const interactionJson = await tryLoadJsonFromUrl(jsonPath("interaction.json"));
-    applyInteractionSettings(interactionJson);
-    loadedInteraction = true;
-  } catch (err) {
-    console.warn(`No interaction.json found in ${folder}`, err);
-  }
-
-  try {
-    const fogJson = await tryLoadJsonFromUrl(jsonPath("fog.json"));
-    applyFogSettings(fogJson);
-    loadedFog = true;
-  } catch (err) {
-    console.warn(`No fog.json found in ${folder}`, err);
-  }
-
-  try {
-    const cloudsJson = await tryLoadJsonFromUrl(jsonPath("clouds.json"));
-    applyCloudSettings(cloudsJson);
-    loadedClouds = true;
-  } catch (err) {
-    console.warn(`No clouds.json found in ${folder}`, err);
-  }
-
-  try {
-    const waterFxJson = await tryLoadJsonFromUrl(jsonPath("waterfx.json"));
-    applyWaterSettings(waterFxJson);
-    loadedWaterFx = true;
-  } catch (err) {
-    console.warn(`No waterfx.json found in ${folder}`, err);
-  }
-
-  try {
-    const swarmJson = await tryLoadJsonFromUrl(jsonPath("swarm.json"));
-    applySwarmData(swarmJson);
-    loadedSwarm = true;
-  } catch (err) {
-    console.warn(`No swarm.json found in ${folder}`, err);
-  }
-
-  try {
-    const npcJson = await tryLoadJsonFromUrl(jsonPath("npc.json"));
-    applyLoadedNpc(npcJson);
-    loadedNpc = true;
-  } catch (err) {
-    applyLoadedNpc(DEFAULT_PLAYER);
-    console.warn(`No npc.json found in ${folder}`, err);
-  }
-
-  rebuildMovementField();
-  setStatus(`Loaded map ${folder} | pointlights: ${loadedPointLights ? "yes" : "no"} | lighting: ${loadedLighting ? "yes" : "no"} | parallax: ${loadedParallax ? "yes" : "no"} | interaction: ${loadedInteraction ? "yes" : "no"} | fog: ${loadedFog ? "yes" : "no"} | clouds: ${loadedClouds ? "yes" : "no"} | waterfx: ${loadedWaterFx ? "yes" : "no"} | swarm: ${loadedSwarm ? "yes" : "default"} | npc: ${loadedNpc ? "yes" : "default"}`);
+  await mapLoader.loadMapFromPath(mapFolderPath);
 }
 
 async function loadMapFromFolderSelection(fileList) {
-  const files = Array.from(fileList || []);
-  const splatFile = getFileFromFolderSelection(files, "splat.png");
-  const normalsFile = getFileFromFolderSelection(files, "normals.png");
-  const heightFile = getFileFromFolderSelection(files, "height.png");
-  const slopeFile = getFileFromFolderSelection(files, "slope.png");
-  const waterFile = getFileFromFolderSelection(files, "water.png");
-  if (!splatFile || !normalsFile || !heightFile || !slopeFile || !waterFile) {
-    throw new Error("Folder must contain splat.png, normals.png, height.png, slope.png, and water.png.");
-  }
-
-  const [splat, normals, height, slope, water] = await Promise.all([
-    loadImageFromFile(splatFile),
-    loadImageFromFile(normalsFile),
-    loadImageFromFile(heightFile),
-    loadImageFromFile(slopeFile),
-    loadImageFromFile(waterFile),
-  ]);
-  await applyMapImages(splat, normals, height, slope, water);
-
-  const relPath = String(splatFile.webkitRelativePath || "");
-  const firstFolder = relPath.includes("/") ? relPath.split("/")[0] : "";
-  if (firstFolder) {
-    setCurrentMapFolderPath(`assets/${firstFolder}/`);
-  }
-
-  resetMapRuntimeStateAfterImages();
-
-  let loadedPointLights = false;
-  let loadedLighting = false;
-  let loadedParallax = false;
-  let loadedInteraction = false;
-  let loadedFog = false;
-  let loadedClouds = false;
-  let loadedWaterFx = false;
-  let loadedSwarm = false;
-  let loadedNpc = false;
-
-  const pointLightsFile = getFileFromFolderSelection(files, "pointlights.json");
-  if (pointLightsFile) {
-    try {
-      const rawData = JSON.parse(await pointLightsFile.text());
-      applyLoadedPointLights(rawData, pointLightsFile.name, { suppressStatus: true });
-      loadedPointLights = true;
-    } catch (err) {
-      console.warn("Failed to parse pointlights.json from selected folder", err);
-    }
-  } else {
-    console.warn("No pointlights.json found in selected folder");
-  }
-
-  const lightingFile = getFileFromFolderSelection(files, "lighting.json");
-  if (lightingFile) {
-    try {
-      const rawData = JSON.parse(await lightingFile.text());
-      applyLightingSettings(rawData);
-      loadedLighting = true;
-    } catch (err) {
-      console.warn("Failed to parse lighting.json from selected folder", err);
-    }
-  }
-
-  const parallaxFile = getFileFromFolderSelection(files, "parallax.json");
-  if (parallaxFile) {
-    try {
-      const rawData = JSON.parse(await parallaxFile.text());
-      applyParallaxSettings(rawData);
-      loadedParallax = true;
-    } catch (err) {
-      console.warn("Failed to parse parallax.json from selected folder", err);
-    }
-  }
-
-  const interactionFile = getFileFromFolderSelection(files, "interaction.json");
-  if (interactionFile) {
-    try {
-      const rawData = JSON.parse(await interactionFile.text());
-      applyInteractionSettings(rawData);
-      loadedInteraction = true;
-    } catch (err) {
-      console.warn("Failed to parse interaction.json from selected folder", err);
-    }
-  }
-
-  const fogFile = getFileFromFolderSelection(files, "fog.json");
-  if (fogFile) {
-    try {
-      const rawData = JSON.parse(await fogFile.text());
-      applyFogSettings(rawData);
-      loadedFog = true;
-    } catch (err) {
-      console.warn("Failed to parse fog.json from selected folder", err);
-    }
-  }
-
-  const cloudsFile = getFileFromFolderSelection(files, "clouds.json");
-  if (cloudsFile) {
-    try {
-      const rawData = JSON.parse(await cloudsFile.text());
-      applyCloudSettings(rawData);
-      loadedClouds = true;
-    } catch (err) {
-      console.warn("Failed to parse clouds.json from selected folder", err);
-    }
-  }
-
-  const waterFxFile = getFileFromFolderSelection(files, "waterfx.json");
-  if (waterFxFile) {
-    try {
-      const rawData = JSON.parse(await waterFxFile.text());
-      applyWaterSettings(rawData);
-      loadedWaterFx = true;
-    } catch (err) {
-      console.warn("Failed to parse waterfx.json from selected folder", err);
-    }
-  }
-
-  const swarmFile = getFileFromFolderSelection(files, "swarm.json");
-  if (swarmFile) {
-    try {
-      const rawData = JSON.parse(await swarmFile.text());
-      applySwarmData(rawData);
-      loadedSwarm = true;
-    } catch (err) {
-      console.warn("Failed to parse swarm.json from selected folder", err);
-    }
-  }
-
-  const npcFile = getFileFromFolderSelection(files, "npc.json");
-  if (npcFile) {
-    try {
-      const rawData = JSON.parse(await npcFile.text());
-      applyLoadedNpc(rawData);
-      loadedNpc = true;
-    } catch (err) {
-      console.warn("Failed to parse npc.json from selected folder", err);
-      applyLoadedNpc(DEFAULT_PLAYER);
-    }
-  } else {
-    applyLoadedNpc(DEFAULT_PLAYER);
-  }
-
-  rebuildMovementField();
-  setStatus(`Loaded map folder | pointlights: ${loadedPointLights ? "yes" : "no"} | lighting: ${loadedLighting ? "yes" : "no"} | parallax: ${loadedParallax ? "yes" : "no"} | interaction: ${loadedInteraction ? "yes" : "no"} | fog: ${loadedFog ? "yes" : "no"} | clouds: ${loadedClouds ? "yes" : "no"} | waterfx: ${loadedWaterFx ? "yes" : "no"} | swarm: ${loadedSwarm ? "yes" : "default"} | npc: ${loadedNpc ? "yes" : "default"}`);
+  await mapLoader.loadMapFromFolderSelection(fileList);
 }
 
 function setStatus(text) {
@@ -2871,8 +2342,6 @@ const pointLightEditorState = createPointLightEditorState({
   defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
 });
 let nextPointLightId = 1;
-let pointLightsSaveConfirmArmed = false;
-let pointLightsSaveConfirmTimer = null;
 let normalsImageData = null;
 let heightImageData = null;
 let slopeImageData = null;
@@ -2882,6 +2351,20 @@ const POINT_LIGHT_SELECT_RADIUS = 3;
 const POINT_LIGHT_BAKE_LIVE_SCALE = 0.5;
 const POINT_LIGHT_BAKE_DEBOUNCE_MS = 80;
 const SWARM_POINT_LIGHT_EDGE_MIN = 0.08;
+const pointLightEditorController = createPointLightEditorController({
+  pointLights,
+  editorState: pointLightEditorState,
+  selectRadiusPx: POINT_LIGHT_SELECT_RADIUS,
+  defaultFlicker: DEFAULT_POINT_LIGHT_FLICKER,
+  defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
+  nextLightId: () => nextPointLightId++,
+  hexToRgb01,
+  bakePointLightsTexture,
+  schedulePointLightBake,
+  isPointLightLiveUpdateEnabled,
+  onSelectionChanged: updateLightEditorUi,
+  setStatus,
+});
 let overlayDirty = true;
 const DEFAULT_MAP_FOLDER = "assets/Map 1/";
 let currentMapFolderPath = DEFAULT_MAP_FOLDER;
@@ -2892,6 +2375,37 @@ const DEFAULT_PLAYER = {
   pixelY: 96,
   color: "#ff69b4",
 };
+const mapSidecarLoader = createMapSidecarLoader({
+  tryLoadJsonFromUrl,
+  applyLoadedPointLights,
+  applyLightingSettings,
+  applyParallaxSettings,
+  applyInteractionSettings,
+  applyFogSettings,
+  applyCloudSettings,
+  applyWaterSettings,
+  applySwarmData,
+  applyLoadedNpc,
+  getFileFromFolderSelection,
+  defaultPlayer: DEFAULT_PLAYER,
+});
+const mapLoader = createMapLoader({
+  normalizeMapFolderPath,
+  tauriInvoke,
+  isAbsoluteFsPath,
+  validateMapFolderViaTauri,
+  joinFsPath,
+  buildMapAssetPath,
+  loadImageFromUrl,
+  loadImageFromFile,
+  applyMapImages,
+  setCurrentMapFolderPath,
+  resetMapRuntimeStateAfterImages,
+  mapSidecarLoader,
+  rebuildMovementField,
+  setStatus,
+  getFileFromFolderSelection,
+});
 const playerState = {
   charID: DEFAULT_PLAYER.charID,
   pixelX: DEFAULT_PLAYER.pixelX,
@@ -3097,144 +2611,80 @@ waterImageData = extractImageData(defaultWaterImage);
 syncPointLightWorkerMapData();
 
 function getSelectedPointLight() {
-  return pointLightEditorState.getSelectedLight(pointLights);
+  return pointLightEditorController.getSelectedPointLight();
 }
 
 function clearLightEditSelection() {
-  pointLightEditorState.clearSelection();
+  pointLightEditorController.clearLightEditSelection();
 }
 
 function setLightEditSelection(light) {
-  pointLightEditorState.setSelection(light);
+  pointLightEditorController.setLightEditSelection(light);
 }
 
+const pointLightIoController = createPointLightIoController({
+  pointLights,
+  splatSize,
+  clamp,
+  defaultFlicker: DEFAULT_POINT_LIGHT_FLICKER,
+  defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
+  parsePointLightsPayload,
+  serializePointLightsPayload,
+  nextPointLightId: () => nextPointLightId++,
+  clearLightEditSelection,
+  bakePointLightsTexture,
+  updateLightEditorUi,
+  requestOverlayDraw,
+  setStatus,
+  tauriInvoke,
+  isAbsoluteFsPath,
+  joinFsPath,
+  invokeTauri,
+  showSaveFilePicker:
+    typeof window.showSaveFilePicker === "function" ? window.showSaveFilePicker.bind(window) : null,
+  normalizeMapFolderPath,
+  downloadTextFile,
+  getCurrentMapFolderPath: () => currentMapFolderPath,
+  tryLoadJsonFromUrl,
+  clearPointLightsLoadInput: () => {
+    pointLightsLoadInput.value = "";
+  },
+  openPointLightsLoadInput: () => {
+    pointLightsLoadInput.click();
+  },
+  setSaveButtonText: (text) => {
+    pointLightsSaveAllBtn.textContent = text;
+  },
+  setTimeout: (fn, ms) => window.setTimeout(fn, ms),
+  clearTimeout: (id) => window.clearTimeout(id),
+});
+
 function clearPointLights() {
-  pointLights.length = 0;
-  clearLightEditSelection();
-  resetPointLightsSaveConfirmation();
+  pointLightIoController.clearPointLights();
 }
 
 function resetPointLightsSaveConfirmation() {
-  pointLightsSaveConfirmArmed = false;
-  pointLightsSaveAllBtn.textContent = "Save All";
-  if (pointLightsSaveConfirmTimer !== null) {
-    window.clearTimeout(pointLightsSaveConfirmTimer);
-    pointLightsSaveConfirmTimer = null;
-  }
+  pointLightIoController.resetPointLightsSaveConfirmation();
 }
 
 function armPointLightsSaveConfirmation() {
-  pointLightsSaveConfirmArmed = true;
-  pointLightsSaveAllBtn.textContent = "Confirm Save";
-  if (pointLightsSaveConfirmTimer !== null) {
-    window.clearTimeout(pointLightsSaveConfirmTimer);
-  }
-  pointLightsSaveConfirmTimer = window.setTimeout(() => {
-    resetPointLightsSaveConfirmation();
-  }, 5000);
+  pointLightIoController.armPointLightsSaveConfirmation();
 }
 
 function serializePointLights() {
-  return serializePointLightsPayload(pointLights, splatSize, {
-    clamp,
-    defaultFlicker: DEFAULT_POINT_LIGHT_FLICKER,
-    defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-  });
-}
-
-function parsePointLightsFromJson(rawData) {
-  return parsePointLightsPayload(rawData, {
-    clamp,
-    defaultFlicker: DEFAULT_POINT_LIGHT_FLICKER,
-    defaultFlickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-    mapSize: splatSize,
-  });
+  return pointLightIoController.serializePointLights();
 }
 
 function applyLoadedPointLights(rawData, sourceLabel, options = {}) {
-  const suppressStatus = Boolean(options.suppressStatus);
-  const { parsedLights, skippedCount } = parsePointLightsFromJson(rawData);
-
-  clearPointLights();
-  for (const light of parsedLights) {
-    pointLights.push({
-      id: nextPointLightId++,
-      pixelX: light.pixelX,
-      pixelY: light.pixelY,
-      strength: light.strength,
-      intensity: light.intensity,
-      heightOffset: light.heightOffset,
-      flicker: light.flicker,
-      flickerSpeed: light.flickerSpeed,
-      color: [...light.color],
-    });
-  }
-
-  bakePointLightsTexture();
-  updateLightEditorUi();
-  requestOverlayDraw();
-
-  if (!suppressStatus) {
-    const skippedNote = skippedCount > 0 ? ` | Skipped invalid entries: ${skippedCount}` : "";
-    setStatus(`Loaded point lights from ${sourceLabel}: ${parsedLights.length}${skippedNote}`);
-  }
-
-  return { loadedCount: parsedLights.length, skippedCount };
+  return pointLightIoController.applyLoadedPointLights(rawData, sourceLabel, options);
 }
 
 async function savePointLightsJson() {
-  const payload = serializePointLights();
-  const text = `${JSON.stringify(payload, null, 2)}\n`;
-
-  if (tauriInvoke && isAbsoluteFsPath(currentMapFolderPath)) {
-    try {
-      const targetPath = joinFsPath(currentMapFolderPath, "pointlights.json");
-      await invokeTauri("save_json_file", { path: targetPath, content: text });
-      setStatus(`Saved ${payload.lights.length} point lights to ${targetPath}.`);
-      return;
-    } catch (error) {
-      console.warn("Tauri pointlights save failed, falling back to browser flow.", error);
-      setStatus("Native pointlights save failed. Trying browser fallback...");
-    }
-  }
-
-  if (typeof window.showSaveFilePicker === "function") {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: "pointlights.json",
-      types: [
-        {
-          description: "JSON",
-          accept: { "application/json": [".json"] },
-        },
-      ],
-    });
-    const writable = await handle.createWritable();
-    await writable.write(text);
-    await writable.close();
-    setStatus(`Saved ${payload.lights.length} point lights. Place pointlights.json in ${normalizeMapFolderPath(currentMapFolderPath)} for map reloads.`);
-    return;
-  }
-
-  downloadTextFile("pointlights.json", text);
-  setStatus(`Downloaded pointlights.json with ${payload.lights.length} point lights. Place it in ${normalizeMapFolderPath(currentMapFolderPath)}.`);
+  await pointLightIoController.savePointLightsJson();
 }
 
 async function loadPointLightsFromAssetsOrPrompt() {
-  const folder = normalizeMapFolderPath(currentMapFolderPath);
-  const pointLightsPath = isAbsoluteFsPath(folder)
-    ? joinFsPath(folder, "pointlights.json")
-    : `${folder}/pointlights.json`;
-  try {
-    const rawData = await tryLoadJsonFromUrl(pointLightsPath);
-    applyLoadedPointLights(rawData, pointLightsPath);
-    return;
-  } catch (err) {
-    console.warn(`Failed to load ${pointLightsPath}`, err);
-  }
-
-  setStatus(`${pointLightsPath} not found. Select a pointlights JSON file to load.`);
-  pointLightsLoadInput.value = "";
-  pointLightsLoadInput.click();
+  await pointLightIoController.loadPointLightsFromAssetsOrPrompt();
 }
 
 function ensurePointLightBakeSize() {
@@ -3602,52 +3052,23 @@ function updateLightEditorUi() {
 }
 
 function beginLightEdit(light) {
-  setLightEditSelection(light);
-  updateLightEditorUi();
+  pointLightEditorController.beginLightEdit(light);
 }
 
 function applyDraftToSelectedPointLight() {
-  const selected = getSelectedPointLight();
-  return pointLightEditorState.applyDraftToLight(selected);
+  return pointLightEditorController.applyDraftToSelectedPointLight();
 }
 
 function rebakeIfPointLightLiveUpdateEnabled() {
-  if (!isPointLightLiveUpdateEnabled()) return;
-  if (!applyDraftToSelectedPointLight()) return;
-  schedulePointLightBake();
+  pointLightEditorController.rebakeIfPointLightLiveUpdateEnabled();
 }
 
 function findPointLightAtPixel(pixelX, pixelY, radiusPx = POINT_LIGHT_SELECT_RADIUS) {
-  const maxDistSq = radiusPx * radiusPx;
-  let best = null;
-  let bestDistSq = Infinity;
-  for (const light of pointLights) {
-    const dx = light.pixelX - pixelX;
-    const dy = light.pixelY - pixelY;
-    const distSq = dx * dx + dy * dy;
-    if (distSq > maxDistSq || distSq >= bestDistSq) continue;
-    bestDistSq = distSq;
-    best = light;
-  }
-  return best;
+  return pointLightEditorController.findPointLightAtPixel(pixelX, pixelY, radiusPx);
 }
 
 function createPointLight(pixelX, pixelY) {
-  const light = {
-    id: nextPointLightId++,
-    pixelX,
-    pixelY,
-    strength: 30,
-    intensity: 1,
-    heightOffset: 8,
-    flicker: DEFAULT_POINT_LIGHT_FLICKER,
-    flickerSpeed: DEFAULT_POINT_LIGHT_FLICKER_SPEED,
-    color: hexToRgb01("#ff9b2f"),
-  };
-  pointLights.push(light);
-  bakePointLightsTexture();
-  beginLightEdit(light);
-  setStatus(`Created point light at (${pixelX}, ${pixelY})`);
+  pointLightEditorController.createPointLight(pixelX, pixelY);
 }
 
 function applyMapSizeChangeIfNeeded(changed) {
@@ -3660,10 +3081,10 @@ function applyMapSizeChangeIfNeeded(changed) {
 bakePointLightsTexture();
 updateLightEditorUi();
 
-let zoom = 1;
 const zoomMin = 0.5;
 const zoomMax = 32;
-const panWorld = { x: 0, y: 0 };
+function applyRuntimeCameraPose() {}
+
 let isMiddleDragging = false;
 let lastDragClient = { x: 0, y: 0 };
 let fogColorManual = false;
@@ -3822,11 +3243,6 @@ const uploadUniforms = createTerrainUniformUploader({
   getViewHalfExtents,
   cursorLightState,
   applyPointLightUsagePass,
-  getFallbackCamera: () => ({
-    zoom,
-    panX: panWorld.x,
-    panY: panWorld.y,
-  }),
 });
 renderer.registerPass("shadow", createShadowPass({ renderShadowPipeline }));
 renderer.registerPass(
@@ -3862,7 +3278,6 @@ renderer.registerPass("backgroundClear", {
 });
 
 registerMainCommands(runtimeCore.commandBus, {
-  panWorld,
   zoomMin,
   zoomMax,
   lastDragClient,
@@ -3873,10 +3288,7 @@ registerMainCommands(runtimeCore.commandBus, {
   swarmFollowState,
   swarmState,
   swarmFollowTargetInput,
-  getZoom: () => zoom,
-  setZoom: (value) => {
-    zoom = value;
-  },
+  applyCameraPose: applyRuntimeCameraPose,
   getInteractionMode: () => getInteractionModeSnapshot(),
   setMiddleDragging: (value) => {
     isMiddleDragging = value;
@@ -3952,9 +3364,9 @@ registerMainCommands(runtimeCore.commandBus, {
   serializeFogSettings,
   serializeCloudSettings,
   serializeWaterSettings,
-  updateSwarmUi,
-  updateSwarmLabels,
-  updateSwarmStatsPanel,
+  updateSwarmUi: () => updateSwarmUi(),
+  updateSwarmLabels: () => updateSwarmLabels(),
+  updateSwarmStatsPanel: () => updateSwarmStatsPanel(),
   applySwarmFollowState,
   stopSwarmFollow,
   syncSwarmFollowToStore,
@@ -3984,18 +3396,18 @@ registerMainCommands(runtimeCore.commandBus, {
   swarmHawkSpeedInput,
   swarmHawkSteeringInput,
   swarmHawkTargetRangeInput,
-  normalizeSwarmFollowZoomInputs,
-  normalizeSwarmHeightRangeInputs,
-  reseedSwarmAgents,
+  normalizeSwarmFollowZoomInputs: (...args) => normalizeSwarmFollowZoomInputs(...args),
+  normalizeSwarmHeightRangeInputs: (...args) => normalizeSwarmHeightRangeInputs(...args),
+  reseedSwarmAgents: (...args) => reseedSwarmAgents(...args),
   swarmAgentCountInput,
   swarmEnabledToggle,
   swarmCursorState,
   isSwarmEnabled,
   getSwarmSettings,
   resetSwarmFollowSpeedSmoothing,
-  updateSwarmFollowButtonUi,
-  chooseRandomFollowHawkIndex,
-  chooseRandomFollowAgentIndex,
+  updateSwarmFollowButtonUi: () => updateSwarmFollowButtonUi(),
+  chooseRandomFollowHawkIndex: (...args) => chooseRandomFollowHawkIndex(...args),
+  chooseRandomFollowAgentIndex: (...args) => chooseRandomFollowAgentIndex(...args),
   simTickHoursInput,
   updateSimTickLabel,
   swarmTimeRoutingInput,
@@ -4363,464 +3775,313 @@ function isSwarmEnabled() {
   return Boolean(getSwarmSettings().useAgentSwarm);
 }
 
-function updateSwarmLabels() {
-  const settings = getSwarmSettings();
-  swarmAgentCountValue.textContent = String(settings.agentCount);
-  swarmFollowZoomInValue.textContent = `${settings.followZoomIn.toFixed(1)}x`;
-  swarmFollowZoomOutValue.textContent = `${settings.followZoomOut.toFixed(1)}x`;
-  swarmFollowAgentSpeedSmoothingValue.textContent = settings.followAgentSpeedSmoothing.toFixed(2);
-  swarmFollowAgentZoomSmoothingValue.textContent = settings.followAgentZoomSmoothing.toFixed(2);
-  swarmUpdateIntervalValue.textContent = `${settings.simulationSpeed.toFixed(1)}x`;
-  swarmMaxSpeedValue.textContent = `${Math.round(settings.maxSpeed)} px/s`;
-  swarmSteeringMaxValue.textContent = `${Math.round(settings.maxSteering)} px/s^2`;
-  swarmVariationStrengthValue.textContent = `${Math.round(settings.variationStrengthPct)}%`;
-  swarmNeighborRadiusValue.textContent = `${Math.round(settings.neighborRadius)} px`;
-  swarmMinHeightValue.textContent = `${Math.round(settings.minHeight)}`;
-  swarmMaxHeightValue.textContent = `${Math.round(settings.maxHeight)}`;
-  swarmSeparationRadiusValue.textContent = `${Math.round(settings.separationRadius)} px`;
-  swarmAlignmentWeightValue.textContent = settings.alignmentWeight.toFixed(2);
-  swarmCohesionWeightValue.textContent = settings.cohesionWeight.toFixed(2);
-  swarmSeparationWeightValue.textContent = settings.separationWeight.toFixed(2);
-  swarmWanderWeightValue.textContent = settings.wanderWeight.toFixed(2);
-  swarmRestChanceValue.textContent = settings.restChancePct.toFixed(4);
-  swarmRestTicksValue.textContent = `${Math.round(settings.restTicks)}`;
-  swarmBreedingThresholdValue.textContent = `${Math.round(settings.breedingThreshold)}`;
-  swarmBreedingSpawnChanceValue.textContent = `${Math.round(settings.breedingSpawnChance * 100)}%`;
-  swarmCursorStrengthValue.textContent = settings.cursorStrength.toFixed(1);
-  swarmCursorRadiusValue.textContent = `${Math.round(settings.cursorRadius)} px`;
-  swarmHawkCountValue.textContent = String(settings.hawkCount);
-  swarmHawkSpeedValue.textContent = `${Math.round(settings.hawkSpeed)} px/s`;
-  swarmHawkSteeringValue.textContent = `${Math.round(settings.hawkSteering)} px/s^2`;
-  swarmHawkTargetRangeValue.textContent = `${Math.round(settings.hawkTargetRange)} px`;
-}
-
-function updateSwarmUi() {
-  const settings = getSwarmSettings();
-  const swarmEnabled = Boolean(settings.useAgentSwarm);
-  const cursorMode = settings.cursorMode;
-  const cursorControlsEnabled = swarmEnabled && cursorMode !== "none";
-  const followZoomControlsEnabled = swarmEnabled && Boolean(settings.followZoomBySpeed);
-  syncSwarmStatsPanelVisibility();
-  swarmShowTerrainToggle.disabled = !swarmEnabled;
-  swarmLitModeToggle.disabled = !swarmEnabled;
-  swarmFollowToggleBtn.disabled = !swarmEnabled;
-  swarmFollowTargetInput.disabled = !swarmEnabled;
-  swarmFollowZoomToggle.disabled = !swarmEnabled;
-  swarmFollowZoomInInput.disabled = !followZoomControlsEnabled;
-  swarmFollowZoomOutInput.disabled = !followZoomControlsEnabled;
-  swarmFollowHawkRangeGizmoToggle.disabled = !swarmEnabled;
-  swarmFollowAgentSpeedSmoothingInput.disabled = !followZoomControlsEnabled;
-  swarmFollowAgentZoomSmoothingInput.disabled = !followZoomControlsEnabled;
-  swarmStatsPanelToggle.disabled = false;
-  swarmBackgroundColorInput.disabled = !swarmEnabled;
-  swarmAgentCountInput.disabled = !swarmEnabled;
-  swarmUpdateIntervalInput.disabled = !swarmEnabled;
-  swarmMaxSpeedInput.disabled = !swarmEnabled;
-  swarmSteeringMaxInput.disabled = !swarmEnabled;
-  swarmVariationStrengthInput.disabled = !swarmEnabled;
-  swarmNeighborRadiusInput.disabled = !swarmEnabled;
-  swarmMinHeightInput.disabled = !swarmEnabled;
-  swarmMaxHeightInput.disabled = !swarmEnabled;
-  swarmSeparationRadiusInput.disabled = !swarmEnabled;
-  swarmAlignmentWeightInput.disabled = !swarmEnabled;
-  swarmCohesionWeightInput.disabled = !swarmEnabled;
-  swarmSeparationWeightInput.disabled = !swarmEnabled;
-  swarmWanderWeightInput.disabled = !swarmEnabled;
-  swarmRestChanceInput.disabled = !swarmEnabled;
-  swarmRestTicksInput.disabled = !swarmEnabled;
-  swarmBreedingThresholdInput.disabled = !swarmEnabled;
-  swarmBreedingSpawnChanceInput.disabled = !swarmEnabled;
-  swarmCursorModeInput.disabled = !swarmEnabled;
-  swarmCursorStrengthInput.disabled = !cursorControlsEnabled;
-  swarmCursorRadiusInput.disabled = !cursorControlsEnabled;
-  swarmHawkEnabledToggle.disabled = !swarmEnabled;
-  swarmHawkCountInput.disabled = !swarmEnabled || !settings.useHawk;
-  swarmHawkColorInput.disabled = !swarmEnabled || !settings.useHawk;
-  swarmHawkSpeedInput.disabled = !swarmEnabled || !settings.useHawk;
-  swarmHawkSteeringInput.disabled = !swarmEnabled || !settings.useHawk;
-  swarmHawkTargetRangeInput.disabled = !swarmEnabled || !settings.useHawk;
-}
-
-function ensureSwarmBuffers(count) {
-  if (swarmState.count === count) return;
-  invalidateSwarmInterpolation();
-  swarmState.count = count;
-  swarmState.x = new Float32Array(count);
-  swarmState.y = new Float32Array(count);
-  swarmState.z = new Float32Array(count);
-  swarmState.vx = new Float32Array(count);
-  swarmState.vy = new Float32Array(count);
-  swarmState.vz = new Float32Array(count);
-  swarmState.speedScale = new Float32Array(count);
-  swarmState.steerScale = new Float32Array(count);
-  swarmState.isResting = new Uint8Array(count);
-  swarmState.restTicksLeft = new Uint16Array(count);
-  swarmState.ax = new Float32Array(count);
-  swarmState.ay = new Float32Array(count);
-  swarmState.az = new Float32Array(count);
-}
-
-function removeSwarmAgentAtIndex(removeIndex) {
-  if (!Number.isInteger(removeIndex) || removeIndex < 0 || removeIndex >= swarmState.count) return false;
-  invalidateSwarmInterpolation();
-  const oldCount = swarmState.count;
-  const newCount = oldCount - 1;
-  if (newCount <= 0) {
-    ensureSwarmBuffers(0);
-    for (const hawk of swarmState.hawks) {
-      hawk.targetIndex = -1;
-    }
-    if (swarmFollowState.targetType === "agent") {
-      stopSwarmFollow();
-    } else {
-      swarmFollowState.agentIndex = -1;
-    }
-    return true;
-  }
-
-  const nextX = new Float32Array(newCount);
-  const nextY = new Float32Array(newCount);
-  const nextZ = new Float32Array(newCount);
-  const nextVx = new Float32Array(newCount);
-  const nextVy = new Float32Array(newCount);
-  const nextVz = new Float32Array(newCount);
-  const nextSpeedScale = new Float32Array(newCount);
-  const nextSteerScale = new Float32Array(newCount);
-  const nextIsResting = new Uint8Array(newCount);
-  const nextRestTicksLeft = new Uint16Array(newCount);
-  const nextAx = new Float32Array(newCount);
-  const nextAy = new Float32Array(newCount);
-  const nextAz = new Float32Array(newCount);
-
-  let w = 0;
-  for (let i = 0; i < oldCount; i++) {
-    if (i === removeIndex) continue;
-    nextX[w] = swarmState.x[i];
-    nextY[w] = swarmState.y[i];
-    nextZ[w] = swarmState.z[i];
-    nextVx[w] = swarmState.vx[i];
-    nextVy[w] = swarmState.vy[i];
-    nextVz[w] = swarmState.vz[i];
-    nextSpeedScale[w] = swarmState.speedScale[i];
-    nextSteerScale[w] = swarmState.steerScale[i];
-    nextIsResting[w] = swarmState.isResting[i];
-    nextRestTicksLeft[w] = swarmState.restTicksLeft[i];
-    nextAx[w] = swarmState.ax[i];
-    nextAy[w] = swarmState.ay[i];
-    nextAz[w] = swarmState.az[i];
-    w++;
-  }
-
-  swarmState.count = newCount;
-  swarmState.x = nextX;
-  swarmState.y = nextY;
-  swarmState.z = nextZ;
-  swarmState.vx = nextVx;
-  swarmState.vy = nextVy;
-  swarmState.vz = nextVz;
-  swarmState.speedScale = nextSpeedScale;
-  swarmState.steerScale = nextSteerScale;
-  swarmState.isResting = nextIsResting;
-  swarmState.restTicksLeft = nextRestTicksLeft;
-  swarmState.ax = nextAx;
-  swarmState.ay = nextAy;
-  swarmState.az = nextAz;
-
-  const hawkTargetRange = getSwarmSettings().hawkTargetRange;
-  for (const hawk of swarmState.hawks) {
-    if (!Number.isInteger(hawk.targetIndex)) {
-      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, hawkTargetRange);
-      continue;
-    }
-    if (hawk.targetIndex === removeIndex) {
-      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, hawkTargetRange);
-    } else if (hawk.targetIndex > removeIndex) {
-      hawk.targetIndex -= 1;
-    }
-  }
-
-  if (swarmFollowState.targetType === "agent") {
-    if (swarmFollowState.agentIndex === removeIndex) {
-      swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
-      if (swarmFollowState.agentIndex < 0) {
-        stopSwarmFollow({ resetSpeed: true });
-      }
-    } else if (swarmFollowState.agentIndex > removeIndex) {
-      swarmFollowState.agentIndex -= 1;
-    }
-  }
-
-  return true;
-}
-
-function appendSwarmAgentState(agent) {
-  invalidateSwarmInterpolation();
-  const oldCount = swarmState.count;
-  const newCount = oldCount + 1;
-  const nextX = new Float32Array(newCount);
-  const nextY = new Float32Array(newCount);
-  const nextZ = new Float32Array(newCount);
-  const nextVx = new Float32Array(newCount);
-  const nextVy = new Float32Array(newCount);
-  const nextVz = new Float32Array(newCount);
-  const nextSpeedScale = new Float32Array(newCount);
-  const nextSteerScale = new Float32Array(newCount);
-  const nextIsResting = new Uint8Array(newCount);
-  const nextRestTicksLeft = new Uint16Array(newCount);
-  const nextAx = new Float32Array(newCount);
-  const nextAy = new Float32Array(newCount);
-  const nextAz = new Float32Array(newCount);
-  if (oldCount > 0) {
-    nextX.set(swarmState.x);
-    nextY.set(swarmState.y);
-    nextZ.set(swarmState.z);
-    nextVx.set(swarmState.vx);
-    nextVy.set(swarmState.vy);
-    nextVz.set(swarmState.vz);
-    nextSpeedScale.set(swarmState.speedScale);
-    nextSteerScale.set(swarmState.steerScale);
-    nextIsResting.set(swarmState.isResting);
-    nextRestTicksLeft.set(swarmState.restTicksLeft);
-    nextAx.set(swarmState.ax);
-    nextAy.set(swarmState.ay);
-    nextAz.set(swarmState.az);
-  }
-  nextX[oldCount] = Number(agent.x) || 0;
-  nextY[oldCount] = Number(agent.y) || 0;
-  nextZ[oldCount] = Number(agent.z) || 0;
-  nextVx[oldCount] = Number(agent.vx) || 0;
-  nextVy[oldCount] = Number(agent.vy) || 0;
-  nextVz[oldCount] = Number(agent.vz) || 0;
-  nextSpeedScale[oldCount] = Number.isFinite(Number(agent.speedScale)) ? Number(agent.speedScale) : 1;
-  nextSteerScale[oldCount] = Number.isFinite(Number(agent.steerScale)) ? Number(agent.steerScale) : 1;
-  nextIsResting[oldCount] = Number(agent.isResting) ? 1 : 0;
-  nextRestTicksLeft[oldCount] = Math.round(Math.max(0, Number(agent.restTicksLeft) || 0));
-  nextAx[oldCount] = Number(agent.ax) || 0;
-  nextAy[oldCount] = Number(agent.ay) || 0;
-  nextAz[oldCount] = Number(agent.az) || 0;
-  swarmState.count = newCount;
-  swarmState.x = nextX;
-  swarmState.y = nextY;
-  swarmState.z = nextZ;
-  swarmState.vx = nextVx;
-  swarmState.vy = nextVy;
-  swarmState.vz = nextVz;
-  swarmState.speedScale = nextSpeedScale;
-  swarmState.steerScale = nextSteerScale;
-  swarmState.isResting = nextIsResting;
-  swarmState.restTicksLeft = nextRestTicksLeft;
-  swarmState.ax = nextAx;
-  swarmState.ay = nextAy;
-  swarmState.az = nextAz;
-}
-
-function spawnRestingBirdNear(parentX, parentY, settings) {
-  const maxFlight = settings.maxHeight;
-  const minFlight = settings.minHeight;
-  const variation = settings.variationStrengthPct * 0.01;
-  let spawnX = clamp(parentX + (Math.random() * 2 - 1) * 2, 0, Math.max(0, splatSize.width - 1));
-  let spawnY = clamp(parentY + (Math.random() * 2 - 1) * 2, 0, Math.max(0, splatSize.height - 1));
-  let found = false;
-  for (let tries = 0; tries < 12; tries++) {
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 0.8 + Math.random() * 2.2;
-    const tx = clamp(parentX + Math.cos(angle) * radius, 0, Math.max(0, splatSize.width - 1));
-    const ty = clamp(parentY + Math.sin(angle) * radius, 0, Math.max(0, splatSize.height - 1));
-    if (!isSwarmCoordFlyable(tx, ty, maxFlight)) continue;
-    if (isWaterAtSwarmCoord(tx, ty)) continue;
-    spawnX = tx;
-    spawnY = ty;
-    found = true;
-    break;
-  }
-  if (!found && (!isSwarmCoordFlyable(spawnX, spawnY, maxFlight) || isWaterAtSwarmCoord(spawnX, spawnY))) {
-    return false;
-  }
-  const floorZ = Math.max(minFlight, terrainFloorAtSwarmCoord(spawnX, spawnY));
-  appendSwarmAgentState({
-    x: spawnX,
-    y: spawnY,
-    z: clamp(floorZ, minFlight, maxFlight),
-    vx: 0,
-    vy: 0,
-    vz: 0,
-    speedScale: 1 + (Math.random() * 2 - 1) * variation,
-    steerScale: 1 + (Math.random() * 2 - 1) * variation,
-    isResting: 1,
-    restTicksLeft: Math.round(clamp(Number(settings.restTicks), 100, 10000)),
-    ax: 0,
-    ay: 0,
-    az: 0,
-  });
-  return true;
-}
-
-function normalizeSwarmHeightRangeInputs(changed = "min") {
-  let minHeight = Math.round(clamp(Number(swarmMinHeightInput.value), 0, SWARM_Z_MAX));
-  let maxHeight = Math.round(clamp(Number(swarmMaxHeightInput.value), 0, SWARM_Z_MAX));
-  if (minHeight > maxHeight) {
-    if (changed === "min") {
-      maxHeight = minHeight;
-    } else {
-      minHeight = maxHeight;
-    }
-  }
-  swarmMinHeightInput.value = String(minHeight);
-  swarmMaxHeightInput.value = String(maxHeight);
-  return { minHeight, maxHeight };
-}
-
-function normalizeSwarmFollowZoomInputs(changed = "out") {
-  let zoomOut = clamp(Number(swarmFollowZoomOutInput.value), zoomMin, zoomMax);
-  let zoomIn = clamp(Number(swarmFollowZoomInInput.value), zoomMin, zoomMax);
-  if (zoomOut > zoomIn) {
-    if (changed === "out") {
-      zoomIn = zoomOut;
-    } else {
-      zoomOut = zoomIn;
-    }
-  }
-  swarmFollowZoomOutInput.value = zoomOut.toFixed(1);
-  swarmFollowZoomInInput.value = zoomIn.toFixed(1);
-  return { zoomOut, zoomIn };
-}
-
-function chooseRandomSwarmTargetIndex() {
-  if (swarmState.count <= 0) return -1;
-  return Math.floor(Math.random() * swarmState.count);
-}
-
-function chooseRandomSwarmTargetIndexNear(centerX, centerY, rangePx) {
-  if (swarmState.count <= 0) return -1;
-  const radius = Math.max(0, Number(rangePx) || 0);
-  if (radius <= 0) return chooseRandomSwarmTargetIndex();
-  const radiusSq = radius * radius;
-  let selected = -1;
-  let matches = 0;
-  for (let i = 0; i < swarmState.count; i++) {
-    const dx = swarmState.x[i] - centerX;
-    const dy = swarmState.y[i] - centerY;
-    if (dx * dx + dy * dy > radiusSq) continue;
-    matches += 1;
-    if (Math.random() < 1 / matches) {
-      selected = i;
-    }
-  }
-  return selected >= 0 ? selected : chooseRandomSwarmTargetIndex();
-}
-
-function chooseRandomFollowAgentIndex() {
-  return chooseRandomSwarmTargetIndex();
-}
-
-function chooseRandomFollowHawkIndex() {
-  if (swarmState.hawks.length <= 0) return -1;
-  return Math.floor(Math.random() * swarmState.hawks.length);
-}
-
-function updateSwarmFollowButtonUi() {
-  const noun = swarmFollowState.targetType === "hawk" ? "Hawk" : "Agent";
-  swarmFollowToggleBtn.textContent = swarmFollowState.enabled ? "Stop Follow" : `Follow ${noun} Mode`;
-}
+const swarmInputNormalization = createSwarmInputNormalization({
+  clamp,
+  swarmMinHeightInput,
+  swarmMaxHeightInput,
+  swarmFollowZoomInInput,
+  swarmFollowZoomOutInput,
+  swarmHeightMax: SWARM_Z_MAX,
+  zoomMin,
+  zoomMax,
+});
+const normalizeSwarmHeightRangeInputs = swarmInputNormalization.normalizeSwarmHeightRangeInputs;
+const normalizeSwarmFollowZoomInputs = swarmInputNormalization.normalizeSwarmFollowZoomInputs;
+const swarmPanelUi = createSwarmPanelUi({
+  getSwarmSettings,
+  swarmState,
+  swarmFollowState,
+  swarmFollowToggleBtn,
+  swarmStatsPanelEl,
+  swarmStatsBirdsValue,
+  swarmStatsHawksValue,
+  swarmStatsStepsValue,
+  swarmStatsAvgHawkKillValue,
+  swarmAgentCountValue,
+  swarmFollowZoomInValue,
+  swarmFollowZoomOutValue,
+  swarmFollowAgentSpeedSmoothingValue,
+  swarmFollowAgentZoomSmoothingValue,
+  swarmUpdateIntervalValue,
+  swarmMaxSpeedValue,
+  swarmSteeringMaxValue,
+  swarmVariationStrengthValue,
+  swarmNeighborRadiusValue,
+  swarmMinHeightValue,
+  swarmMaxHeightValue,
+  swarmSeparationRadiusValue,
+  swarmAlignmentWeightValue,
+  swarmCohesionWeightValue,
+  swarmSeparationWeightValue,
+  swarmWanderWeightValue,
+  swarmRestChanceValue,
+  swarmRestTicksValue,
+  swarmBreedingThresholdValue,
+  swarmBreedingSpawnChanceValue,
+  swarmCursorStrengthValue,
+  swarmCursorRadiusValue,
+  swarmHawkCountValue,
+  swarmHawkSpeedValue,
+  swarmHawkSteeringValue,
+  swarmHawkTargetRangeValue,
+  swarmShowTerrainToggle,
+  swarmLitModeToggle,
+  swarmFollowTargetInput,
+  swarmFollowZoomToggle,
+  swarmFollowZoomInInput,
+  swarmFollowZoomOutInput,
+  swarmFollowHawkRangeGizmoToggle,
+  swarmFollowAgentSpeedSmoothingInput,
+  swarmFollowAgentZoomSmoothingInput,
+  swarmStatsPanelToggle,
+  swarmBackgroundColorInput,
+  swarmAgentCountInput,
+  swarmUpdateIntervalInput,
+  swarmMaxSpeedInput,
+  swarmSteeringMaxInput,
+  swarmVariationStrengthInput,
+  swarmNeighborRadiusInput,
+  swarmMinHeightInput,
+  swarmMaxHeightInput,
+  swarmSeparationRadiusInput,
+  swarmAlignmentWeightInput,
+  swarmCohesionWeightInput,
+  swarmSeparationWeightInput,
+  swarmWanderWeightInput,
+  swarmRestChanceInput,
+  swarmRestTicksInput,
+  swarmBreedingThresholdInput,
+  swarmBreedingSpawnChanceInput,
+  swarmCursorModeInput,
+  swarmCursorStrengthInput,
+  swarmCursorRadiusInput,
+  swarmHawkEnabledToggle,
+  swarmHawkCountInput,
+  swarmHawkColorInput,
+  swarmHawkSpeedInput,
+  swarmHawkSteeringInput,
+  swarmHawkTargetRangeInput,
+});
+const updateSwarmLabels = swarmPanelUi.updateSwarmLabels;
+const updateSwarmUi = swarmPanelUi.updateSwarmUi;
+const updateSwarmStatsPanel = swarmPanelUi.updateSwarmStatsPanel;
+const updateSwarmFollowButtonUi = swarmPanelUi.updateSwarmFollowButtonUi;
+const applySwarmSettingsLegacyImpl = createSwarmSettingsApplier({
+  getSwarmSettings,
+  swarmEnabledToggle,
+  swarmLitModeToggle,
+  swarmFollowZoomToggle,
+  swarmFollowZoomInInput,
+  swarmFollowZoomOutInput,
+  swarmFollowHawkRangeGizmoToggle,
+  swarmFollowAgentSpeedSmoothingInput,
+  swarmFollowAgentZoomSmoothingInput,
+  swarmStatsPanelToggle,
+  swarmShowTerrainToggle,
+  swarmBackgroundColorInput,
+  swarmAgentCountInput,
+  swarmUpdateIntervalInput,
+  swarmMaxSpeedInput,
+  swarmSteeringMaxInput,
+  swarmVariationStrengthInput,
+  swarmNeighborRadiusInput,
+  swarmMinHeightInput,
+  swarmMaxHeightInput,
+  swarmSeparationRadiusInput,
+  swarmAlignmentWeightInput,
+  swarmCohesionWeightInput,
+  swarmSeparationWeightInput,
+  swarmWanderWeightInput,
+  swarmRestChanceInput,
+  swarmRestTicksInput,
+  swarmBreedingThresholdInput,
+  swarmBreedingSpawnChanceInput,
+  swarmCursorModeInput,
+  swarmCursorStrengthInput,
+  swarmCursorRadiusInput,
+  swarmHawkEnabledToggle,
+  swarmHawkCountInput,
+  swarmHawkColorInput,
+  swarmHawkSpeedInput,
+  swarmHawkSteeringInput,
+  swarmHawkTargetRangeInput,
+  swarmTimeRoutingInput,
+  swarmFollowTargetInput,
+  applySwarmFollowState,
+  swarmState,
+  normalizeSwarmFollowZoomInputs,
+  normalizeSwarmHeightRangeInputs,
+  updateSwarmLabels,
+  updateSwarmUi,
+  syncSwarmFollowToStore,
+});
 
 function resetSwarmFollowSpeedSmoothing() {
   swarmFollowState.speedNormFiltered = null;
 }
 
-function createSpawnedHawk(minFlight, maxFlight, targetRangePx) {
-  const width = Math.max(1, splatSize.width);
-  const height = Math.max(1, splatSize.height);
-  const x = Math.random() * Math.max(1, width - 1);
-  const y = Math.random() * Math.max(1, height - 1);
-  const z = clamp(Math.max(minFlight, terrainFloorAtSwarmCoord(x, y) + 4), minFlight, maxFlight);
-  return {
-    x,
-    y,
-    z,
-    vx: 0,
-    vy: 0,
-    vz: 0,
-    ax: 0,
-    ay: 0,
-    az: 0,
-    targetIndex: chooseRandomSwarmTargetIndexNear(x, y, targetRangePx),
-    lastKillTick: Math.max(0, Math.round(swarmState.stepCount)),
-  };
-}
+const swarmEnvironment = createSwarmEnvironment({
+  sampleHeightAtMapPixel,
+  getGrayAt,
+  waterImageData,
+  swarmHeightMax: SWARM_Z_MAX,
+  terrainClearance: SWARM_TERRAIN_CLEARANCE,
+});
+const terrainFloorAtSwarmCoord = swarmEnvironment.terrainFloorAtSwarmCoord;
+const isWaterAtSwarmCoord = swarmEnvironment.isWaterAtSwarmCoord;
+const isSwarmCoordFlyable = swarmEnvironment.isSwarmCoordFlyable;
+const swarmTargeting = createSwarmTargeting({
+  swarmState,
+  splatSize,
+  terrainFloorAtSwarmCoord,
+  clamp,
+});
+const chooseRandomSwarmTargetIndexNear = swarmTargeting.chooseRandomSwarmTargetIndexNear;
+const chooseRandomFollowAgentIndex = swarmTargeting.chooseRandomFollowAgentIndex;
+const chooseRandomFollowHawkIndex = swarmTargeting.chooseRandomFollowHawkIndex;
+const swarmAgentStateMutator = createSwarmAgentStateMutator({
+  swarmState,
+  swarmFollowState,
+  invalidateSwarmInterpolation,
+  getSwarmSettings,
+  chooseRandomSwarmTargetIndexNear,
+  chooseRandomFollowAgentIndex,
+  stopSwarmFollow,
+  clamp,
+  splatSize,
+  isSwarmCoordFlyable,
+  isWaterAtSwarmCoord,
+  terrainFloorAtSwarmCoord,
+});
+const ensureSwarmBuffers = swarmAgentStateMutator.ensureSwarmBuffers;
 
-function terrainFloorAtSwarmCoord(mapX, mapY) {
-  return sampleHeightAtMapPixel(mapX, mapY) * SWARM_Z_MAX + SWARM_TERRAIN_CLEARANCE;
-}
+const reseedSwarmAgents = createSwarmReseeder({
+  getSwarmSettings,
+  invalidateSwarmInterpolation,
+  ensureSwarmBuffers: swarmAgentStateMutator.ensureSwarmBuffers,
+  splatSize,
+  isSwarmCoordFlyable,
+  terrainFloorAtSwarmCoord,
+  clamp,
+  swarmState,
+  swarmFollowState,
+  chooseRandomFollowAgentIndex,
+  createSpawnedHawk: swarmTargeting.createSpawnedHawk,
+  requestOverlayDraw,
+});
+const applySwarmDataImpl = createSwarmDataApplier({
+  applySwarmSettings,
+  getSwarmSettings,
+  swarmState,
+  clamp,
+  ensureSwarmBuffers: swarmAgentStateMutator.ensureSwarmBuffers,
+  splatSize,
+  isSwarmCoordFlyable,
+  terrainFloorAtSwarmCoord,
+  chooseRandomSwarmTargetIndexNear,
+  reseedSwarmAgents,
+  applySwarmFollowState,
+  invalidateSwarmInterpolation,
+  syncSwarmRuntimeStateToStore,
+  requestOverlayDraw,
+});
+const serializeSwarmDataImpl = createSwarmDataSerializer({
+  getSwarmSettings,
+  swarmFollowState,
+  swarmState,
+});
+const serializeInteractionSettingsImpl = createInteractionDataSerializer({
+  getPathfindingStateSnapshot,
+  getCursorLightSnapshot,
+  getPointLightsState: () => runtimeCore.store.getState().gameplay.pointLights,
+  clamp,
+});
+const applyInteractionSettingsLegacyImpl = createInteractionSettingsApplier({
+  getPathfindingStateSnapshot,
+  pathfindingRangeInput,
+  pathWeightSlopeInput,
+  pathWeightHeightInput,
+  pathWeightWaterInput,
+  pathSlopeCutoffInput,
+  pathBaseCostInput,
+  updatePathfindingRangeLabel,
+  updatePathWeightLabels,
+  updatePathSlopeCutoffLabel,
+  updatePathBaseCostLabel,
+  getCursorLightSnapshot,
+  applyCursorLightConfigSnapshot,
+  cursorLightState,
+  cursorLightModeToggle,
+  cursorLightFollowHeightToggle,
+  cursorLightColorInput,
+  cursorLightStrengthInput,
+  cursorLightHeightOffsetInput,
+  cursorLightGizmoToggle,
+  pointLightLiveUpdateToggle,
+  isPointLightLiveUpdateEnabled,
+  updateCursorLightStrengthLabel,
+  updateCursorLightHeightOffsetLabel,
+  updateCursorLightModeUi,
+});
+const applyLightingSettingsLegacyImpl = createLightingSettingsApplier({
+  getCoreState: () => runtimeCore.store.getState(),
+  getLightingSettings: () => getSimulationKnobSectionFromStore("lighting") || getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS),
+  shadowsToggle,
+  heightScaleInput,
+  shadowStrengthInput,
+  shadowBlurInput,
+  ambientInput,
+  diffuseInput,
+  volumetricToggle,
+  volumetricStrengthInput,
+  volumetricDensityInput,
+  volumetricAnisotropyInput,
+  volumetricLengthInput,
+  volumetricSamplesInput,
+  cycleState,
+  cycleSpeedInput,
+  simTickHoursInput,
+  pointFlickerToggle,
+  pointFlickerStrengthInput,
+  pointFlickerSpeedInput,
+  pointFlickerSpatialInput,
+  clamp,
+  normalizeSimTickHours,
+  updateVolumetricLabels,
+  updateVolumetricUi,
+  updateShadowBlurLabel,
+  updatePointFlickerLabels,
+  updatePointFlickerUi,
+  updateSimTickLabel,
+  setCycleHourSliderFromState,
+  updateCycleHourLabel,
+  schedulePointLightBake,
+});
+const npcPersistence = createNpcPersistence({
+  playerState,
+  defaultPlayer: DEFAULT_PLAYER,
+  clamp,
+  splatSize,
+  setPlayerPosition,
+  syncPlayerStateToStore,
+});
+const serializeNpcStateImpl = npcPersistence.serializeNpcState;
+const parseNpcPlayerImpl = npcPersistence.parseNpcPlayer;
+const applyLoadedNpcImpl = npcPersistence.applyLoadedNpc;
 
-function isWaterAtSwarmCoord(mapX, mapY) {
-  if (!waterImageData || !waterImageData.data) return false;
-  return getGrayAt(waterImageData, mapX, mapY) > 0.01;
-}
-
-function isSwarmCoordFlyable(mapX, mapY, maxFlight) {
-  return terrainFloorAtSwarmCoord(mapX, mapY) <= maxFlight;
-}
-
-function reseedSwarmAgents(count = getSwarmSettings().agentCount) {
-  invalidateSwarmInterpolation();
-  ensureSwarmBuffers(count);
-  const settings = getSwarmSettings();
-  const maxSpeed = settings.maxSpeed;
-  const minFlight = settings.minHeight;
-  const maxFlight = settings.maxHeight;
-  const minSpeed = Math.max(10, maxSpeed * 0.45);
-  const variation = settings.variationStrengthPct * 0.01;
-  const width = Math.max(1, splatSize.width);
-  const height = Math.max(1, splatSize.height);
-  for (let i = 0; i < swarmState.count; i++) {
-    let spawnX = 0;
-    let spawnY = 0;
-    let found = false;
-    for (let tries = 0; tries < 40; tries++) {
-      const tx = Math.random() * Math.max(1, width - 1);
-      const ty = Math.random() * Math.max(1, height - 1);
-      if (!isSwarmCoordFlyable(tx, ty, maxFlight)) continue;
-      spawnX = tx;
-      spawnY = ty;
-      found = true;
-      break;
-    }
-    if (!found) {
-      spawnX = Math.random() * Math.max(1, width - 1);
-      spawnY = Math.random() * Math.max(1, height - 1);
-    }
-    swarmState.x[i] = spawnX;
-    swarmState.y[i] = spawnY;
-    const zMin = Math.max(minFlight, terrainFloorAtSwarmCoord(spawnX, spawnY));
-    swarmState.z[i] = clamp(zMin + Math.random() * Math.max(0, maxFlight - zMin), 0, maxFlight);
-    const angle = Math.random() * Math.PI * 2;
-    const speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
-    swarmState.vx[i] = Math.cos(angle) * speed;
-    swarmState.vy[i] = Math.sin(angle) * speed;
-    swarmState.vz[i] = (Math.random() * 2 - 1) * speed * 0.2;
-    swarmState.speedScale[i] = 1 + (Math.random() * 2 - 1) * variation;
-    swarmState.steerScale[i] = 1 + (Math.random() * 2 - 1) * variation;
-    swarmState.isResting[i] = 0;
-    swarmState.restTicksLeft[i] = 0;
-  }
-  swarmState.lastUpdateMs = null;
-  swarmState.stepCount = 0;
-  swarmState.hawkKillIntervalSum = 0;
-  swarmState.hawkKillCount = 0;
-  swarmState.breedingActive = false;
-  swarmState.hawks = [];
-  if (settings.useHawk) {
-    for (let i = 0; i < settings.hawkCount; i++) {
-      swarmState.hawks.push(createSpawnedHawk(minFlight, maxFlight, settings.hawkTargetRange));
-    }
-  }
-  if (swarmFollowState.enabled && swarmFollowState.targetType === "agent") {
-    swarmFollowState.agentIndex = chooseRandomFollowAgentIndex();
-  } else if (!swarmFollowState.enabled) {
-    swarmFollowState.agentIndex = -1;
-  }
-  requestOverlayDraw();
-}
+const stepSwarm = createSwarmStepFunction({
+  splatSize,
+  swarmState,
+  clamp,
+  swarmCursorState,
+  swarmZNeighborScale: SWARM_Z_NEIGHBOR_SCALE,
+  isWaterAtSwarmCoord,
+  terrainFloorAtSwarmCoord,
+  isSwarmCoordFlyable,
+  spawnRestingBirdNear: swarmAgentStateMutator.spawnRestingBirdNear,
+  removeSwarmAgentAtIndex: swarmAgentStateMutator.removeSwarmAgentAtIndex,
+  chooseRandomSwarmTargetIndexNear,
+});
 
 function updateSwarmCursorFromPointer(clientX, clientY) {
   if (!isSwarmEnabled()) {
@@ -4837,480 +4098,13 @@ function updateSwarmCursorFromPointer(clientX, clientY) {
   swarmCursorState.y = clamp((1 - uv.y) * splatSize.height, 0, Math.max(0, splatSize.height - 1));
 }
 
-function limitVector3(x, y, z, maxLen) {
-  const len = Math.hypot(x, y, z);
-  if (len <= maxLen || len <= 0.000001) {
-    return [x, y, z];
-  }
-  const scale = maxLen / len;
-  return [x * scale, y * scale, z * scale];
-}
-
-function hash01(seed) {
-  const s = Math.sin(seed) * 43758.5453123;
-  return s - Math.floor(s);
-}
-
-function stepSwarm(settings, dt, nowMs) {
-  const width = Math.max(1, splatSize.width);
-  const height = Math.max(1, splatSize.height);
-  const maxX = Math.max(0, width - 1);
-  const maxY = Math.max(0, height - 1);
-  const neighborRadiusSq = settings.neighborRadius * settings.neighborRadius;
-  const separationRadiusSq = settings.separationRadius * settings.separationRadius;
-  const cursorRadiusSq = settings.cursorRadius * settings.cursorRadius;
-  const minFlight = settings.minHeight;
-  const maxFlight = settings.maxHeight;
-  const hawks = swarmState.hawks;
-  const restChancePerTick = clamp(settings.restChancePct, 0, 0.002);
-  const restTicks = Math.round(clamp(settings.restTicks, 100, 10000));
-  const hawkThreatRadiusSq = cursorRadiusSq;
-  const maxBirds = Math.max(0, Math.round(settings.agentCount));
-  const breedingThreshold = Math.round(clamp(Number(settings.breedingThreshold), 0, maxBirds));
-  const breedingSpawnChance = clamp(Number(settings.breedingSpawnChance), 0, 1);
-  const pendingRestBirths = [];
-
-  if (!swarmState.breedingActive && swarmState.count < breedingThreshold) {
-    swarmState.breedingActive = true;
-  } else if (swarmState.breedingActive && swarmState.count >= maxBirds) {
-    swarmState.breedingActive = false;
-  }
-
-  for (let i = 0; i < swarmState.count; i++) {
-    const px = swarmState.x[i];
-    const py = swarmState.y[i];
-    const pz = swarmState.z[i];
-    const vx = swarmState.vx[i];
-    const vy = swarmState.vy[i];
-    const vz = swarmState.vz[i];
-    const speedScale = swarmState.speedScale[i] > 0 ? swarmState.speedScale[i] : 1;
-    const steerScale = swarmState.steerScale[i] > 0 ? swarmState.steerScale[i] : 1;
-    const agentMaxSpeed = settings.maxSpeed * speedScale;
-    const agentMaxSteering = settings.maxSteering * steerScale;
-    let hawkThreat = false;
-    if (settings.useHawk && hawks.length > 0) {
-      for (const hawk of hawks) {
-        const hdx = hawk.x - px;
-        const hdy = hawk.y - py;
-        const hawkDistSq = hdx * hdx + hdy * hdy;
-        if (hawkDistSq <= hawkThreatRadiusSq) {
-          hawkThreat = true;
-          break;
-        }
-      }
-    }
-    const onWater = isWaterAtSwarmCoord(px, py);
-    if (swarmState.isResting[i]) {
-      if (hawkThreat) {
-        swarmState.isResting[i] = 0;
-        swarmState.restTicksLeft[i] = 0;
-      } else if (onWater) {
-        swarmState.isResting[i] = 0;
-        swarmState.restTicksLeft[i] = 0;
-      } else {
-        if (swarmState.restTicksLeft[i] > 0) {
-          swarmState.restTicksLeft[i] -= 1;
-        }
-        if (swarmState.restTicksLeft[i] === 0) {
-          swarmState.isResting[i] = 0;
-        } else {
-          const floorZ = Math.max(minFlight, terrainFloorAtSwarmCoord(px, py));
-          swarmState.vx[i] = 0;
-          swarmState.vy[i] = 0;
-          swarmState.vz[i] = 0;
-          swarmState.z[i] = clamp(floorZ, minFlight, maxFlight);
-          swarmState.ax[i] = 0;
-          swarmState.ay[i] = 0;
-          swarmState.az[i] = 0;
-          continue;
-        }
-      }
-    }
-    let alignX = 0;
-    let alignY = 0;
-    let alignZ = 0;
-    let cohX = 0;
-    let cohY = 0;
-    let cohZ = 0;
-    let sepX = 0;
-    let sepY = 0;
-    let sepZ = 0;
-    let neighborCount = 0;
-    let separationCount = 0;
-
-    for (let j = 0; j < swarmState.count; j++) {
-      if (i === j) continue;
-      if (swarmState.isResting[j]) continue;
-      const dx = swarmState.x[j] - px;
-      const dy = swarmState.y[j] - py;
-      const dz = swarmState.z[j] - pz;
-      const dzScaled = dz * SWARM_Z_NEIGHBOR_SCALE;
-      const distSq = dx * dx + dy * dy + dzScaled * dzScaled;
-      if (distSq > neighborRadiusSq || distSq <= 0.000001) continue;
-      neighborCount++;
-      alignX += swarmState.vx[j];
-      alignY += swarmState.vy[j];
-      alignZ += swarmState.vz[j];
-      cohX += swarmState.x[j];
-      cohY += swarmState.y[j];
-      cohZ += swarmState.z[j];
-      if (distSq <= separationRadiusSq) {
-        const invDist = 1 / Math.max(0.001, Math.sqrt(distSq));
-        sepX -= dx * invDist;
-        sepY -= dy * invDist;
-        sepZ -= dzScaled * invDist;
-        separationCount++;
-      }
-    }
-
-    let accX = 0;
-    let accY = 0;
-    let accZ = 0;
-    if (neighborCount > 0) {
-      const invNeighbor = 1 / neighborCount;
-      const avgVx = alignX * invNeighbor;
-      const avgVy = alignY * invNeighbor;
-      const avgVz = alignZ * invNeighbor;
-      const alignLen = Math.hypot(avgVx, avgVy, avgVz);
-      let alignTargetX = 0;
-      let alignTargetY = 0;
-      let alignTargetZ = 0;
-      if (alignLen > 0.000001) {
-        alignTargetX = (avgVx / alignLen) * settings.maxSpeed * speedScale;
-        alignTargetY = (avgVy / alignLen) * settings.maxSpeed * speedScale;
-        alignTargetZ = (avgVz / alignLen) * settings.maxSpeed * speedScale;
-      }
-      accX += (alignTargetX - vx) * settings.alignmentWeight;
-      accY += (alignTargetY - vy) * settings.alignmentWeight;
-      accZ += (alignTargetZ - vz) * settings.alignmentWeight;
-
-      const centerX = cohX * invNeighbor;
-      const centerY = cohY * invNeighbor;
-      const centerZ = cohZ * invNeighbor;
-      const toCenterX = centerX - px;
-      const toCenterY = centerY - py;
-      const toCenterZ = (centerZ - pz) * SWARM_Z_NEIGHBOR_SCALE;
-      const toCenterLen = Math.hypot(toCenterX, toCenterY, toCenterZ);
-      if (toCenterLen > 0.000001) {
-        const cohTargetX = (toCenterX / toCenterLen) * settings.maxSpeed * speedScale;
-        const cohTargetY = (toCenterY / toCenterLen) * settings.maxSpeed * speedScale;
-        const cohTargetZ = (toCenterZ / toCenterLen) * settings.maxSpeed * speedScale;
-        accX += (cohTargetX - vx) * settings.cohesionWeight;
-        accY += (cohTargetY - vy) * settings.cohesionWeight;
-        accZ += (cohTargetZ - vz) * settings.cohesionWeight;
-      }
-    }
-    if (separationCount > 0) {
-      const invSep = 1 / separationCount;
-      const sepDirX = sepX * invSep;
-      const sepDirY = sepY * invSep;
-      const sepDirZ = sepZ * invSep;
-      const sepLen = Math.hypot(sepDirX, sepDirY, sepDirZ);
-      if (sepLen > 0.000001) {
-        const sepTargetX = (sepDirX / sepLen) * settings.maxSpeed * speedScale;
-        const sepTargetY = (sepDirY / sepLen) * settings.maxSpeed * speedScale;
-        const sepTargetZ = (sepDirZ / sepLen) * settings.maxSpeed * speedScale;
-        accX += (sepTargetX - vx) * settings.separationWeight;
-        accY += (sepTargetY - vy) * settings.separationWeight;
-        accZ += (sepTargetZ - vz) * settings.separationWeight;
-      }
-    }
-
-    if (settings.wanderWeight > 0.0001) {
-      const seed = (i + 1) * 12.9898 + nowMs * 0.0021;
-      const angle = hash01(seed) * Math.PI * 2;
-      accX += Math.cos(angle) * agentMaxSteering * settings.wanderWeight;
-      accY += Math.sin(angle) * agentMaxSteering * settings.wanderWeight;
-      accZ += (hash01(seed * 1.37 + 19.17) * 2 - 1) * agentMaxSteering * settings.wanderWeight * 0.35;
-    }
-
-    if (swarmCursorState.active && settings.cursorMode !== "none" && settings.cursorStrength > 0.0001) {
-      const cdx = swarmCursorState.x - px;
-      const cdy = swarmCursorState.y - py;
-      const cursorDistSq = cdx * cdx + cdy * cdy;
-      if (cursorDistSq <= cursorRadiusSq && cursorDistSq > 0.000001) {
-        const cursorDist = Math.sqrt(cursorDistSq);
-        const cursorFalloff = 1 - cursorDist / settings.cursorRadius;
-        const dirSign = settings.cursorMode === "attract" ? 1 : -1;
-        const force = dirSign * settings.cursorStrength * agentMaxSteering * cursorFalloff;
-        accX += (cdx / cursorDist) * force;
-        accY += (cdy / cursorDist) * force;
-      }
-    }
-
-    if (settings.useHawk && hawks.length > 0) {
-      for (const hawk of hawks) {
-        const hdx = hawk.x - px;
-        const hdy = hawk.y - py;
-        const hawkDistSq = hdx * hdx + hdy * hdy;
-        if (hawkDistSq <= cursorRadiusSq && hawkDistSq > 0.000001) {
-          const hawkDist = Math.sqrt(hawkDistSq);
-          const hawkFalloff = 1 - hawkDist / settings.cursorRadius;
-          const force = settings.cursorStrength * agentMaxSteering * hawkFalloff;
-          accX -= (hdx / hawkDist) * force;
-          accY -= (hdy / hawkDist) * force;
-        }
-      }
-    }
-
-    if (!hawkThreat && !onWater && restChancePerTick > 0 && Math.random() < restChancePerTick) {
-      swarmState.isResting[i] = 1;
-      swarmState.restTicksLeft[i] = restTicks;
-      const floorZ = Math.max(minFlight, terrainFloorAtSwarmCoord(px, py));
-      swarmState.vx[i] = 0;
-      swarmState.vy[i] = 0;
-      swarmState.vz[i] = 0;
-      swarmState.z[i] = clamp(floorZ, minFlight, maxFlight);
-      swarmState.ax[i] = 0;
-      swarmState.ay[i] = 0;
-      swarmState.az[i] = 0;
-      if (
-        swarmState.breedingActive
-        && breedingSpawnChance > 0
-        && swarmState.count + pendingRestBirths.length < maxBirds
-        && Math.random() < breedingSpawnChance
-      ) {
-        pendingRestBirths.push({ x: px, y: py });
-      }
-      continue;
-    }
-
-    [swarmState.ax[i], swarmState.ay[i], swarmState.az[i]] = limitVector3(accX, accY, accZ, agentMaxSteering);
-  }
-
-  for (let i = 0; i < swarmState.count; i++) {
-    if (swarmState.isResting[i]) {
-      const floorZ = Math.max(minFlight, terrainFloorAtSwarmCoord(swarmState.x[i], swarmState.y[i]));
-      swarmState.vx[i] = 0;
-      swarmState.vy[i] = 0;
-      swarmState.vz[i] = 0;
-      swarmState.z[i] = clamp(floorZ, minFlight, maxFlight);
-      continue;
-    }
-    const nextVx = swarmState.vx[i] + swarmState.ax[i] * dt;
-    const nextVy = swarmState.vy[i] + swarmState.ay[i] * dt;
-    const nextVz = swarmState.vz[i] + swarmState.az[i] * dt;
-    const speedScale = swarmState.speedScale[i] > 0 ? swarmState.speedScale[i] : 1;
-    const agentMaxSpeed = settings.maxSpeed * speedScale;
-    const agentMinSpeed = Math.max(10, agentMaxSpeed * 0.45);
-    const speed = Math.hypot(nextVx, nextVy, nextVz);
-    let finalVx = nextVx;
-    let finalVy = nextVy;
-    let finalVz = nextVz;
-    if (speed > agentMaxSpeed) {
-      const scale = agentMaxSpeed / speed;
-      finalVx *= scale;
-      finalVy *= scale;
-      finalVz *= scale;
-    } else if (speed < agentMinSpeed) {
-      const dirX = speed > 0.000001 ? nextVx / speed : Math.cos(i * 0.61803398875);
-      const dirY = speed > 0.000001 ? nextVy / speed : Math.sin(i * 0.61803398875);
-      const dirZ = speed > 0.000001 ? nextVz / speed : Math.sin(i * 0.38196601125) * 0.2;
-      finalVx = dirX * agentMinSpeed;
-      finalVy = dirY * agentMinSpeed;
-      finalVz = dirZ * agentMinSpeed;
-    }
-    swarmState.vx[i] = finalVx;
-    swarmState.vy[i] = finalVy;
-    swarmState.vz[i] = finalVz;
-
-    let nx = swarmState.x[i] + finalVx * dt;
-    let ny = swarmState.y[i] + finalVy * dt;
-    let nz = swarmState.z[i] + finalVz * dt;
-    if (nx < 0) {
-      nx = 0;
-      swarmState.vx[i] = Math.abs(swarmState.vx[i]) * 0.75;
-    } else if (nx > maxX) {
-      nx = maxX;
-      swarmState.vx[i] = -Math.abs(swarmState.vx[i]) * 0.75;
-    }
-    if (ny < 0) {
-      ny = 0;
-      swarmState.vy[i] = Math.abs(swarmState.vy[i]) * 0.75;
-    } else if (ny > maxY) {
-      ny = maxY;
-      swarmState.vy[i] = -Math.abs(swarmState.vy[i]) * 0.75;
-    }
-    if (!isSwarmCoordFlyable(nx, ny, maxFlight)) {
-      nx = swarmState.x[i];
-      ny = swarmState.y[i];
-      swarmState.vx[i] = -swarmState.vx[i] * 0.6;
-      swarmState.vy[i] = -swarmState.vy[i] * 0.6;
-    }
-    const minAllowedZ = Math.max(minFlight, terrainFloorAtSwarmCoord(nx, ny));
-    if (nz < minAllowedZ) {
-      nz = minAllowedZ;
-      swarmState.vz[i] = Math.abs(swarmState.vz[i]) * 0.75;
-    }
-    if (nz < minFlight) {
-      nz = minFlight + (minFlight - nz);
-      swarmState.vz[i] = Math.abs(swarmState.vz[i]) * 0.75;
-    } else if (nz > maxFlight) {
-      nz = maxFlight - (nz - maxFlight);
-      swarmState.vz[i] = -Math.abs(swarmState.vz[i]) * 0.75;
-    }
-    swarmState.x[i] = nx;
-    swarmState.y[i] = ny;
-    swarmState.z[i] = clamp(nz, minFlight, maxFlight);
-  }
-
-  if (swarmState.breedingActive && pendingRestBirths.length > 0) {
-    for (const birth of pendingRestBirths) {
-      if (swarmState.count >= maxBirds) break;
-      spawnRestingBirdNear(birth.x, birth.y, settings);
-    }
-  }
-  if (!swarmState.breedingActive && swarmState.count < breedingThreshold) {
-    swarmState.breedingActive = true;
-  } else if (swarmState.breedingActive && swarmState.count >= maxBirds) {
-    swarmState.breedingActive = false;
-  }
-
-  if (!settings.useHawk || hawks.length === 0) return;
-
-  const currentTick = Math.max(0, Math.round(swarmState.stepCount));
-  for (let hawkIndex = hawks.length - 1; hawkIndex >= 0; hawkIndex--) {
-    const hawk = hawks[hawkIndex];
-    if (!Number.isInteger(hawk.targetIndex) || hawk.targetIndex < 0 || hawk.targetIndex >= swarmState.count) {
-      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, settings.hawkTargetRange);
-    }
-    if (swarmState.count <= 0 || hawk.targetIndex < 0) continue;
-    const targetX = swarmState.x[hawk.targetIndex];
-    const targetY = swarmState.y[hawk.targetIndex];
-    const targetZ = swarmState.z[hawk.targetIndex];
-    const toTargetX = targetX - hawk.x;
-    const toTargetY = targetY - hawk.y;
-    const toTargetZ = (targetZ - hawk.z) * SWARM_Z_NEIGHBOR_SCALE;
-    const toTargetLen = Math.hypot(toTargetX, toTargetY, toTargetZ);
-    if (toTargetLen <= 2) {
-      const killInterval = Math.max(0, currentTick - Math.max(0, Math.round(Number(hawk.lastKillTick) || 0)));
-      swarmState.hawkKillIntervalSum += killInterval;
-      swarmState.hawkKillCount += 1;
-      removeSwarmAgentAtIndex(hawk.targetIndex);
-      hawk.lastKillTick = currentTick;
-      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, settings.hawkTargetRange);
-      continue;
-    }
-    const aimX = swarmState.x[hawk.targetIndex] - hawk.x;
-    const aimY = swarmState.y[hawk.targetIndex] - hawk.y;
-    const aimZ = (swarmState.z[hawk.targetIndex] - hawk.z) * SWARM_Z_NEIGHBOR_SCALE;
-    const aimLen = Math.hypot(aimX, aimY, aimZ);
-    const desiredVx = aimLen > 0.000001 ? (aimX / aimLen) * settings.hawkSpeed : 0;
-    const desiredVy = aimLen > 0.000001 ? (aimY / aimLen) * settings.hawkSpeed : 0;
-    const desiredVz = aimLen > 0.000001 ? (aimZ / aimLen) * settings.hawkSpeed : 0;
-    const steerX = desiredVx - hawk.vx;
-    const steerY = desiredVy - hawk.vy;
-    const steerZ = desiredVz - hawk.vz;
-    [hawk.ax, hawk.ay, hawk.az] = limitVector3(steerX, steerY, steerZ, settings.hawkSteering);
-
-    hawk.vx += hawk.ax * dt;
-    hawk.vy += hawk.ay * dt;
-    hawk.vz += hawk.az * dt;
-    const hawkSpeed = Math.hypot(hawk.vx, hawk.vy, hawk.vz);
-    if (hawkSpeed > settings.hawkSpeed) {
-      const scale = settings.hawkSpeed / hawkSpeed;
-      hawk.vx *= scale;
-      hawk.vy *= scale;
-      hawk.vz *= scale;
-    }
-
-    let hx = hawk.x + hawk.vx * dt;
-    let hy = hawk.y + hawk.vy * dt;
-    let hz = hawk.z + hawk.vz * dt;
-    if (hx < 0) {
-      hx = 0;
-      hawk.vx = Math.abs(hawk.vx) * 0.75;
-    } else if (hx > maxX) {
-      hx = maxX;
-      hawk.vx = -Math.abs(hawk.vx) * 0.75;
-    }
-    if (hy < 0) {
-      hy = 0;
-      hawk.vy = Math.abs(hawk.vy) * 0.75;
-    } else if (hy > maxY) {
-      hy = maxY;
-      hawk.vy = -Math.abs(hawk.vy) * 0.75;
-    }
-    if (!isSwarmCoordFlyable(hx, hy, maxFlight)) {
-      hx = hawk.x;
-      hy = hawk.y;
-      hawk.vx = -hawk.vx * 0.6;
-      hawk.vy = -hawk.vy * 0.6;
-      hawk.targetIndex = chooseRandomSwarmTargetIndexNear(hawk.x, hawk.y, settings.hawkTargetRange);
-    }
-    const hawkMinZ = Math.max(minFlight, terrainFloorAtSwarmCoord(hx, hy));
-    hz = clamp(hz, hawkMinZ, maxFlight);
-    hawk.x = hx;
-    hawk.y = hy;
-    hawk.z = hz;
-  }
-}
-
-function captureSwarmRenderPreviousState() {
-  const count = Math.max(0, swarmState.count | 0);
-  if (swarmRenderState.prevX.length !== count) {
-    swarmRenderState.prevX = new Float32Array(count);
-    swarmRenderState.prevY = new Float32Array(count);
-    swarmRenderState.prevZ = new Float32Array(count);
-  }
-  if (count > 0) {
-    swarmRenderState.prevX.set(swarmState.x);
-    swarmRenderState.prevY.set(swarmState.y);
-    swarmRenderState.prevZ.set(swarmState.z);
-  }
-  const hawkCount = swarmState.hawks.length;
-  if (swarmRenderState.prevHawkX.length !== hawkCount) {
-    swarmRenderState.prevHawkX = new Float32Array(hawkCount);
-    swarmRenderState.prevHawkY = new Float32Array(hawkCount);
-    swarmRenderState.prevHawkZ = new Float32Array(hawkCount);
-  }
-  for (let i = 0; i < hawkCount; i++) {
-    const hawk = swarmState.hawks[i];
-    swarmRenderState.prevHawkX[i] = hawk.x;
-    swarmRenderState.prevHawkY[i] = hawk.y;
-    swarmRenderState.prevHawkZ[i] = hawk.z;
-  }
-  swarmRenderState.hasPrev = true;
-}
-
-function getSwarmInterpolationAlpha() {
-  return clamp(Number(swarmRenderState.alpha), 0, 1);
-}
-
-function writeInterpolatedSwarmAgentPos(index, out) {
-  out.x = swarmState.x[index];
-  out.y = swarmState.y[index];
-  out.z = swarmState.z[index];
-  if (!swarmRenderState.hasPrev || index < 0 || index >= swarmRenderState.prevX.length) {
-    return out;
-  }
-  const a = getSwarmInterpolationAlpha();
-  out.x = swarmRenderState.prevX[index] + (out.x - swarmRenderState.prevX[index]) * a;
-  out.y = swarmRenderState.prevY[index] + (out.y - swarmRenderState.prevY[index]) * a;
-  out.z = swarmRenderState.prevZ[index] + (out.z - swarmRenderState.prevZ[index]) * a;
-  return out;
-}
-
-function writeInterpolatedSwarmHawkPos(index, out) {
-  const hawk = swarmState.hawks[index];
-  if (!hawk) {
-    out.x = 0;
-    out.y = 0;
-    out.z = 0;
-    return out;
-  }
-  out.x = hawk.x;
-  out.y = hawk.y;
-  out.z = hawk.z;
-  if (!swarmRenderState.hasPrev || index < 0 || index >= swarmRenderState.prevHawkX.length) {
-    return out;
-  }
-  const a = getSwarmInterpolationAlpha();
-  out.x = swarmRenderState.prevHawkX[index] + (hawk.x - swarmRenderState.prevHawkX[index]) * a;
-  out.y = swarmRenderState.prevHawkY[index] + (hawk.y - swarmRenderState.prevHawkY[index]) * a;
-  out.z = swarmRenderState.prevHawkZ[index] + (hawk.z - swarmRenderState.prevHawkZ[index]) * a;
-  return out;
-}
+const swarmInterpolation = createSwarmInterpolation({
+  swarmState,
+  swarmRenderState,
+  clamp,
+});
+const writeInterpolatedSwarmAgentPos = swarmInterpolation.writeInterpolatedAgentPos;
+const writeInterpolatedSwarmHawkPos = swarmInterpolation.writeInterpolatedHawkPos;
 
 const updateSwarm = createSwarmUpdateLoop({
   swarmRenderState,
@@ -5318,7 +4112,7 @@ const updateSwarm = createSwarmUpdateLoop({
   isSwarmEnabled,
   getSwarmSettings,
   swarmState,
-  captureSwarmRenderPreviousState,
+  captureSwarmRenderPreviousState: swarmInterpolation.capturePreviousState,
   stepSwarm,
   syncSwarmRuntimeStateToStore,
 });
@@ -5331,15 +4125,15 @@ const updateSwarmFollowCamera = createSwarmFollowCameraUpdater({
   getSwarmSettings,
   chooseRandomFollowHawkIndex,
   chooseRandomFollowAgentIndex,
-  writeInterpolatedSwarmHawkPos,
-  writeInterpolatedSwarmAgentPos,
+  writeInterpolatedSwarmHawkPos: swarmInterpolation.writeInterpolatedHawkPos,
+  writeInterpolatedSwarmAgentPos: swarmInterpolation.writeInterpolatedAgentPos,
   swarmFollowHawkScratch,
   swarmFollowAgentScratch,
   mapCoordToWorld,
   clamp,
   zoomMin,
   zoomMax,
-  getZoom: () => zoom,
+  getZoom: () => getActiveCameraState().zoom,
   dispatchCoreCommand,
 });
 
@@ -5421,8 +4215,8 @@ function drawSwarmGizmos(settings) {
 const renderSwarmLit = createSwarmLitRenderer({
   swarmState,
   clamp,
-  writeInterpolatedSwarmAgentPos,
-  writeInterpolatedSwarmHawkPos,
+  writeInterpolatedSwarmAgentPos: swarmInterpolation.writeInterpolatedAgentPos,
+  writeInterpolatedSwarmHawkPos: swarmInterpolation.writeInterpolatedHawkPos,
   swarmLitAgentScratch,
   swarmLitHawkScratch,
   computeSwarmDirectionalShadow,
@@ -5443,8 +4237,6 @@ const renderSwarmLit = createSwarmLitRenderer({
   pointLightEdgeMin: SWARM_POINT_LIGHT_EDGE_MIN,
   swarmPointVao,
   swarmPointBuffer,
-  panWorld,
-  getZoom: () => zoom,
 });
 
 function getBaseViewHalfExtents() {
@@ -5458,9 +4250,9 @@ function getBaseViewHalfExtents() {
 
 function getActiveCameraState() {
   const camera = runtimeCore.store.getState().camera || {};
-  const zoomValue = Number.isFinite(Number(camera.zoom)) ? Number(camera.zoom) : zoom;
-  const panX = Number.isFinite(Number(camera.panX)) ? Number(camera.panX) : panWorld.x;
-  const panY = Number.isFinite(Number(camera.panY)) ? Number(camera.panY) : panWorld.y;
+  const zoomValue = Number.isFinite(Number(camera.zoom)) ? Number(camera.zoom) : 1;
+  const panX = Number.isFinite(Number(camera.panX)) ? Number(camera.panX) : 0;
+  const panY = Number.isFinite(Number(camera.panY)) ? Number(camera.panY) : 0;
   return { zoom: zoomValue, panX, panY };
 }
 
@@ -5597,25 +4389,11 @@ function setPlayerPosition(pixelX, pixelY) {
 }
 
 function parseNpcPlayer(rawData) {
-  const data = rawData && typeof rawData === "object" ? rawData : {};
-  const charID = String(data.charID || DEFAULT_PLAYER.charID);
-  const color = /^#?[0-9a-fA-F]{6}$/.test(String(data.color || "")) ? String(data.color).replace(/^([^#])/, "#$1") : DEFAULT_PLAYER.color;
-  const pixelX = Number.isFinite(Number(data.pixelX)) ? Number(data.pixelX) : DEFAULT_PLAYER.pixelX;
-  const pixelY = Number.isFinite(Number(data.pixelY)) ? Number(data.pixelY) : DEFAULT_PLAYER.pixelY;
-  return {
-    charID,
-    color,
-    pixelX: clamp(Math.round(pixelX), 0, Math.max(0, splatSize.width - 1)),
-    pixelY: clamp(Math.round(pixelY), 0, Math.max(0, splatSize.height - 1)),
-  };
+  return parseNpcPlayerImpl(rawData);
 }
 
 function applyLoadedNpc(rawData) {
-  const player = parseNpcPlayer(rawData);
-  playerState.charID = player.charID;
-  playerState.color = player.color;
-  setPlayerPosition(player.pixelX, player.pixelY);
-  syncPlayerStateToStore();
+  applyLoadedNpcImpl(rawData);
 }
 
 function getGrayAt(imageData, x, y, sourceWidth = splatSize.width, sourceHeight = splatSize.height) {
@@ -5885,40 +4663,6 @@ function updateInfoPanel() {
   }
 }
 
-function syncSwarmStatsPanelVisibility() {
-  const showStatsPanel = Boolean(getSwarmSettings().showStatsPanel);
-  swarmStatsPanelEl.hidden = !showStatsPanel;
-  swarmStatsPanelEl.classList.toggle("hidden", !showStatsPanel);
-  swarmStatsPanelEl.style.display = showStatsPanel ? "block" : "none";
-}
-
-function updateSwarmStatsPanel() {
-  syncSwarmStatsPanelVisibility();
-  const birdsText = String(swarmState.count);
-  const hawksText = String(swarmState.hawks.length);
-  const stepsText = Math.round(Math.max(0, swarmState.stepCount)).toLocaleString();
-  if (swarmStatsBirdsValue.textContent !== birdsText) {
-    swarmStatsBirdsValue.textContent = birdsText;
-  }
-  if (swarmStatsHawksValue.textContent !== hawksText) {
-    swarmStatsHawksValue.textContent = hawksText;
-  }
-  if (swarmStatsStepsValue.textContent !== stepsText) {
-    swarmStatsStepsValue.textContent = stepsText;
-  }
-  if (swarmState.hawkKillCount > 0) {
-    const avg = swarmState.hawkKillIntervalSum / swarmState.hawkKillCount;
-    const avgText = `${avg.toFixed(1)} ticks`;
-    if (swarmStatsAvgHawkKillValue.textContent !== avgText) {
-      swarmStatsAvgHawkKillValue.textContent = avgText;
-    }
-  } else {
-    if (swarmStatsAvgHawkKillValue.textContent !== "--") {
-      swarmStatsAvgHawkKillValue.textContent = "--";
-    }
-  }
-}
-
 function updateParallaxStrengthLabel() {
   const value = clamp(Number(serializeParallaxSettings().parallaxStrength), 0, 1);
   parallaxStrengthValue.textContent = value.toFixed(2);
@@ -6082,7 +4826,7 @@ function requestOverlayDraw() {
 const overlayHooks = createOverlayHooks({
   updateSwarm,
   updateSwarmFollowCamera,
-  drawOverlay,
+  drawOverlay: (...args) => drawOverlay(...args),
   shouldAnimateOverlay: () => {
     if (!isSwarmEnabled()) {
       return false;
@@ -6290,36 +5034,12 @@ bindPointLightEditorControls({
   clamp,
   hexToRgb01,
   hasLightEditDraft: () => pointLightEditorState.hasDraft(),
-  setLightEditDraftColor: (value) => {
-    pointLightEditorState.mutateDraft((draft) => {
-      draft.color = value;
-    });
-  },
-  setLightEditDraftStrength: (value) => {
-    pointLightEditorState.mutateDraft((draft) => {
-      draft.strength = value;
-    });
-  },
-  setLightEditDraftIntensity: (value) => {
-    pointLightEditorState.mutateDraft((draft) => {
-      draft.intensity = value;
-    });
-  },
-  setLightEditDraftHeightOffset: (value) => {
-    pointLightEditorState.mutateDraft((draft) => {
-      draft.heightOffset = value;
-    });
-  },
-  setLightEditDraftFlicker: (value) => {
-    pointLightEditorState.mutateDraft((draft) => {
-      draft.flicker = value;
-    });
-  },
-  setLightEditDraftFlickerSpeed: (value) => {
-    pointLightEditorState.mutateDraft((draft) => {
-      draft.flickerSpeed = value;
-    });
-  },
+  setLightEditDraftColor: (value) => pointLightEditorState.setDraftColor(value),
+  setLightEditDraftStrength: (value) => pointLightEditorState.setDraftStrength(value),
+  setLightEditDraftIntensity: (value) => pointLightEditorState.setDraftIntensity(value),
+  setLightEditDraftHeightOffset: (value) => pointLightEditorState.setDraftHeightOffset(value),
+  setLightEditDraftFlicker: (value) => pointLightEditorState.setDraftFlicker(value),
+  setLightEditDraftFlickerSpeed: (value) => pointLightEditorState.setDraftFlickerSpeed(value),
   updatePointLightStrengthLabel,
   updatePointLightIntensityLabel,
   updatePointLightHeightOffsetLabel,
@@ -6334,13 +5054,10 @@ bindPointLightEditorControls({
   updateLightEditorUi,
   getSelectedPointLight,
   deletePointLightById: (id) => {
-    const idx = pointLights.findIndex((light) => light.id === id);
-    if (idx >= 0) {
-      pointLights.splice(idx, 1);
-    }
+    pointLightEditorController.deletePointLightById(id);
   },
   clearLightEditSelection,
-  isPointLightsSaveConfirmArmed: () => pointLightsSaveConfirmArmed,
+  isPointLightsSaveConfirmArmed: () => pointLightIoController.isPointLightsSaveConfirmArmed(),
   armPointLightsSaveConfirmation,
   resetPointLightsSaveConfirmation,
   savePointLightsJson,
@@ -6479,7 +5196,7 @@ function computeLightingParams(coreState = null) {
   const simulation = coreState && coreState.simulation ? coreState.simulation : null;
   const knobs = simulation && simulation.knobs ? simulation.knobs : null;
   const coreCamera = coreState && coreState.camera ? coreState.camera : null;
-  const cameraZoom = coreCamera && Number.isFinite(Number(coreCamera.zoom)) ? Number(coreCamera.zoom) : zoom;
+  const cameraZoom = coreCamera && Number.isFinite(Number(coreCamera.zoom)) ? Number(coreCamera.zoom) : 1;
   const lightingSettings = knobs && knobs.lighting ? knobs.lighting : getSettingsDefaults("lighting", DEFAULT_LIGHTING_SETTINGS);
   const fogSettings = knobs && knobs.fog ? knobs.fog : getSettingsDefaults("fog", DEFAULT_FOG_SETTINGS);
   const sun = sampleSunAtHour(cycleState.hour);
@@ -6541,12 +5258,7 @@ function computeLightingParams(coreState = null) {
     (sun.sunColor[2] * fogSunWeight + moonColor[2] * fogMoonWeight + ambientColor[2] * fogAmbientWeight + fogBaseColor[2] * fogBaseWeight) / fogWeightSum,
   ];
   const resolvedFogColorManual = fogSettings ? Boolean(fogSettings.fogColorManual) : fogColorManual;
-  if (!resolvedFogColorManual) {
-    const autoFogHex = rgbToHex(fogColorAuto);
-    if (fogColorInput.value !== autoFogHex) {
-      fogColorInput.value = autoFogHex;
-    }
-  }
+  const autoFogHex = rgbToHex(fogColorAuto);
   const fogColor = resolvedFogColorManual
     ? hexToRgb01(typeof fogSettings.fogColor === "string" ? fogSettings.fogColor : "#ffffff")
     : fogColorAuto;
@@ -6571,6 +5283,8 @@ function computeLightingParams(coreState = null) {
     ambientColor,
     ambientFinal,
     fogColor,
+    autoFogHex,
+    fogColorManual: resolvedFogColorManual,
     skyColor,
     cameraHeightNorm,
   };
@@ -6614,6 +5328,9 @@ function render(nowMs) {
   const lightingParams = systemState.lighting && systemState.lighting.lightingParams
     ? systemState.lighting.lightingParams
     : computeLightingParams(coreState);
+  if (!lightingParams.fogColorManual && typeof lightingParams.autoFogHex === "string" && fogColorInput.value !== lightingParams.autoFogHex) {
+    fogColorInput.value = lightingParams.autoFogHex;
+  }
   const uniformInput = buildUniformInputState({
     clamp,
     getMapAspect,
