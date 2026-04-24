@@ -10,6 +10,9 @@ Scope: migrate prototype to clean/modular architecture without losing current be
 
 This file is the migration control document and external memory for session-to-session continuity.
 
+Active migration tracking now lives in 	ime-wire-task-list.md.
+Use this file only as the historical architecture-plan snapshot.
+
 Goals:
 - Keep runtime behavior parity while restructuring.
 - Make systems modular, testable, and moddable.
@@ -250,65 +253,10 @@ Optional early, required before final merge:
 Use this section to keep continuity across refreshes.
 
 - 2026-04-21:
-  - Created migration plan document.
-  - Initial architecture target and phase breakdown defined.
+  - Created the original architecture migration plan and phase breakdown.
 - 2026-04-22:
-  - Migration policy updated: architecture-first execution with minimal behavioral baseline.
-  - Visual parity changed from strict matching to non-blocking diagnostic reference.
-  - Added `SMOKE_CHECKLIST.md` as the Phase 1 behavioral compatibility guard artifact.
-  - Added initial Phase 2 core scaffolding modules under `src/core/`: `state.js`, `scheduler.js`, `commands.js`, `settingsRegistry.js`.
-  - Added thin runtime-core adapter in `src/main.js` (store/scheduler/commands/settings bootstrap + scheduler update hook before render).
-  - Routed first interaction slice through command bus (`interaction mode`, `camera wheel/pan drag`, `cycle hour scrubbing/hour set`) without changing render pipeline behavior.
-  - Routed second interaction slice through command bus (`cursor light UI controls` and map click routing for `lighting/pathfinding/default move`).
-  - Routed pathfinding control inputs (`range`, weights, slope cutoff, base cost) through command handlers.
-  - Routed swarm follow controls (`follow toggle`, `follow target`) through command handlers.
-  - Extracted command registration from `main.js` into `src/core/registerMainCommands.js` with explicit dependency injection.
-  - Extracted frame-state sync from `main.js` into `src/core/frameSnapshot.js` and wired render-loop snapshot updates through that module.
-  - Added `src/sim/timeSystem.js`, registered it in scheduler, and moved cycle-time progression out of inline render logic.
-  - Added `src/sim/lightingSystem.js`, registered it in scheduler, and switched render to system-owned per-frame lighting params.
-  - Extracted mode + cycle input listeners into `src/ui/bindings/interactionBinding.js` and wired them via command dispatch adapters.
-  - Added `src/core/runtimeCore.js` for runtime bootstrap + command dispatch context creation.
-  - Extracted pathfinding control listeners into `src/ui/bindings/pathfindingBinding.js`.
-  - Extracted cursor-light control listeners into `src/ui/bindings/cursorLightBinding.js`.
-  - Extracted swarm-follow listeners into `src/ui/bindings/swarmFollowBinding.js`.
-  - Extracted point-light editor listeners into `src/ui/bindings/pointLightEditorBinding.js`.
-  - Extracted map load/save listeners into `src/ui/bindings/mapIoBinding.js`.
-  - Extracted render FX listeners (parallax/volumetric/flicker/fog/cloud/water) into `src/ui/bindings/renderFxBinding.js`.
-  - Extracted remaining swarm panel listeners (including swarm enable/disable flow) into `src/ui/bindings/swarmPanelBinding.js`.
-  - Extracted canvas interaction listeners into `src/ui/bindings/canvasBinding.js`.
-  - Extracted topic panel listeners into `src/ui/bindings/topicPanelBinding.js`.
-  - Extracted point-light worker message listener into `src/core/pointLightWorkerBinding.js`.
-  - Extracted final inline runtime listeners (`heightScale` and `resize`) into `src/ui/bindings/runtimeBinding.js`.
-  - `src/main.js` listener wiring is now fully module-driven (no inline `addEventListener` blocks).
-  - Added Phase 3 renderer scaffolding: `src/render/resources.js` + `src/render/renderer.js`, and routed terrain frame rendering through a renderer facade in `main.js`.
-  - Added minimal render pass contract (`registerPass`/`execute`) and registered `shadow`, `mainTerrain`, and `backgroundClear` passes from `main.js`.
-  - Extracted concrete pass implementations to `src/render/passes/shadowPass.js` and `src/render/passes/mainTerrainPass.js`, keeping registry-driven execution in `main.js`.
-  - Extracted blur pass to `src/render/passes/blurPass.js` and split shadow pipeline so blur runs as separate registered pass (`shadowBlur`).
-  - Extracted point-light texture usage path to `src/render/passes/pointLightUsagePass.js` and wired uniform upload through that helper.
-  - Extracted flow-map precompute to `src/render/precompute/flowMap.js` and wired `rebuildFlowMapTexture()` through module adapter.
-  - Extracted point-light bake orchestration (debounce scheduling + worker/fallback dispatch + request-id tracking) to `src/render/precompute/pointLightBake.js`.
-  - Added `src/render/frameRenderState.js` and switched main render loop to build/pass a `FrameRenderState` DTO to renderer each frame.
-  - Added `src/render/uniformInputState.js` and switched `uploadUniforms(...)` to consume prebuilt uniform input state (removed direct DOM control reads from upload path).
-  - Added scheduler-driven `src/sim/fogSystem.js` and `src/sim/cloudSystem.js`; uniform input builder now consumes their per-frame state outputs.
-  - Added scheduler-driven `src/sim/waterFxSystem.js`; uniform input builder now consumes per-frame water FX state outputs.
-  - Tightened `timeSystem` and `lightingSystem` contracts to emit explicit per-frame state objects consumed by render (`frameTimeState`, `frameLightingState`).
-  - Synced Phase 4/5 status markers to reflect implemented command-dispatch and systemization progress.
-  - Added mode capability layer (`src/core/modeCapabilities.js`) and enforced it for topic panels + LM/PF controls in runtime/UI bindings.
-  - Added weather architecture scaffolding: core weather state contract, `src/sim/weatherSystem.js`, wind/local modulation fields, and placeholder weather-field render-resource metadata hooks.
-  - Extended state snapshots so simulation/gameplay runtime slices (player, interaction mode, pathfinding knobs, swarm summary) are captured in core state each frame.
-  - Wired subsystem settings contracts into settings registry (`src/core/mainSettingsContracts.js`) and routed lighting/fog/parallax/cloud/water/interaction/swarm serialize+apply flows through registry while preserving existing JSON keys.
-  - Added Phase 6 gameplay extraction scaffolds: `src/gameplay/entityStore.js`, `src/gameplay/pathfindingSystem.js`, `src/gameplay/movementSystem.js`; registered both gameplay systems in scheduler and mirrored player/pathfinding state into core gameplay slice.
-  - Extracted interaction command routing to `src/gameplay/interactionCommands.js` and delegated registration from `src/core/registerMainCommands.js`.
-  - Added overlay/gameplay frame hooks in `src/ui/overlays/overlayHooks.js` and switched render-loop integration to hook-based overlay draw gating.
-  - Added Phase 7 targeted tests (`tests/settingsRegistry.test.js`, `tests/weatherSystem.test.js`, `tests/modeCapabilities.test.js`) and verified pass via `node --test tests/*.test.js`.
-  - Added `docs/ARCHITECTURE.md` module map and updated `README.md` + `AI_CONTEXT.md` with architecture/test flow notes.
-  - Completed Phase 2 store/parity carryover work: added `src/core/runtimeParityAdapter.js`, expanded frame snapshot coverage (simulation knobs + gameplay runtime), and mirrored key command-driven runtime updates directly into core state.
-  - Reduced duplicate frame state mirrors by switching render consumption to scheduler-updated `coreState.systems` values (time/lighting/fog/cloud/water/weather).
-  - Added visual regression scene checklist + baseline folder notes (`SMOKE_CHECKLIST.md`, `docs/visual-baselines/README.md`).
-  - Converted Render FX panel bindings to command-dispatch flow (`core/renderFx/changed`) and moved FX UI/state sync into command handlers; handlers now persist updated FX settings into `coreState.simulation.knobs`.
-  - Converted Swarm panel bindings to command-dispatch flow (`core/swarm/settingsChanged`) and centralized swarm settings side effects/state sync in command handlers.
-  - Manual end-to-end smoke test was run via local server and passed; compatibility checklist items validated and marked complete.
+  - Landed the major architecture migration foundation work across core state/scheduler/commands, renderer extraction, systemization, and mode-capability wiring.
+  - This file ceased to be the best source of current migration status once time-wiring became the active implementation track.
 - 2026-04-24:
-  - Fixed a terrain interaction regression introduced during migration where pointer hover/click stopped reaching pathfinding, player teleport, and point-light placement/selection.
-  - Hardened canvas input handling with pointer-event fallback outside panel chrome so terrain interactions still work when the canvas is not the direct event target.
-  - Fixed camera transform helpers to reject invalid map dimensions and to treat `zoomValue: null` as "use active camera zoom" instead of coercing to `0`, which had expanded hit-testing to the wrong view extents.
+  - Terrain interaction regression fixed during the ongoing time-wiring migration.
+  - Use `time-wire-task-list.md` for active handoff, remaining work, and current migration status.
