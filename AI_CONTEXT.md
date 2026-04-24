@@ -42,6 +42,21 @@ No game engine is used.
 - Interaction settings UI-apply reflection path is now extracted to `src/ui/interactionSettingsApplier.js`.
 - NPC persistence helpers (`serializeNpcState`, `parseNpcPlayer`, `applyLoadedNpc`) are now extracted to `src/gameplay/npcPersistence.js`.
 - Lighting settings UI-apply reflection path is now extracted to `src/ui/lightingSettingsApplier.js`.
+- Render-FX settings UI-apply reflection paths (fog/parallax/cloud/water) are now extracted to `src/ui/renderFxSettingsApplier.js`.
+- Render-FX sidecar serialization helpers (lighting/fog/parallax/cloud/water) are now extracted to `src/gameplay/renderFxDataSerializer.js`.
+- Core map/player/point-light store sync helpers are now extracted to `src/gameplay/stateSync.js`.
+- Interaction state access helpers for cursor-light snapshot and point-light live-update are now extracted to `src/gameplay/interactionStateAccess.js`.
+- Swarm state access helpers for defaults/reset and enabled-state lookup are now extracted to `src/gameplay/swarmStateAccess.js`.
+- Runtime gameplay/state snapshot helpers for interaction mode, pathfinding settings, swarm cursor mode, and normalized swarm settings are now extracted to `src/gameplay/runtimeStateSnapshots.js`.
+- Swarm runtime/store synchronization helpers are now extracted to `src/gameplay/swarmStoreSync.js`.
+- Swarm follow-state apply/stop controller logic is now extracted to `src/gameplay/swarmFollowStateController.js`.
+- Pathfinding movement-window and step-cost helpers are now extracted to `src/gameplay/pathfindingCostModel.js`.
+- Pathfinding preview runtime helpers (movement-field rebuild, preview/path extraction, pointer preview update, path metrics) are now extracted to `src/gameplay/pathfindingPreviewRuntime.js`.
+- Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
+- Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.
+- Camera/coordinate transform helpers (camera state, view extents, world/uv/map/screen conversions) are now extracted to `src/gameplay/cameraTransforms.js`.
+- Pathfinding label helper updates are now extracted to `src/ui/pathfindingLabelUi.js`.
+- Interaction-mode apply/toggle controller logic is now extracted to `src/gameplay/interactionModeController.js`.
 - Overlay/gameplay frame integration now goes through `src/ui/overlays/overlayHooks.js` (gameplay update hook + overlay render hook).
 - The old per-frame `frameSnapshot` / `runtimeParityAdapter` bridge has been removed.
 - Core state is now updated through command handlers, settings apply flows, bootstrap/map-load synchronization, and scheduler-owned system updates.

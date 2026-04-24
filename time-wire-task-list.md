@@ -669,3 +669,111 @@ Recommended next sequence:
     - `node --check src/ui/lightingSettingsApplier.js`
     - `node --check src/main.js`
     - `node --test tests/*.test.js` (pass 9/9)
+  - Continued render-FX settings apply-path extraction:
+    - extracted `applyFogSettingsLegacy(...)`, `applyParallaxSettingsLegacy(...)`, `applyCloudSettingsLegacy(...)`, and `applyWaterSettingsLegacy(...)` UI reflection logic from `src/main.js` into `src/ui/renderFxSettingsApplier.js`
+    - `main.js` now composes `createRenderFxSettingsApplier(...)` and keeps those four legacy apply functions as thin pass-throughs
+  - Validation:
+    - `node --check src/ui/renderFxSettingsApplier.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued render-FX serializer extraction:
+    - extracted `serializeLightingSettingsLegacy(...)`, `serializeFogSettingsLegacy(...)`, `serializeParallaxSettingsLegacy(...)`, `serializeCloudSettingsLegacy(...)`, and `serializeWaterSettingsLegacy(...)` from `src/main.js` into `src/gameplay/renderFxDataSerializer.js`
+    - `main.js` now composes `createRenderFxDataSerializer(...)` and keeps those serializer functions as thin pass-throughs
+  - Validation:
+    - `node --check src/gameplay/renderFxDataSerializer.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued core store-sync helper extraction:
+    - extracted `syncMapStateToStore(...)`, `syncPlayerStateToStore(...)`, and `syncPointLightsStateToStore(...)` helper logic from `src/main.js` into `src/gameplay/stateSync.js`
+    - `main.js` now keeps these as thin wrappers delegating to shared gameplay sync helpers
+  - Validation:
+    - `node --check src/gameplay/stateSync.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued interaction state-access extraction:
+    - extracted cursor-light snapshot and point-light live-update access helpers from `src/main.js` into `src/gameplay/interactionStateAccess.js`
+    - `main.js` now keeps `getCursorLightSnapshot(...)` and `isPointLightLiveUpdateEnabled(...)` as thin wrappers delegating to shared gameplay helpers
+  - Validation:
+    - `node --check src/gameplay/interactionStateAccess.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm state-access extraction:
+    - extracted swarm defaults/reset and enabled-state lookup helpers from `src/main.js` into `src/gameplay/swarmStateAccess.js`
+    - `main.js` now keeps `setSwarmDefaults(...)` and `isSwarmEnabled(...)` as thin wrappers delegating to shared gameplay helpers
+  - Validation:
+    - `node --check src/gameplay/swarmStateAccess.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued pathfinding preview-runtime extraction:
+    - extracted pathfinding preview runtime helpers from `src/main.js` into `src/gameplay/pathfindingPreviewRuntime.js`
+    - moved movement-field rebuild, path extraction, preview refresh, pointer-preview update, and path-metrics logic into that module
+    - `main.js` now keeps `rebuildMovementField(...)`, `extractPathTo(...)`, `refreshPathPreview(...)`, `updatePathPreviewFromPointer(...)`, and `getCurrentPathMetrics(...)` as thin pass-throughs
+  - Validation:
+    - `node --check src/gameplay/pathfindingPreviewRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued info-panel runtime extraction:
+    - extracted `updateInfoPanel(...)` status composition/update logic from `src/main.js` into `src/ui/infoPanelRuntime.js`
+    - `main.js` now composes `createInfoPanelRuntime(...)` and keeps `updateInfoPanel(...)` as a thin pass-through
+  - Validation:
+    - `node --check src/ui/infoPanelRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued render-FX UI-helper extraction:
+    - extracted render-FX label/UI helper updates (`update*Label`/`update*Ui`) from `src/main.js` into `src/ui/renderFxUiRuntime.js`
+    - `main.js` now keeps those helpers as thin pass-through wrappers that delegate to shared UI-runtime helpers
+  - Validation:
+    - `node --check src/ui/renderFxUiRuntime.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued camera/coordinate helper extraction:
+    - extracted camera/coordinate transform helpers from `src/main.js` into `src/gameplay/cameraTransforms.js`
+    - moved camera state lookup, view extents, and world/uv/map/screen conversion logic into that module
+    - `main.js` now keeps those helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/cameraTransforms.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued pathfinding label-helper extraction:
+    - extracted pathfinding label helper updates from `src/main.js` into `src/ui/pathfindingLabelUi.js`
+    - moved `updatePathfindingRangeLabel(...)`, `updatePathWeightLabels(...)`, `updatePathSlopeCutoffLabel(...)`, and `updatePathBaseCostLabel(...)` logic into that module
+    - `main.js` now keeps these helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/ui/pathfindingLabelUi.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued interaction-mode controller extraction:
+    - extracted `setInteractionMode(...)` core apply/toggle behavior from `src/main.js` into `src/gameplay/interactionModeController.js`
+    - `main.js` now keeps `setInteractionMode(...)` as a thin pass-through wrapper
+  - Validation:
+    - `node --check src/gameplay/interactionModeController.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued runtime snapshot/state-access extraction:
+    - extracted `getInteractionModeSnapshot(...)`, `getSwarmCursorMode(...)`, `getSwarmSettings(...)`, and `getPathfindingStateSnapshot(...)` from `src/main.js` into `src/gameplay/runtimeStateSnapshots.js`
+    - `main.js` now keeps these helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/runtimeStateSnapshots.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm runtime/store sync extraction:
+    - extracted `getSwarmRuntimeStateSnapshot(...)`, `syncSwarmFollowToStore(...)`, and `syncSwarmRuntimeStateToStore(...)` from `src/main.js` into `src/gameplay/swarmStoreSync.js`
+    - `main.js` now keeps these as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/swarmStoreSync.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued swarm follow-state ownership extraction:
+    - extracted swarm follow-state apply/stop orchestration from `src/main.js` into `src/gameplay/swarmFollowStateController.js`
+    - `main.js` now composes this controller and keeps `applySwarmFollowState(...)` and `stopSwarmFollow(...)` as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/swarmFollowStateController.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
+  - Continued pathfinding cost-model extraction:
+    - extracted pathfinding helpers (`getGrayAt(...)`, `movementWindowBounds(...)`, `computeMoveStepCost(...)`) from `src/main.js` into `src/gameplay/pathfindingCostModel.js`
+    - `main.js` now composes this module and keeps those helpers as thin pass-through wrappers
+  - Validation:
+    - `node --check src/gameplay/pathfindingCostModel.js`
+    - `node --check src/main.js`
+    - `node --test tests/*.test.js` (pass 9/9)
