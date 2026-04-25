@@ -1,28 +1,68 @@
-
 # Architecture Migration Task List
 
-Last updated: 2026-04-22
+Last updated: 2026-04-25
 Owner: Codex + Marc
-Branch policy: dedicated migration branch, no direct commits to `main`
-Scope: migrate prototype to clean/modular architecture without losing current behavior
+Branch policy: dedicated implementation branch, no direct commits to `main`
+Primary scope: complete the remaining migration from the current hybrid runtime to the intended clean modular architecture
 
 ## Purpose
 
-This file is the migration control document and external memory for session-to-session continuity.
-
-Active migration tracking now lives in 	ime-wire-task-list.md.
-Use this file only as the historical architecture-plan snapshot.
+This file is the authoritative migration control document and session-to-session memory for the remaining runtime architecture work.
 
 Goals:
 - Keep runtime behavior parity while restructuring.
-- Make systems modular, testable, and moddable.
-- Support future growth (weather simulation, gameplay loops, entities, crafting, survival).
-- Prioritize architecture stability over pixel-exact visual matching to the prototype.
+- Make core state the single source of truth.
+- Keep systems modular, testable, and understandable.
+- Reduce `src/main.js` to boot/wiring/orchestration instead of mixed ownership.
 
 Non-goals:
-- Full gameplay rewrite during architecture migration.
+- Full gameplay rewrite during migration.
 - Visual redesign.
-- Large shader feature additions unless needed for parity.
+- Large feature additions unless needed to preserve behavior or unblock migration.
+
+## Current Status
+
+Important clarification:
+- The time-wiring feature itself is largely implemented.
+- The architecture migration is not complete.
+- The runtime is currently hybrid.
+
+Current hybrid structure:
+- `src/main.js` still owns too much live runtime state, setup wiring, and domain orchestration.
+- The old per-frame bridge layers are already removed from active runtime usage:
+  - `src/core/frameSnapshot.js`
+  - `src/core/runtimeParityAdapter.js`
+- `runtimeCore.scheduler` systems are active and real.
+- Core store updates now happen through commands, settings apply/bootstrap synchronization, and scheduler/system/runtime sync helpers.
+
+Meaning:
+- The newer core/scheduler path is active.
+- The legacy runtime path is still the dominant owner in several domains.
+- Migration is no longer about introducing the architecture foundation; it is about finishing ownership transfer and simplification.
+
+## Target Architecture
+
+Top-level module layout:
+- `src/app/` bootstrap, mode bootstrap, dependency wiring
+- `src/core/` app state, scheduler, commands, settings registry
+- `src/render/` renderer, passes, GPU resources, render prep
+- `src/sim/` time/weather/lighting/fog/cloud/water systems
+- `src/gameplay/` entities, movement, pathfinding, map lifecycle, interaction runtime
+- `src/ui/` bindings, panels, overlays, HUD, sync helpers
+- `src/io/` map load/save and persistence adapters
+- `src/workers/` worker wrappers and protocols
+
+End-state rules:
+- Core state is the authoritative runtime state model.
+- Scheduler systems consume canonical state directly.
+- UI controls emit commands; they are not runtime truth.
+- Renderer consumes resolved state; it does not own gameplay/config state.
+- `src/main.js` remains a thin composition layer:
+  - bootstrapping
+  - renderer setup
+  - input binding
+  - command dispatch
+  - frame orchestration
 
 ## Progress Rules
 
@@ -33,230 +73,213 @@ Status markers:
 - `[!]` blocked
 
 Execution rules:
-- Only one major phase in progress at once.
-- Every completed subtask must include a short note in the "Session Log" section.
-- No new feature work until Phase 5 is complete (except migration-critical fixes).
-- Visual output drift is acceptable during migration when behavior/contracts remain intact.
-
-## Target Architecture (Reference)
-
-Top-level module layout:
-- `src/app/` bootstrap, mode bootstrap, dependency wiring
-- `src/core/` app state, scheduler, events/commands, settings registry
-- `src/render/` renderer + render passes + GPU resource manager
-- `src/sim/` simulation systems (time/weather/lighting/fog/cloud/water drivers)
-- `src/gameplay/` entities, movement, pathfinding, activities
-- `src/ui/` panel bindings, HUD, overlays, debug tooling
-- `src/io/` map load/save, json persistence adapters (browser + tauri)
-- `src/workers/` worker wrappers and protocols
-
-Core contracts:
-- State-driven runtime (UI writes commands, systems update state, renderer consumes state).
-- Ordered scheduler update pipeline.
-- Render pass interfaces with explicit inputs/outputs.
-- Versioned settings schema + validation per subsystem.
-- Mode capabilities: `dev`, `gameplay`, `hybrid`.
+- Only one major migration phase should be in progress at once.
+- Keep behavior stable while changing ownership.
+- After each ownership move, remove the old read/write path instead of leaving duplicates behind.
+- Do not mark migration complete until the remaining bridge-era ownership patterns are actually removed.
 
 ## Phase Overview
 
-1. Baseline & Safety Nets
-2. Core Runtime Foundation
-3. Render Pipeline Extraction
-4. UI Decoupling & Mode Capabilities
-5. Simulation Systemization
-6. Gameplay Foundation Extraction
-7. Hardening & Documentation
+1. Architecture Baseline and Gap Mapping
+2. Canonical State Contract Completion
+3. Control/Input Ownership Migration
+4. Simulation/System Ownership Migration
+5. Render/Input Decoupling
+6. Adapter Removal and Simplification
+7. Verification and Documentation
 
 ## Detailed Task List
 
-### Phase 1: Baseline & Safety Nets
+### Phase 1: Architecture Baseline and Gap Mapping
 
 Dependencies: none
 
-- [x] P1.1 Capture minimal behavioral baseline
-  - [x] P1.1.1 Record core workflows only (map load, render loop health, LM/PF toggles, save/load settings).
-  - [x] P1.1.2 Capture optional reference screenshots only for severe-regression triage (not pixel-match gating).
-  - [x] P1.1.3 Record lightweight perf notes (rough fps + expensive operations timing notes).
-- [x] P1.2 Add migration guard checks
-  - [x] P1.2.1 Add lightweight smoke script/checklist doc for behavioral verification (`SMOKE_CHECKLIST.md`).
-  - [x] P1.2.2 Add "acceptable changes" list with architecture-first rules (visual changes allowed unless usability/regression impact).
-- [x] P1.3 Branch setup and migration discipline
-  - [x] P1.3.1 Confirm dedicated migration branch.
-  - [x] P1.3.2 Define commit cadence (small logical commits, no mega dump).
+- [x] P1.1 Confirm current runtime is hybrid
+  - [x] P1.1.1 Confirm `src/main.js` still owns live runtime state.
+  - [x] P1.1.2 Confirm old bridge layers are no longer active runtime dependencies.
+  - [x] P1.1.3 Confirm scheduler/core/store path is active but not yet sole owner.
+- [x] P1.2 Capture migrated vs non-migrated ownership
+  - [x] P1.2.1 Time routing foundation is in place.
+  - [x] P1.2.2 Movement queue/tick execution is in place.
+  - [x] P1.2.3 Render, DOM, and significant runtime state remain partly `main.js` owned.
+- [x] P1.3 Create explicit ownership map for remaining migration
+  - [x] P1.3.1 Remaining DOM-primary paths are mostly event-time editor/binding paths.
+  - [x] P1.3.2 Several gameplay/runtime branches are still synchronized snapshots rather than sole authority.
+  - [x] P1.3.3 Remaining duplicate ownership hotspots are explicit enough to sequence.
 
 Exit criteria:
-- Minimal baseline notes captured and referenced.
-- Smoke checklist exists and is runnable manually.
+- Hybrid-state reality is documented.
+- Remaining migration surface is explicit enough to sequence cleanly.
 
-### Phase 2: Core Runtime Foundation
+### Phase 2: Canonical State Contract Completion
 
 Dependencies: Phase 1
 
-- [x] P2.1 Create core folders and initial modules
-  - [x] P2.1.1 Add `src/core/state.js` (single source of truth).
-  - [x] P2.1.2 Add `src/core/scheduler.js` (ordered system update pipeline).
-  - [x] P2.1.3 Add `src/core/commands.js` (UI intent -> state mutation API).
-  - [x] P2.1.4 Add `src/core/settingsRegistry.js`.
-- [x] P2.2 Move global mutable runtime data into state store
-  - [x] P2.2.1 Camera/time/mode state.
-  - [x] P2.2.2 Map metadata and loaded resources metadata.
-  - [x] P2.2.3 Simulation knobs + gameplay runtime state.
-- [x] P2.3 Integrate scheduler into main loop without changing visuals
-  - [x] P2.3.1 `update(dt)` pipeline inserted before render.
-  - [x] P2.3.2 Maintain existing behavior parity through adapters.
+- [-] P2.1 Make core state complete enough to become sole runtime authority
+  - [x] P2.1.1 Audit missing authoritative state branches for render FX, pathfinding, swarm, interaction mode, camera, and map/session state.
+  - [-] P2.1.2 Remove remaining dependence on reading those values primarily from DOM inputs.
+  - [-] P2.1.3 Ensure defaults/serialize/apply paths align with canonical core state shape.
+- [-] P2.2 Define stable command surface for all user-driven state changes
+  - [-] P2.2.1 Route mutable UI-backed settings through commands.
+  - [-] P2.2.2 Remove direct imperative state mutation where command routing should own behavior.
+  - [-] P2.2.3 Ensure commands update both state and required side effects.
+- [ ] P2.3 Clarify ownership boundaries
+  - [ ] P2.3.1 Core store owns persistent/config/runtime gameplay state.
+  - [ ] P2.3.2 Renderer consumes resolved state but does not own it.
+  - [ ] P2.3.3 DOM reflects state and emits commands, but is not authoritative.
 
 Exit criteria:
-- App runs with centralized state + scheduler.
-- No direct feature logic required to read/write random globals outside state modules.
+- Core state model is complete enough that runtime snapshots are no longer needed for missing branches.
 
-### Phase 3: Render Pipeline Extraction
+### Phase 3: Control/Input Ownership Migration
 
 Dependencies: Phase 2
 
-- [x] P3.1 Build render module skeleton
-  - [x] P3.1.1 Add `src/render/renderer.js`.
-  - [x] P3.1.2 Add `src/render/resources.js` (textures/FBO/program handles).
-  - [x] P3.1.3 Add pass interface contract and registration.
-- [x] P3.2 Extract existing passes
-  - [x] P3.2.1 Shadow pass extraction.
-  - [x] P3.2.2 Blur pass extraction.
-  - [x] P3.2.3 Main terrain pass extraction.
-  - [x] P3.2.4 Point light texture usage path extraction.
-- [x] P3.3 Extract map-space precompute jobs
-  - [x] P3.3.1 Flow map generation module.
-  - [x] P3.3.2 Point-light bake orchestration module (worker + fallback).
-- [x] P3.4 Define render input DTO
-  - [x] P3.4.1 `FrameRenderState` object from core state.
-  - [x] P3.4.2 Remove direct DOM reads from render upload path.
+- [-] P3.1 Convert DOM controls from source-of-truth to state views
+  - [x] P3.1.1 Time controls (`cycleSpeed`, `simTickHours`, routing controls).
+  - [-] P3.1.2 Pathfinding controls.
+  - [-] P3.1.3 Fog/cloud/water/parallax/lighting controls.
+  - [-] P3.1.4 Swarm controls.
+- [-] P3.2 Remove direct DOM reads from runtime-hot paths
+  - [-] P3.2.1 Eliminate per-frame settings reads that should come from core state.
+  - [-] P3.2.2 Eliminate system logic that derives behavior from raw inputs instead of state.
+  - [ ] P3.2.3 Keep only event-time UI reads inside bindings where unavoidable.
+- [-] P3.3 Make UI update one-way
+  - [-] P3.3.1 State change updates labels/inputs/UI.
+  - [-] P3.3.2 User interaction dispatches command.
+  - [-] P3.3.3 Remove implicit two-way parity behavior.
 
 Exit criteria:
-- Main render loop calls renderer API, not inline GL blocks.
-- Pass boundaries are explicit and testable in isolation.
+- Runtime logic no longer depends on DOM inputs as the primary state source.
 
-### Phase 4: UI Decoupling & Mode Capabilities
+### Phase 4: Simulation/System Ownership Migration
 
-Dependencies: Phase 2 (can overlap partially with Phase 3)
+Dependencies: Phase 2, Phase 3
 
-- [x] P4.1 Extract panel bindings
-  - [x] P4.1.1 `src/ui/bindings/waterPanel.js`
-  - [x] P4.1.2 `src/ui/bindings/cloudPanel.js`
-  - [x] P4.1.3 `src/ui/bindings/lightingPanel.js`
-  - [x] P4.1.4 `src/ui/bindings/pathPanel.js`
-  - [x] P4.1.5 `src/ui/bindings/loadMapPanel.js`
-- [x] P4.2 Replace direct mutation with command dispatch
-  - [x] P4.2.1 UI controls dispatch typed commands.
-  - [x] P4.2.2 Command handlers mutate core state.
-- [x] P4.3 Mode capability layer
-  - [x] P4.3.1 Define capabilities for `dev`, `gameplay`, `hybrid`.
-  - [x] P4.3.2 Gate controls/overlays/actions by capability set.
-
-Exit criteria:
-- UI logic lives in UI modules, not in renderer/sim modules.
-- Modes switch behavior through capability config instead of hard forks.
-
-### Phase 5: Simulation Systemization
-
-Dependencies: Phase 2, strongly benefits from Phase 4
-
-- [x] P5.1 Extract existing time/light/fog/cloud/water drivers into systems
-  - [x] P5.1.1 `timeSystem`
-  - [x] P5.1.2 `lightingSystem`
-  - [x] P5.1.3 `cloudSystem`
-  - [x] P5.1.4 `fogSystem`
-  - [x] P5.1.5 `waterFxSystem`
-- [x] P5.2 Weather architecture groundwork
-  - [x] P5.2.1 Add weather state contract in core state.
-  - [x] P5.2.2 Add placeholder weather field resource hooks (no full feature yet).
-  - [x] P5.2.3 Add global wind contract (`dir`, `speed`) and local modulation placeholder.
-- [x] P5.3 Settings schema normalization
-  - [x] P5.3.1 Move subsystem defaults/validate/serialize/apply into settings registry.
-  - [x] P5.3.2 Preserve compatibility with existing json keys.
+- [-] P4.1 Make scheduler/core systems read only canonical core state
+  - [x] P4.1.1 Time system.
+  - [x] P4.1.2 Lighting system.
+  - [x] P4.1.3 Fog system.
+  - [x] P4.1.4 Cloud system.
+  - [x] P4.1.5 Water FX system.
+  - [x] P4.1.6 Weather system.
+  - [-] P4.1.7 Pathfinding/movement integration.
+- [-] P4.2 Move remaining gameplay runtime ownership out of `main.js`
+  - [-] P4.2.1 Player/gameplay state snapshots become authoritative state or clearly system-owned runtime.
+  - [-] P4.2.2 Swarm settings/runtime ownership boundaries are explicit and non-duplicated.
+  - [-] P4.2.3 Point-light runtime/store-sync ownership is explicit and non-duplicated.
+  - [x] P4.2.4 Camera state ownership is explicit and does not bounce between runtime and core.
+- [x] P4.3 Stop per-frame snapshot feeding
+  - [x] P4.3.1 Replace snapshot-fed frame inputs with authoritative state access.
+  - [x] P4.3.2 Ensure scheduler update context only carries transient frame values.
+  - [x] P4.3.3 Delete remaining snapshot-only helper usage once no longer needed.
 
 Exit criteria:
-- Simulation logic is scheduler-driven and independent of DOM.
-- Subsystem settings are centrally managed and versionable.
+- Scheduler no longer depends on frame-by-frame mirrored runtime state.
 
-### Phase 6: Gameplay Foundation Extraction
+### Phase 5: Render/Input Decoupling
 
-Dependencies: Phase 2, Phase 4
+Dependencies: Phase 4
 
-- [x] P6.1 Entity/gameplay core
-  - [x] P6.1.1 `entityStore` scaffold.
-  - [x] P6.1.2 Player state migration into entity model.
-- [x] P6.2 Extract path and movement logic
-  - [x] P6.2.1 pathfinding system module.
-  - [x] P6.2.2 movement system module.
-  - [x] P6.2.3 interaction mode command routing.
-- [x] P6.3 Preserve overlays and editor tooling in hybrid mode
-  - [x] P6.3.1 Overlay rendering hooks separated from gameplay state updates.
-
-Exit criteria:
-- Gameplay loops can evolve without touching render core.
-- Dev tooling remains available via hybrid mode.
-
-### Phase 7: Hardening & Documentation
-
-Dependencies: Phases 3-6
-
-- [x] P7.1 Test suite (targeted, high ROI)
-  - [x] P7.1.1 Settings roundtrip tests (serialize/apply/default compatibility).
-  - [x] P7.1.2 Deterministic simulation tests (time/weather/path cost core math).
-  - [x] P7.1.3 Mode capability tests (dev/gameplay/hybrid gating).
-  - [x] P7.1.4 Minimal visual regression snapshots/checklist.
-- [x] P7.2 Docs updates
-  - [x] P7.2.1 Update `README.md` architecture and run notes.
-  - [x] P7.2.2 Update `AI_CONTEXT.md` architecture map and subsystem contracts.
-  - [x] P7.2.3 Add module map doc (`docs/ARCHITECTURE.md` optional).
-- [x] P7.3 Cleanup
-  - [x] P7.3.1 Remove dead code paths and transitional adapters.
-  - [x] P7.3.2 Verify no duplicate sources of truth remain.
+- [-] P5.1 Make render preparation consume resolved state, not raw inputs
+  - [-] P5.1.1 Uniform input construction reads from core/system state.
+  - [-] P5.1.2 Frame render state construction reads from core/system state.
+  - [-] P5.1.3 Overlay rendering reads canonical gameplay/render state.
+- [-] P5.2 Remove ad hoc render-time settings assembly where possible
+  - [ ] P5.2.1 Avoid recomputing settings snapshots from DOM every frame.
+  - [-] P5.2.2 Keep only genuinely transient frame calculations in render loop.
+- [-] P5.3 Reduce `main.js` to orchestration
+  - [ ] P5.3.1 Keep boot/setup.
+  - [ ] P5.3.2 Keep render loop orchestration.
+  - [-] P5.3.3 Move remaining embedded runtime domain logic into modules.
 
 Exit criteria:
-- Parity checklist passes.
-- Core tests pass.
-- Docs reflect new architecture.
+- Render loop consumes canonical state with minimal reconstruction.
 
-## Dependency Map (High Level)
+### Phase 6: Adapter Removal and Simplification
 
-- Phase 1 -> Phase 2
-- Phase 2 -> Phase 3, 4, 5, 6
-- Phase 3 + 4 + 5 -> Phase 7
-- Phase 6 -> Phase 7
+Dependencies: Phases 3, 4, 5
 
-Critical path:
-- P1 -> P2 -> P3 -> P5 -> P7
+- [-] P6.1 Remove remaining runtime-to-core mirroring assumptions
+  - [x] P6.1.1 Delete active `frameSnapshot` usage from runtime path.
+  - [-] P6.1.2 Remove obsolete snapshot getters whose only role was frame mirroring.
+- [-] P6.2 Remove remaining core-to-runtime parity assumptions
+  - [x] P6.2.1 Delete active `runtimeParityAdapter` usage from runtime path.
+  - [-] P6.2.2 Remove remaining DOM/runtime write-back assumptions.
+- [-] P6.3 Simplify interfaces after bridge removal
+  - [-] P6.3.1 Remove dead command/state plumbing that existed only for parity.
+  - [-] P6.3.2 Remove duplicate state derivations, duplicate caches, and startup-sensitive compatibility shims where no longer needed.
 
-## Compatibility Checklist (Must Pass Before Merge)
+Exit criteria:
+- No active bridge-era ownership model remains.
+- Core state is the one-way authoritative model.
+
+### Phase 7: Verification and Documentation
+
+Dependencies: Phase 6
+
+- [ ] P7.1 Behavior verification
+  - [ ] P7.1.1 Verify time routing behavior still matches current feature behavior.
+  - [ ] P7.1.2 Verify movement queue behavior still matches shipped behavior.
+  - [ ] P7.1.3 Verify swarm/cloud smoothing still behaves correctly.
+  - [ ] P7.1.4 Verify map save/load still preserves settings.
+- [ ] P7.2 Performance verification
+  - [ ] P7.2.1 Confirm bridge-era churn is gone.
+  - [ ] P7.2.2 Re-profile periodic hitching after simplification.
+  - [ ] P7.2.3 Remove any remaining high-frequency DOM/state churn found during validation.
+- [-] P7.3 Documentation updates
+  - [-] P7.3.1 Update `README.md` to describe final runtime architecture and controls.
+  - [-] P7.3.2 Update `AI_CONTEXT.md` to match final ownership model.
+  - [ ] P7.3.3 Update `AGENTS.md` if workflow/runtime notes changed.
+- [ ] P7.4 Task-list closure
+  - [ ] P7.4.1 Replace hybrid-state note with final-state note.
+  - [ ] P7.4.2 Mark migration complete only after the remaining ownership work is actually done.
+
+Exit criteria:
+- Behavior matches expectations.
+- Performance is revalidated after simplification.
+- Docs match the final architecture.
+
+## Compatibility Checklist
 
 - [x] Default map auto-load still works.
 - [x] Manual map load (folder/path) still works.
-- [x] Save/Load all JSON still works (pointlights, lighting, parallax, interaction, fog, clouds, waterfx, npc).
-- [x] Day/night cycle and sliders remain functionally coherent (exact visual matching not required).
-- [x] Shadow pipeline works (including blur).
+- [x] Save/Load all JSON still works.
+- [x] Day/night cycle and sliders remain functionally coherent.
+- [x] Shadow pipeline works.
 - [x] Point lights create/edit/delete/bake with worker fallback.
 - [x] Pathfinding preview/click move mode still works.
-- [x] Water FX controls still work (including downhill invert/boost/tint), with acceptable visual drift.
+- [x] Water FX controls still work with acceptable drift.
 - [x] Dev tools visibility and interaction mode toggles remain functional.
 
-## Testing Strategy (Pragmatic)
+## Completion Definition
 
-Mandatory:
-- Settings roundtrip tests for each subsystem.
-- Deterministic math tests for core sim helpers.
-- Manual behavioral compatibility checklist.
+Migration is only complete when all of the following are true:
+- Core state is the authoritative runtime state model.
+- Scheduler systems consume canonical state directly.
+- Render loop does not rebuild core state from runtime snapshots each frame.
+- DOM controls are not used as runtime truth.
+- Bridge-era ownership assumptions are gone from active runtime paths.
+- `src/main.js` is reduced to composition/orchestration rather than mixed ownership.
 
-Optional early, required before final merge:
-- Screenshot comparison harness for 5-10 canonical scenes (diagnostic only, not strict gate).
+## Immediate Next Work
+
+- [-] N1 Close remaining Phase 2 command-surface/state-contract work.
+- [-] N2 Close explicit runtime ownership boundaries in Phase 4, especially swarm/player/point-light sync.
+- [-] N3 Continue Phase 5 extraction and simplify `main.js` only when it improves ownership clarity, not line count alone.
 
 ## Session Log
 
-Use this section to keep continuity across refreshes.
+Keep this section short. Detailed extraction history belongs in git log and code, not here.
 
-- 2026-04-21:
-  - Created the original architecture migration plan and phase breakdown.
 - 2026-04-22:
-  - Landed the major architecture migration foundation work across core state/scheduler/commands, renderer extraction, systemization, and mode-capability wiring.
-  - This file ceased to be the best source of current migration status once time-wiring became the active implementation track.
+  - Established the active migration plan around the hybrid runtime and the final state-driven architecture target.
+- 2026-04-23:
+  - Removed active reliance on the old bridge layers and moved a large amount of settings/binding/runtime composition out of `main.js`.
 - 2026-04-24:
-  - Terrain interaction regression fixed during the ongoing time-wiring migration.
-  - Use `time-wire-task-list.md` for active handoff, remaining work, and current migration status.
+  - Fixed the camera-transform regression that broke terrain interaction and clarified swarm/player/point-light ownership in several hotspots.
+- 2026-04-25:
+  - Continued Phase 4/5 ownership work:
+    - grouped store-sync and runtime-state access through focused facades/runtimes
+    - hardened startup sequencing after lazy-facade TDZ regressions
+    - `main.js` remains the largest integration surface, so migration is still incomplete
