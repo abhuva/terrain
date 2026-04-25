@@ -12,7 +12,7 @@ export function createMapLightingAssemblyRuntime(deps) {
 
   return {
     pointLightRuntime,
-    pointLightFacade: pointLightRuntime,
+    pointLightApi: pointLightRuntime,
     mapLifecycleRuntime,
   };
 }

@@ -110,6 +110,10 @@ Current tests cover:
 - mode capability gating contracts
 - weather-system deterministic normalization output
 - settings-registry contract wiring/roundtrip behavior
+- main runtime-state binding ownership
+- swarm runtime sync/follow ownership
+- movement system and movement store sync
+- architecture ownership guard checks
 
 Architecture map:
 - `docs/ARCHITECTURE.md`

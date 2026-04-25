@@ -39,7 +39,6 @@ No game engine is used.
 - Swarm target selection/follow targeting helpers are now extracted to `src/gameplay/swarmTargeting.js`.
 - Swarm terrain/water/flyability environment helpers are now extracted to `src/gameplay/swarmEnvironment.js`.
 - Cursor-light pointer-to-UV update ownership is now extracted to `src/gameplay/cursorLightPointerRuntime.js`.
-- Cursor-light pointer state mutation wrappers (`clearCursorLightPointerState`, `setCursorLightPointerUv`) are now extracted to `src/gameplay/cursorLightPointerStateRuntime.js`.
 - Swarm-cursor pointer-to-map update ownership is now extracted to `src/gameplay/swarmCursorPointerRuntime.js`.
 - Swarm agent-buffer mutation ownership (`ensure`, `append`, `remove`, resting-bird spawn) is now extracted to `src/gameplay/swarmAgentStateMutator.js`.
 - Swarm-data hydration/apply orchestration (`swarm.json` settings+state+follow apply) is now extracted to `src/gameplay/swarmDataApplier.js`.
@@ -95,9 +94,7 @@ No game engine is used.
 - Shadow/occlusion helpers (`computeSwarmDirectionalShadow`, `hasLineOfSightToLight`) are now extracted to `src/gameplay/shadowOcclusion.js`.
 - Point-light bake canvas sizing and RGBA apply/upload helpers are now extracted to `src/render/pointLightBakeCanvasRuntime.js`.
 - Point-light bake-sync accumulation/occlusion/packing logic (`bakePointLightsTextureSync`) is now extracted to `src/render/pointLightBakeSync.js`.
-- Point-light bake-sync lazy runtime composition/binding is now extracted to `src/render/pointLightBakeSyncBindingRuntime.js`.
 - Point-light worker + bake-orchestrator runtime wiring is now extracted to `src/render/pointLightBakeRuntime.js`.
-- Point-light bake operation bindings (`ensurePointLightBakeSize`, `applyPointLightBakeRgba`, `schedulePointLightBake`, `bakePointLightsTexture`) are now extracted to `src/render/pointLightBakeBindingRuntime.js`.
 - Point-light bake runtime composition (worker access, sync-bake binding, canvas apply/upload, and public bake operations) is now extracted to `src/render/pointLightBakeRuntimeBinding.js`.
 - Cycle-hour slider/label UI helpers are now extracted to `src/ui/timeUiRuntime.js`.
 - Runtime mode state-access helpers (`getRuntimeMode`, capability checks) are now extracted to `src/core/modeStateAccess.js`.
@@ -123,133 +120,99 @@ No game engine is used.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.
 - Render-FX UI binding composition (label/UI wrapper methods) is now extracted to `src/ui/renderFxUiBindingRuntime.js`.
-- Pathfinding label binding composition (label wrapper methods) is now extracted to `src/ui/pathfindingLabelBindingRuntime.js`.
+- Pathfinding label updates now bind directly to `src/ui/pathfindingLabelUi.js` through app-level interaction setup.
 - Render-FX binding orchestration (`bindRenderFxControls` deps composition) is now extracted to `src/ui/renderFxBindingRuntime.js`.
 - Render-FX command handling now normalizes field-level command patches from canonical store-backed section state instead of rebuilding full section snapshots from sibling DOM inputs on every event.
 - Swarm-follow binding orchestration (`bindSwarmFollowControls` deps composition) is now extracted to `src/ui/swarmFollowBindingRuntime.js`.
 - Swarm-panel binding orchestration (`bindSwarmPanelControls` deps composition) is now extracted to `src/ui/swarmPanelBindingRuntime.js`.
 - Canvas binding orchestration (`bindCanvasControls` deps composition) is now extracted to `src/ui/canvasBindingRuntime.js`.
 - Runtime binding orchestration (`bindRuntimeControls` deps composition) is now extracted to `src/ui/runtimeBindingRuntime.js`.
-- Startup UI sync orchestration (`runStartupUiSync` deps composition) is now extracted to `src/ui/startupUiSyncRuntime.js`.
-- Frame-runtime binding orchestration (`createFrameRuntime` deps composition) is now extracted to `src/render/frameRuntimeBinding.js`.
 - Overlay-hooks composition (`createOverlayHooks` deps composition) is now extracted to `src/ui/overlays/overlayHooksRuntime.js`.
 - Overlay-drawer composition (`createOverlayDrawer` deps composition) is now extracted to `src/ui/overlays/overlayDrawerRuntime.js`.
 - Map-data save runtime composition (`createMapDataSaveController` deps composition) is now extracted to `src/gameplay/mapDataSaveRuntime.js`.
 - Map-loading runtime composition (`createMapSidecarLoader` + `createMapLoader` deps composition) is now extracted to `src/gameplay/mapLoadingRuntime.js`.
 - Map-runtime-state binding composition (`createMapRuntimeState` deps composition) is now extracted to `src/gameplay/mapRuntimeStateBinding.js`.
 - Map-bootstrap binding composition (`createMapBootstrapRuntime` deps composition) is now extracted to `src/gameplay/mapBootstrapBindingRuntime.js`.
-- Time-state binding runtime composition (`createTimeStateAccess` deps composition + wrappers) is now extracted to `src/core/timeStateBindingRuntime.js`.
-- Frame-UI binding runtime composition (`createFrameUiRuntime` deps composition) is now extracted to `src/render/frameUiBindingRuntime.js`.
+- Time-state access is now composed directly inside `src/core/settingsCoreSetupRuntime.js` via `src/core/timeStateAccess.js`.
+- Frame UI synchronization now uses `src/render/frameUiRuntime.js` directly.
 - Tauri runtime binding composition (`resolveTauriInvoke` + `createTauriRuntimeHelpers`) is now extracted to `src/gameplay/tauriRuntimeBinding.js`.
-- Map-IO helper runtime composition (`createMapIoHelpers` deps composition) is now extracted to `src/gameplay/mapIoHelpersRuntime.js`.
+- Map-IO helper composition now uses `src/gameplay/mapIoHelpers.js` directly inside `src/gameplay/mapSupportRuntime.js`.
 - Map-path binding runtime composition (map path/url utility wrappers) is now extracted to `src/gameplay/mapPathBindingRuntime.js`.
-- Settings-apply binding runtime composition (settings serialize/apply/normalize/default-access wrappers) is now extracted to `src/core/settingsApplyBindingRuntime.js`.
+- Settings-apply composition now lives directly inside `src/core/settingsCoreSetupRuntime.js`.
 - Settings runtime facade (canonical serialize/apply/default access for lighting/fog/parallax/cloud/water/interaction/swarm settings) is now extracted to `src/core/settingsRuntimeBinding.js`.
-- Lazy settings facade wiring that bridges legacy serializers/appliers with canonical settings access is now extracted to `src/core/settingsFacadeRuntime.js`, so `main.js` no longer owns the long serialize/apply/get-defaults shim block inline.
+- Lazy settings facade wiring that bridges legacy serializers/appliers with canonical settings access now lives directly inside `src/core/settingsCoreSetupRuntime.js`, so `main.js` no longer owns the long serialize/apply/get-defaults shim block inline.
 - Legacy settings/UI composition (swarm/interaction/lighting/render-FX appliers plus legacy serializers) is now extracted to `src/ui/settingsLegacyRuntimeBinding.js`.
 - Render-FX command-side UI reflection is now grouped behind `src/ui/renderFxSettingsSyncRuntime.js` instead of being expanded inline inside `src/core/registerMainCommands.js`.
 - Swarm command-side panel reflection is now grouped behind `src/ui/swarmSettingsSyncRuntime.js`, and time-routing/cycle-speed/sim-tick input reflection is now grouped behind `src/ui/timeRoutingSettingsSyncRuntime.js`.
-- Main command dependency assembly is now extracted to `src/core/mainCommandDepsRuntime.js`, so `main.js` no longer shapes the `registerMainCommands(...)` dependency object inline at the call site.
 - Scheduler/system registration plus initial runtime-store synchronization is now extracted to `src/core/runtimeSystemSetup.js`, so `main.js` no longer owns the full system-add/init block inline.
 - Scheduler-driven canonical store sync for time/lighting/fog/cloud/water/weather slices is now extracted to `src/core/systemStoreSyncRuntime.js` instead of remaining as inline update closures in `main.js`.
 - App startup orchestration for default-map auto-load error handling and startup UI/render kickoff is now extracted to `src/core/appStartupRuntime.js`.
 - Store-backed gameplay/runtime state accessors for swarm/pathfinding/cursor-light/point-light map sync are now grouped behind `src/gameplay/mainRuntimeStateBinding.js` instead of remaining as separate inline wrappers in `main.js`.
 - Swarm state/UI composition is now grouped behind `src/ui/swarmUiRuntimeBinding.js`, which composes main-runtime swarm state access, swarm panel reflection, swarm input normalization, and routing-input sync instead of leaving that integration block inline in `main.js`.
 - Bottom-of-file binding composition is now grouped behind `src/ui/mainBindingsRuntime.js` instead of leaving the full bind-* setup block inline in `main.js`.
-- Main binding dependency assembly for that bottom-of-file bind/setup block is now grouped behind `src/ui/mainBindingsSetupRuntime.js` instead of shaping the full nested binding object inline in `main.js`.
-- Remaining camera/player/interaction/info-panel facade wrappers are now grouped behind `src/gameplay/mainFacadeRuntime.js` instead of staying as individual adapter functions in `main.js`.
 - Low-level GL/flow-map/shadow-pipeline/cloud-image support glue is now grouped behind `src/render/renderSupportRuntime.js` instead of remaining inline in `main.js`.
 - Map path/Tauri/image/sampling/shadow-occlusion support glue is now grouped behind `src/gameplay/mapSupportRuntime.js` instead of remaining inline in `main.js`.
-- UI-facing light/pathfinding/render-FX wrapper surfaces are now grouped behind `src/ui/uiRuntimeFacade.js` instead of staying as separate adapter aliases in `main.js`.
 - Render resource/pass pipeline composition is now grouped behind `src/render/renderPipelineRuntime.js` instead of leaving renderer/pass assembly inline in `main.js`.
-- Lazy frame-loop binding composition is now grouped behind `src/render/frameLoopBindingRuntime.js` instead of keeping the `createFrameRuntimeBinding(...)` orchestration block inline in `main.js`.
-- Startup UI/render kickoff dependency assembly is now grouped behind `src/core/appStartupBindingRuntime.js` instead of leaving the full `runAppStartupRuntime(...)` wiring object inline in `main.js`.
-- Swarm UI binding composition is now grouped behind `src/ui/swarmUiSetupRuntime.js` instead of leaving the full `createSwarmUiRuntimeBinding(...)` assembly block inline in `main.js`.
-- Render-FX UI + sync composition is now grouped behind `src/ui/renderFxUiSetupRuntime.js` instead of leaving the `createRenderFxUiBindingRuntime(...)` / `createRenderFxSettingsSyncRuntime(...)` assembly blocks inline in `main.js`.
-- Legacy settings/UI dependency assembly is now grouped behind `src/ui/settingsLegacySetupRuntime.js` instead of leaving the large `createSettingsLegacyRuntimeBinding(...)` composition block inline in `main.js`.
-- Point-light runtime dependency assembly is now grouped behind `src/gameplay/pointLightSetupRuntime.js` instead of leaving the `createPointLightRuntime(...)` composition block inline in `main.js`.
-- Map lifecycle dependency assembly is now grouped behind `src/gameplay/mapLifecycleSetupRuntime.js` instead of leaving the `createMapLifecycleRuntime(...)` composition block inline in `main.js`.
-- Point-light bake runtime dependency assembly is now grouped behind `src/render/pointLightBakeSetupRuntime.js` instead of leaving the `createPointLightBakeRuntimeBinding(...)` composition block inline in `main.js`.
 - Swarm step/loop/overlay/lit-render composition is now grouped behind `src/gameplay/swarmRenderSetupRuntime.js` instead of leaving those setup blocks inline in `main.js`.
-- Interaction/info facade composition is now grouped behind `src/gameplay/interactionFacadeSetupRuntime.js` instead of leaving `createInfoPanelRuntime(...)`, `createInteractionModeRuntime(...)`, and `createMainFacadeRuntime(...)` assembly blocks inline in `main.js`.
-- Default fallback-map image bootstrap is now grouped behind `src/render/defaultMapSetupRuntime.js` instead of leaving the helper cluster plus `createDefaultMapImageRuntime(...)` call inline in `main.js`.
-- Light-label + mode/topic interaction setup is now grouped behind `src/ui/modeLightSetupRuntime.js` instead of leaving `createLightLabelBindingRuntime(...)` and `createModeInteractionRuntimeBinding(...)` assembly blocks inline in `main.js`.
-- Movement-system dependency assembly is now grouped behind `src/gameplay/movementSetupRuntime.js` instead of leaving the `createMovementSystem(...)` composition block inline in `main.js`.
 - Movement-system player/movement snapshot store-sync ownership is now extracted to `src/gameplay/movementStoreSyncRuntime.js` instead of remaining as inline gameplay-store mutation closures in `main.js`.
-- Time/cycle-hour UI and lighting-params setup are now grouped behind `src/sim/timeLightingSetupRuntime.js` instead of leaving the `cycleState`, `createLightingParamsBindingRuntime(...)`, and `createTimeUiBindingRuntime(...)` setup blocks inline in `main.js`.
-- Swarm runtime dependency assembly is now grouped behind `src/gameplay/swarmRuntimeSetupRuntime.js` instead of leaving the `createSwarmRuntime(...)` composition block inline in `main.js`.
-- Combined render/map support lazy composition and helper facade is now grouped behind `src/core/runtimeSupportFacade.js` instead of leaving the large `getRenderSupportRuntime()` / `getMapSupportRuntime()` helper block inline in `main.js`.
-- Bound runtime-support helper methods are now grouped behind `src/core/runtimeSupportMethodsRuntime.js` instead of leaving the full compatibility wrapper band inline in `main.js`.
+- Time/cycle-hour UI and lighting-params setup are now grouped behind `src/sim/timeLightingSetupRuntime.js` instead of leaving that setup block inline in `main.js`.
 - Interaction UI sync helpers are now grouped behind `src/ui/interactionUiSyncRuntime.js`, and command/controller paths no longer directly write:
   - `pointLightLiveUpdateToggle.checked` in `registerMainCommands.js`
   - `swarmFollowTargetInput.value` in `swarmFollowStateController.js`
 - Map-path UI reflection is now grouped behind `src/ui/mapPathUiSyncRuntime.js`, and startup/map-runtime paths no longer write `mapPathInput.value` directly.
-- Bound UI facade methods for light/pathfinding/render-FX labels and sync are now grouped behind `src/ui/uiFacadeSetupRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
-- Bound swarm state/UI facade methods are now grouped behind `src/ui/swarmStateUiFacadeRuntime.js` instead of leaving the `mainRuntimeStateBinding` + `swarmUiRuntimeBinding` wrapper band inline in `main.js`.
-- Bound time-state helper methods are now grouped behind `src/core/timeStateFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
-- Bound math helper methods are now grouped behind `src/core/mathFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
-- Bound color helper methods are now grouped behind `src/core/colorFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
-- Bound map-lifecycle helper methods are now grouped behind `src/gameplay/mapLifecycleFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
-- Bound point-light runtime helper methods are now grouped behind `src/gameplay/pointLightFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
-- `main.js` now keeps the point-light facade object directly instead of copying its methods into separate nullable aliases before later UI binding/setup call sites.
-- Later point-light editor/overlay setup call sites in `main.js` now bind directly to stable `pointLightRuntime` / `pointLightFacade` methods instead of recreating the same draft/editor/save-load lambdas inline at each call site.
-- Lazy access to `mainRuntimeStateBinding` for cursor-light / point-light-live-update / map-sync helpers is now grouped behind `src/gameplay/mainRuntimeStateFacadeRuntime.js` instead of repeating the same `getMainRuntimeStateBinding()` wrappers at each early setup call site in `main.js`.
-- Runtime ownership for player/swarm/point-light/map sync plus movement queue snapshot/replace/cancel operations is now grouped behind `src/gameplay/runtimeSyncFacadeRuntime.js`, which lazily resolves the underlying runtime pieces so `main.js` no longer wires those sync surfaces independently at each command/system/setup call site.
-- The lazy main-runtime-state facade is now itself resolved through a hoisted getter in `main.js`; to avoid TDZ startup regressions during early point-light/cursor-light setup, its cached slot and the runtime-sync facade cache use function-scoped storage instead of late `let` initialization.
-- Lazy camera/main-runtime/swarm-cursor binding construction is now grouped behind:
-  - `src/gameplay/cameraSetupRuntime.js`
-  - `src/gameplay/mainRuntimeStateSetupRuntime.js`
-  - `src/gameplay/swarmCursorPointerSetupRuntime.js`
-  while `main.js` keeps the hoisted lazy getter functions to avoid startup-order regressions.
 - Early time/settings setup assembly is now grouped behind `src/core/settingsCoreSetupRuntime.js`.
 - Overlay composition is now grouped behind `src/ui/overlaySetupRuntime.js`.
-- Swarm UI setup + facade assembly is now grouped behind `src/ui/swarmUiAssemblyRuntime.js`.
-- Point-light + map-lifecycle assembly is now grouped behind `src/gameplay/mapLightingAssemblyRuntime.js`.
+- Point-light + map-lifecycle assembly is now grouped behind `src/app/mapLightingAssemblyRuntime.js`, which feeds `src/gameplay/mapLightingAssemblyRuntime.js`.
 - Settings legacy/runtime assembly is now grouped behind `src/ui/settingsAssemblyRuntime.js`.
-- Render/bootstrap allocation and gameplay bootstrap state are now grouped behind `src/gameplay/bootstrapStateAssemblyRuntime.js`.
-- The latest extraction pass also hardened startup ordering in `main.js` by routing early setup/composition dependencies through lazy wrappers or early-safe accessors instead of directly capturing later facade bindings; this specifically affected:
-  - runtime support/setup composition
+- App-level bootstrap/dependency shaping now lives primarily under `src/app/`, including:
+  - `src/app/mainCommandAssemblyRuntime.js`
+  - `src/app/runtimeSystemsAssemblyRuntime.js`
+  - `src/app/interactionUiAssemblyRuntime.js`
+  - `src/app/renderShellAssemblyRuntime.js`
+  - `src/app/appShellLifecycleAssemblyRuntime.js`
+  - `src/app/mainBindingsLifecycleAssemblyRuntime.js`
+  - `src/app/swarmIntegrationAssemblyRuntime.js`
+  - `src/app/swarmUiAssemblyRuntime.js`
+  - `src/app/runtimeSupportAssemblyRuntime.js`
+  - `src/app/settingsCoreAssemblyRuntime.js`
+  - `src/app/runtimeFeatureAssemblyRuntime.js`
+  - `src/app/interactionFeatureAssemblyRuntime.js`
+  - `src/app/bootstrapFeatureAssemblyRuntime.js`
+- Many bridge-era wrappers/facades have been deleted; `main.js` now depends more directly on concrete runtime owners and app-level assembly modules.
+- Startup-order hazards exposed during the extraction were hardened by switching fragile eager dependencies to getter/lazy access patterns in the affected setup paths.
+- The JS architecture suite now covers the post-facade ownership model and currently passes with `node --test tests/*.test.js`.
   - point-light bake/setup composition
   - point-light + map-lifecycle assembly
   - light/mode interaction setup
   - swarm runtime/render setup
   - main command dependency assembly
   - initial runtime-system sync wiring
-- Bound point-light bake helper methods are now grouped behind `src/render/pointLightBakeFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
-- Legacy settings dependency assembly is now grouped behind `src/ui/settingsLegacyAssemblyRuntime.js` instead of leaving that large setup object inline in `main.js`.
-- Render-pipeline dependency assembly is now grouped behind `src/render/renderPipelineSetupRuntime.js` instead of leaving that setup object inline in `main.js`.
+- Point-light bake operations now hang directly off `src/render/pointLightBakeRuntimeBinding.js`; the old point-light bake facade layer has been removed.
+- Legacy settings dependency assembly is now handled by `src/ui/settingsAssemblyRuntime.js` together with `src/ui/settingsLegacyRuntimeBinding.js`.
+- Render-pipeline composition is now handled directly by `src/render/renderPipelineRuntime.js`, with the top-level dependency shaping moved into `src/app/runtimeFeatureAssemblyRuntime.js`.
 - Gameplay bootstrap state objects/scratch buffers are now grouped behind `src/gameplay/gameplayBootstrapState.js` instead of leaving that large live-state block inline in `main.js`.
 - Render/bootstrap resource allocation is now grouped behind `src/render/renderBootstrapState.js` instead of leaving that allocation block inline in `main.js`.
-- Map-image runtime binding composition (`createMapImageRuntime` deps composition) is now extracted to `src/gameplay/mapImageRuntimeBinding.js`.
-- Map-sampling runtime binding composition (`createMapSampling` deps composition) is now extracted to `src/gameplay/mapSamplingRuntimeBinding.js`.
-- Shadow-occlusion runtime binding composition (`createShadowOcclusion` deps composition) is now extracted to `src/gameplay/shadowOcclusionRuntimeBinding.js`.
+- Map-image, map-sampling, and shadow-occlusion composition now bind directly to:
+  - `src/gameplay/mapImageRuntime.js`
+  - `src/gameplay/mapSampling.js`
+  - `src/gameplay/shadowOcclusion.js`
+  via `src/gameplay/mapSupportRuntime.js`.
 - Light-label binding runtime composition (`createLightLabelRuntime` deps composition + wrapper methods) is now extracted to `src/ui/lightLabelBindingRuntime.js`.
 - Cursor-light-mode UI binding runtime composition (`createCursorLightModeUiRuntime` deps composition + wrapper) is now extracted to `src/ui/cursorLightModeUiBindingRuntime.js`.
 - Mode/topic runtime binding composition (`createModeStateRuntimeBinding` + `createModeCapabilitiesUi` + `createTopicPanelRuntime`) is now extracted to `src/ui/modeTopicRuntimeBinding.js`.
 - Mode/interaction runtime composition (mode-topic binding plus interaction-mode snapshot wrapper methods) is now extracted to `src/ui/modeInteractionRuntimeBinding.js`.
-- Interaction-mode snapshot binding runtime composition (`createInteractionModeSnapshotRuntime` deps composition + wrapper) is now extracted to `src/gameplay/interactionModeSnapshotBindingRuntime.js`.
-- Cursor-light pointer binding runtime composition (`createCursorLightPointerRuntime` deps composition + wrapper) is now extracted to `src/gameplay/cursorLightPointerBindingRuntime.js`.
 - Light interaction runtime composition (cursor-light state/pointer/ui plus point-light editor UI/action wrapper methods) is now extracted to `src/gameplay/lightInteractionRuntimeBinding.js`.
 - Optional map sidecar URL loads now treat missing JSON files as expected/quiet while still warning on malformed JSON or unexpected load failures; browser startup favicon noise is removed via `assets/favicon.svg`.
-- Swarm-cursor pointer binding runtime composition (`createSwarmCursorPointerRuntime` deps composition + wrapper) is now extracted to `src/gameplay/swarmCursorPointerBindingRuntime.js`.
 - Camera-view binding runtime composition (`createCameraViewRuntime` deps composition + wrapper methods) is now extracted to `src/gameplay/cameraViewRuntimeBinding.js`.
 - Camera runtime composition (camera-view binding plus coordinate/camera transform wrapper methods) is now extracted to `src/gameplay/cameraRuntimeBinding.js`.
 - Startup ordering hardening is still in progress after recent extractions:
   - camera/pathfinding/render-fx/light-editor wrapper surfaces in `main.js` now use hoisted lazy accessors instead of late alias bindings where early startup paths needed them
   - swarm follow/store-sync startup paths are hardened against missing early deps (`store`, follow snapshot state, optional enable getter)
 - Pathfinding command-side UI reflection is now routed through `src/ui/pathfindingSettingsApplier.js` instead of direct DOM writes inside `src/gameplay/interactionCommands.js`.
-- Player-state runtime binding composition (`createPlayerStateRuntime` deps composition + wrapper) is now extracted to `src/gameplay/playerStateRuntimeBinding.js`.
 - Player runtime composition (player-state binding, NPC persistence, and player store-sync wrapper methods) is now extracted to `src/gameplay/playerRuntimeBinding.js`.
 - `main.js` no longer keeps separate pass-through wrapper functions for player/NPC persistence or swarm-follow snapshot/smoothing; those call sites now bind directly to the existing runtime methods.
-- Pathfinding cost-model binding runtime composition (`createPathfindingCostModel` deps composition + wrapper methods) is now extracted to `src/gameplay/pathfindingCostModelBindingRuntime.js`.
-- Point-light-editor UI binding runtime composition (`createPointLightEditorUiRuntime` deps composition + wrapper) is now extracted to `src/ui/pointLightEditorUiBindingRuntime.js`.
-- Lighting-params binding runtime composition (`createLightingParamsRuntime` deps composition + wrapper) is now extracted to `src/sim/lightingParamsBindingRuntime.js`.
-- Time-UI binding runtime composition (`createTimeUiRuntime` deps composition + wrapper methods) is now extracted to `src/ui/timeUiBindingRuntime.js`.
-- GL-resource binding runtime composition (`createGlResourceRuntime` deps composition + wrapper methods) is now extracted to `src/render/glResourceBindingRuntime.js`.
-- Flow-map binding runtime composition (`createFlowMapRuntime` deps composition + wrapper method) is now extracted to `src/render/flowMapBindingRuntime.js`.
-- Shadow-pipeline binding runtime composition (`createShadowPipelineRuntime` deps composition + wrapper methods) is now extracted to `src/render/shadowPipelineBindingRuntime.js`.
-- Point-light-editor action binding runtime composition (point-light editor action wrappers) is now extracted to `src/gameplay/pointLightEditorActionBindingRuntime.js`.
-- Swarm-overlay binding runtime composition (`createSwarmOverlayRuntime` deps composition + wrapper methods) is now extracted to `src/ui/swarmOverlayBindingRuntime.js`.
+- Pathfinding cost-model, point-light-editor UI/actions, lighting params, time UI, GL resource, flow-map, and shadow-pipeline composition now bind directly to their concrete owner modules rather than intermediate binding-runtime wrappers.
+- Swarm overlay drawing ownership (`createSwarmOverlayRuntime`) is now extracted to `src/ui/swarmOverlayRuntime.js`.
 - Camera/coordinate transform helpers (camera state, view extents, world/uv/map/screen conversions) are now extracted to `src/gameplay/cameraTransforms.js`.
 - Camera view/command helpers (`resetCamera`, `getScreenAspect`, `getMapAspect`) are now extracted to `src/gameplay/cameraViewRuntime.js`.
 - Pathfinding label helper updates are now extracted to `src/ui/pathfindingLabelUi.js`.
@@ -521,7 +484,7 @@ Targeted architecture tests:
 - No georeferenced sun position.
 - No animated movement yet (currently instant click-to-move).
 - Full modularization is still in progress; `src/main.js` remains the largest integration surface, but core/render/sim/ui/gameplay modules are now established and wired.
-- After the latest cleanup pass, `src/main.js` is around 3151 lines in the current worktree, still the largest integration surface, and Phase 5/6 are not yet complete. The latest pass moved a larger ownership slice out of scattered command/system/setup call sites and fixed a startup-order hazard, but did not reduce total line count.
+- After the latest cleanup pass, `src/main.js` is around 3066 lines in the current worktree, still the largest integration surface, but much more of its dependency shaping now lives in `src/app/` assembly modules.
 
 ## Render Module Breakdown
 

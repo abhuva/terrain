@@ -309,7 +309,7 @@ Keep this section short. Detailed extraction history belongs in git log and code
     - fixed the `core/cursorLight/setGizmo` command regression introduced during the runtime-sync refactor (`syncCursorLightToStore()` no longer references an undefined `ctx`)
   - Continued Phase 4/5 `main.js` ownership cleanup:
     - removed the lazy `mainRuntimeStateFacade` / `runtimeSyncFacade` proxy layer from `main.js`
-    - rewired command/system/swarm integration call sites to use concrete bindings/runtimes directly (`mainRuntimeStateBinding`, `playerRuntimeBinding`, `movementSystem`, `swarmRuntimeSetupRuntime`)
+    - rewired command/system/swarm integration call sites to use concrete bindings/runtimes directly (`mainRuntimeStateBinding`, `playerRuntimeBinding`, `movementSystem`, `swarmRuntime`)
     - removed now-dead `main.js` alias helpers that only existed to feed those facades
   - Continued Phase 4/5 binding cleanup:
     - removed duplicate `mainRuntimeStateBinding` construction from the swarm UI assembly path; swarm UI now consumes the same lazily-created binding instance owned by `main.js`
@@ -388,7 +388,7 @@ Keep this section short. Detailed extraction history belongs in git log and code
       - deleted `gameplay/interactionModeSnapshotBindingRuntime.js`; `ui/modeInteractionRuntimeBinding.js` now uses `createInteractionModeSnapshotRuntime(...)` directly
       - deleted `ui/lightLabelBindingRuntime.js`; `ui/modeLightSetupRuntime.js` now uses `createLightLabelRuntime(...)` directly
       - deleted `gameplay/playerStateRuntimeBinding.js`; `gameplay/playerRuntimeBinding.js` now uses `createPlayerStateRuntime(...)` directly
-      - deleted `gameplay/pointLightFacadeRuntime.js`; `gameplay/mapLightingAssemblyRuntime.js` now wires `pointLightRuntime` directly and exposes it under the existing `pointLightFacade` handoff
+      - deleted `gameplay/pointLightFacadeRuntime.js`; `gameplay/mapLightingAssemblyRuntime.js` now wires `pointLightRuntime` directly and exposes it under the direct `pointLightApi` handoff
   - Continued Phase 6 simplification:
     - removed another small interaction/editor wrapper layer:
       - deleted `gameplay/cursorLightPointerStateRuntime.js`; `gameplay/lightInteractionRuntimeBinding.js` now calls `cursorLightRuntime.clearPointer()` / `setPointerUv(...)` directly
@@ -397,7 +397,7 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Continued Phase 6 simplification:
     - removed two more small wrapper modules:
       - deleted `ui/timeUiBindingRuntime.js`; `sim/timeLightingSetupRuntime.js` now uses `createTimeUiRuntime(...)` directly
-      - deleted `ui/swarmOverlayBindingRuntime.js`; `gameplay/swarmRenderSetupRuntime.js` now uses `createSwarmOverlayRuntime(...)` directly
+      - deleted `ui/swarmOverlayBindingRuntime.js`; `gameplay/swarmRenderSetupRuntime.js` now uses `swarmOverlayRuntime` from `createSwarmOverlayRuntime(...)` directly
   - Continued Phase 6 simplification:
     - removed two more small wrapper modules:
       - deleted `render/frameUiBindingRuntime.js`; `main.js` now uses `createFrameUiRuntime(...)` directly
@@ -437,3 +437,64 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Continued Phase 6 simplification:
     - removed the thin frame-loop wrapper:
       - deleted `render/frameLoopBindingRuntime.js`; `app/renderShellSetupRuntime.js` now lazily creates `createFrameRuntime(...)` directly while preserving the existing `getFrameLoopBindingRuntime` handoff
+  - Continued Phase 6 simplification:
+    - removed `core/runtimeSupportFacade.js` and inlined its composition into `main.js`
+    - `main.js` now creates `render/renderSupportRuntime.js` and `gameplay/mapSupportRuntime.js` directly instead of going through one more facade layer
+  - Continued Phase 6 simplification:
+    - removed `ui/uiRuntimeFacade.js` and had `main.js` destructure methods directly from the real UI/gameplay owners
+    - light interaction, pathfinding, render-FX UI sync, and light-label helpers no longer pass through a top-level UI facade object first
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the large `createSwarmIntegrationSetupRuntime(...)` dependency shaping block out of `main.js` into `src/app/swarmIntegrationAssemblyRuntime.js`
+    - `main.js` still provides the flat runtime values, but the nested gameplay/settings/render/interaction assembly now lives in the app layer instead of inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `registerMainCommands(...)` dependency shaping block out of `main.js` into `src/app/mainCommandAssemblyRuntime.js`
+    - `main.js` still supplies the concrete runtime functions and values, but the command dependency object is no longer built inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `createSwarmUiRuntimeBinding(...)` dependency shaping block out of `main.js` into `src/app/swarmUiAssemblyRuntime.js`
+    - `main.js` still supplies the concrete runtime values and DOM handles, but the swarm-UI dependency object is no longer assembled inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `setupRuntimeSystems(...)` dependency shaping block out of `main.js` into `src/app/runtimeSystemsAssemblyRuntime.js`
+    - `main.js` still provides the concrete systems/runtime functions, but the scheduler setup dependency object is no longer built inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `createInteractionUiSetupRuntime(...)` dependency shaping block out of `main.js` into `src/app/interactionUiAssemblyRuntime.js`
+    - `main.js` still provides the concrete runtime values and DOM handles, but the interaction/pathfinding/render-FX setup dependency object is no longer assembled inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `createRenderShellSetupRuntime(...)` dependency shaping block out of `main.js` into `src/app/renderShellAssemblyRuntime.js`
+    - `main.js` still provides the concrete render/overlay/frame-loop functions and values, but the render-shell dependency object is no longer assembled inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `runAppShellLifecycleRuntime(...)` dependency shaping block out of `main.js` into `src/app/appShellLifecycleAssemblyRuntime.js`
+    - `main.js` still provides the concrete bindings/auto-load/startup functions and values, but the app-shell lifecycle dependency object is no longer assembled inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the large `bindings` payload passed into `runAppShellLifecycleRuntime(...)` out of `main.js` into `src/app/mainBindingsLifecycleAssemblyRuntime.js`
+    - `main.js` still provides the concrete UI/runtime handlers and DOM elements, but the main binding lifecycle dependency object is no longer assembled inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `createRenderSupportRuntime(...)` and `createMapSupportRuntime(...)` dependency shaping blocks out of `main.js` into `src/app/runtimeSupportAssemblyRuntime.js`
+    - `main.js` still provides the concrete GL/runtime/image-state functions and values, but the support-runtime dependency objects are no longer assembled inline at the call sites
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `createSettingsCoreSetupRuntime(...)` dependency shaping block out of `main.js` into `src/app/settingsCoreAssemblyRuntime.js`
+    - `main.js` still provides the concrete settings/runtime functions and values, but the settings-core dependency object is no longer assembled inline at the call site
+  - Continued Phase 5/6 orchestration cleanup:
+    - finished the map-lighting app-layer extraction by collapsing the remaining `createMapLightingAssemblyRuntime(createMapLightingAssemblyRuntimeDeps(...))` call-site literal into `src/app/mapLightingAssemblyRuntime.js`
+    - `main.js` now calls a single app-level `createMapLightingSetupRuntime(...)` entry point instead of shaping the large flat map-lighting payload inline
+  - Continued Phase 5/6 orchestration cleanup:
+    - finished the swarm-UI app-layer extraction by collapsing the remaining `createSwarmUiRuntimeBinding(createSwarmUiAssemblyRuntime(...))` call-site literal into `src/app/swarmUiAssemblyRuntime.js`
+    - `main.js` now calls a single app-level `createSwarmUiSetupRuntime(...)` entry point instead of shaping the large swarm-UI payload inline
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `createTimeLightingSetupRuntime(...)`, `createSwarmRuntime(...)`, and `createRenderPipelineRuntime(...)` dependency shaping blocks out of `main.js` into `src/app/runtimeFeatureAssemblyRuntime.js`
+    - `main.js` still provides the concrete runtime values and callbacks, but those top-level feature payloads are no longer assembled inline at the call sites
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the `createLightInteractionRuntimeBinding(...)`, `createSystemStoreSyncRuntime(...)`, and `createMovementSystem(...)` dependency shaping blocks out of `main.js` into `src/app/interactionFeatureAssemblyRuntime.js`
+    - `main.js` still provides the concrete runtime values and callbacks, but those interaction/system/movement payloads are no longer assembled inline at the call sites
+  - Continued Phase 5/6 orchestration cleanup:
+    - moved the default-map bootstrap and camera-binding setup payloads out of `main.js` into `src/app/bootstrapFeatureAssemblyRuntime.js`
+    - `main.js` now initializes fallback map images and camera binding through app-level setup helpers instead of assembling those payloads inline
+  - Continued Phase 6 ownership/name cleanup:
+    - removed more bridge-era handoff names that no longer reflected real ownership:
+      - `gameplay/mapLightingAssemblyRuntime.js` now exposes `pointLightApi` instead of `pointLightFacade`
+      - `app/swarmIntegrationAssemblyRuntime.js` / `app/swarmIntegrationSetupRuntime.js` now use `interactionContext`, `interactionModeBinding`, `mainInteractionBindings`, `swarmOverlayRuntime`, and `updateInfoPanel` instead of old facade/runtime wrapper labels
+      - `main.js` now consumes those direct-owner names, reducing migration-era naming noise without changing behavior
+  - Continued Phase 7 verification:
+    - replaced the remaining facade-era tests with current-owner coverage:
+      - `tests/mainRuntimeStateFacadeRuntime.test.js` -> `tests/mainRuntimeStateBinding.test.js`
+      - `tests/runtimeSyncFacadeRuntime.test.js` -> `tests/swarmRuntime.test.js`
+    - full JS suite now passes with `node --test tests/*.test.js` (`15/15`)

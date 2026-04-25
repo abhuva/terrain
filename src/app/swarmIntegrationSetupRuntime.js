@@ -28,51 +28,51 @@ export function createSwarmIntegrationSetupRuntime(deps) {
     isSwarmCoordFlyable: swarmGameplayRuntime.isSwarmCoordFlyable,
   });
 
-  const updateInfoPanelImpl = createInfoPanelRuntime({
-    isSwarmEnabled: deps.interactionFacade.isSwarmEnabled,
-    getSwarmCursorMode: deps.interactionFacade.getSwarmCursorMode,
-    swarmState: deps.interactionFacade.swarmState,
-    swarmCursorState: deps.interactionFacade.swarmCursorState,
-    playerState: deps.interactionFacade.playerState,
-    getCurrentPathMetrics: deps.interactionFacade.getCurrentPathMetrics,
-    getMovementSnapshot: deps.interactionFacade.getMovementSnapshot,
-    playerInfoEl: deps.interactionFacade.playerInfoEl,
-    pathInfoEl: deps.interactionFacade.pathInfoEl,
+  const updateInfoPanel = createInfoPanelRuntime({
+    isSwarmEnabled: deps.interactionContext.isSwarmEnabled,
+    getSwarmCursorMode: deps.interactionContext.getSwarmCursorMode,
+    swarmState: deps.interactionContext.swarmState,
+    swarmCursorState: deps.interactionContext.swarmCursorState,
+    playerState: deps.interactionContext.playerState,
+    getCurrentPathMetrics: deps.interactionContext.getCurrentPathMetrics,
+    getMovementSnapshot: deps.interactionContext.getMovementSnapshot,
+    playerInfoEl: deps.interactionContext.playerInfoEl,
+    pathInfoEl: deps.interactionContext.pathInfoEl,
   });
 
-  const interactionModeRuntime = {
+  const interactionModeBinding = {
     setInteractionMode: (mode) =>
       applyInteractionMode(
         {
-          canUseInteractionInCurrentMode: deps.interactionFacade.canUseInteractionInCurrentMode,
-          dockLightingModeToggle: deps.interactionFacade.dockLightingModeToggle,
-          dockPathfindingModeToggle: deps.interactionFacade.dockPathfindingModeToggle,
-          movePreviewState: deps.interactionFacade.movePreviewState,
-          store: deps.interactionFacade.store,
-          requestOverlayDraw: deps.interactionFacade.requestOverlayDraw,
+          canUseInteractionInCurrentMode: deps.interactionContext.canUseInteractionInCurrentMode,
+          dockLightingModeToggle: deps.interactionContext.dockLightingModeToggle,
+          dockPathfindingModeToggle: deps.interactionContext.dockPathfindingModeToggle,
+          movePreviewState: deps.interactionContext.movePreviewState,
+          store: deps.interactionContext.store,
+          requestOverlayDraw: deps.interactionContext.requestOverlayDraw,
         },
         mode,
       ),
   };
 
-  const mainFacadeRuntime = {
-    getBaseViewHalfExtents: () => deps.interactionFacade.getCameraRuntimeBinding().getBaseViewHalfExtents(),
-    getActiveCameraState: () => deps.interactionFacade.getCameraRuntimeBinding().getActiveCameraState(),
-    getViewHalfExtents: (zoomValue = null) => deps.interactionFacade.getCameraRuntimeBinding().getViewHalfExtents(zoomValue),
-    clientToNdc: (clientX, clientY) => deps.interactionFacade.getCameraRuntimeBinding().clientToNdc(clientX, clientY),
+  const mainInteractionBindings = {
+    getBaseViewHalfExtents: () => deps.interactionContext.getCameraRuntimeBinding().getBaseViewHalfExtents(),
+    getActiveCameraState: () => deps.interactionContext.getCameraRuntimeBinding().getActiveCameraState(),
+    getViewHalfExtents: (zoomValue = null) => deps.interactionContext.getCameraRuntimeBinding().getViewHalfExtents(zoomValue),
+    clientToNdc: (clientX, clientY) => deps.interactionContext.getCameraRuntimeBinding().clientToNdc(clientX, clientY),
     worldFromNdc: (ndc, zoomValue = null, pan = null) =>
-      deps.interactionFacade.getCameraRuntimeBinding().worldFromNdc(ndc, zoomValue, pan),
-    worldToUv: (world) => deps.interactionFacade.getCameraRuntimeBinding().worldToUv(world),
-    uvToMapPixelIndex: (uv) => deps.interactionFacade.getCameraRuntimeBinding().uvToMapPixelIndex(uv),
-    mapPixelIndexToUv: (pixelX, pixelY) => deps.interactionFacade.getCameraRuntimeBinding().mapPixelIndexToUv(pixelX, pixelY),
-    mapPixelToWorld: (pixelX, pixelY) => deps.interactionFacade.getCameraRuntimeBinding().mapPixelToWorld(pixelX, pixelY),
-    mapCoordToWorld: (mapX, mapY) => deps.interactionFacade.getCameraRuntimeBinding().mapCoordToWorld(mapX, mapY),
-    worldToScreen: (world) => deps.interactionFacade.getCameraRuntimeBinding().worldToScreen(world),
-    setInteractionMode: (mode) => interactionModeRuntime.setInteractionMode(mode),
-    setPlayerPosition: (pixelX, pixelY) => deps.interactionFacade.playerRuntimeBinding.setPlayerPosition(pixelX, pixelY),
-    parseNpcPlayer: (rawData) => deps.interactionFacade.parseNpcPlayerImpl(rawData),
-    applyLoadedNpc: (rawData) => deps.interactionFacade.applyLoadedNpcImpl(rawData),
-    updateInfoPanel: () => updateInfoPanelImpl(),
+      deps.interactionContext.getCameraRuntimeBinding().worldFromNdc(ndc, zoomValue, pan),
+    worldToUv: (world) => deps.interactionContext.getCameraRuntimeBinding().worldToUv(world),
+    uvToMapPixelIndex: (uv) => deps.interactionContext.getCameraRuntimeBinding().uvToMapPixelIndex(uv),
+    mapPixelIndexToUv: (pixelX, pixelY) => deps.interactionContext.getCameraRuntimeBinding().mapPixelIndexToUv(pixelX, pixelY),
+    mapPixelToWorld: (pixelX, pixelY) => deps.interactionContext.getCameraRuntimeBinding().mapPixelToWorld(pixelX, pixelY),
+    mapCoordToWorld: (mapX, mapY) => deps.interactionContext.getCameraRuntimeBinding().mapCoordToWorld(mapX, mapY),
+    worldToScreen: (world) => deps.interactionContext.getCameraRuntimeBinding().worldToScreen(world),
+    setInteractionMode: (mode) => interactionModeBinding.setInteractionMode(mode),
+    setPlayerPosition: (pixelX, pixelY) => deps.interactionContext.playerRuntimeBinding.setPlayerPosition(pixelX, pixelY),
+    parseNpcPlayer: (rawData) => deps.interactionContext.parseNpcPlayerImpl(rawData),
+    applyLoadedNpc: (rawData) => deps.interactionContext.applyLoadedNpcImpl(rawData),
+    updateInfoPanel: () => updateInfoPanel(),
   };
 
   return {
@@ -88,10 +88,10 @@ export function createSwarmIntegrationSetupRuntime(deps) {
     settingsLegacyBindings,
     settingsRuntimeBinding,
     swarmRenderSetupRuntime,
-    swarmOverlayBindingRuntime: swarmRenderSetupRuntime.swarmOverlayBindingRuntime,
+    swarmOverlayRuntime: swarmRenderSetupRuntime.swarmOverlayRuntime,
     renderSwarmLit: swarmRenderSetupRuntime.renderSwarmLit,
-    updateInfoPanelImpl,
-    interactionModeRuntime,
-    mainFacadeRuntime,
+    updateInfoPanel,
+    interactionModeBinding,
+    mainInteractionBindings,
   };
 }

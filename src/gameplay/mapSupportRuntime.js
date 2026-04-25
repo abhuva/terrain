@@ -18,6 +18,13 @@ export function createMapSupportRuntime(deps) {
   let mapImageRuntime = null;
   let mapSamplingRuntime = null;
   let shadowOcclusionRuntime = null;
+  const getSplatSize = () => (typeof deps.getSplatSize === "function" ? deps.getSplatSize() : deps.splatSize);
+  const getNormalsSize = () => (typeof deps.getNormalsSize === "function" ? deps.getNormalsSize() : deps.normalsSize);
+  const getHeightSize = () => (typeof deps.getHeightSize === "function" ? deps.getHeightSize() : deps.heightSize);
+  const getSplatTex = () => (typeof deps.getSplatTex === "function" ? deps.getSplatTex() : deps.splatTex);
+  const getNormalsTex = () => (typeof deps.getNormalsTex === "function" ? deps.getNormalsTex() : deps.normalsTex);
+  const getHeightTex = () => (typeof deps.getHeightTex === "function" ? deps.getHeightTex() : deps.heightTex);
+  const getWaterTex = () => (typeof deps.getWaterTex === "function" ? deps.getWaterTex() : deps.waterTex);
   const normalizeMapFolderPath = (path) => normalizeMapFolderPathUtil(path, deps.defaultMapFolder);
   const isAbsoluteFsPath = (path) => isAbsoluteFsPathUtil(path);
   const joinFsPath = (folder, fileName) => joinFsPathUtil(folder, fileName);
@@ -40,13 +47,13 @@ export function createMapSupportRuntime(deps) {
   function getMapImageRuntime() {
     if (mapImageRuntime) return mapImageRuntime;
     mapImageRuntime = createMapImageRuntime({
-      splatSize: deps.splatSize,
-      normalsSize: deps.normalsSize,
-      heightSize: deps.heightSize,
-      splatTex: deps.splatTex,
-      normalsTex: deps.normalsTex,
-      heightTex: deps.heightTex,
-      waterTex: deps.waterTex,
+      splatSize: getSplatSize(),
+      normalsSize: getNormalsSize(),
+      heightSize: getHeightSize(),
+      splatTex: getSplatTex(),
+      normalsTex: getNormalsTex(),
+      heightTex: getHeightTex(),
+      waterTex: getWaterTex(),
       uploadImageToTexture: deps.uploadImageToTexture,
       applyMapSizeChangeIfNeeded: deps.applyMapSizeChangeIfNeeded,
       resetCamera: deps.resetCamera,
@@ -68,9 +75,9 @@ export function createMapSupportRuntime(deps) {
     if (mapSamplingRuntime) return mapSamplingRuntime;
     mapSamplingRuntime = createMapSampling({
       clamp: deps.clamp,
-      getSplatSize: deps.getSplatSize,
-      getNormalsSize: deps.getNormalsSize,
-      getHeightSize: deps.getHeightSize,
+      getSplatSize,
+      getNormalsSize,
+      getHeightSize,
       getNormalsImageData: deps.getNormalsImageData,
       getHeightImageData: deps.getHeightImageData,
     });
@@ -80,7 +87,7 @@ export function createMapSupportRuntime(deps) {
   function getShadowOcclusionRuntime() {
     if (shadowOcclusionRuntime) return shadowOcclusionRuntime;
     shadowOcclusionRuntime = createShadowOcclusion({
-      getSplatSize: deps.getSplatSize,
+      getSplatSize,
       sampleHeightAtMapCoord: (mapX, mapY) => getMapSamplingRuntime().sampleHeightAtMapCoord(mapX, mapY),
       sampleHeightAtMapPixel: (pixelX, pixelY) => getMapSamplingRuntime().sampleHeightAtMapPixel(pixelX, pixelY),
       swarmZMax: deps.swarmZMax,

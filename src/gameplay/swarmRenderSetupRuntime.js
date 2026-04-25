@@ -43,7 +43,7 @@ export function createSwarmRenderSetupRuntime(deps) {
     setSwarmFollowSpeedNormFiltered: deps.setSwarmFollowSpeedNormFiltered,
   });
 
-  const swarmOverlayBindingRuntime = createSwarmOverlayRuntime({
+  const swarmOverlayRuntime = createSwarmOverlayRuntime({
     swarmState: deps.swarmState,
     swarmOverlayAgentScratch: deps.swarmOverlayAgentScratch,
     swarmOverlayHawkScratch: deps.swarmOverlayHawkScratch,
@@ -90,7 +90,7 @@ export function createSwarmRenderSetupRuntime(deps) {
   return {
     stepSwarm,
     swarmLoopRuntime,
-    swarmOverlayBindingRuntime,
+    swarmOverlayRuntime,
     renderSwarmLit,
   };
 }
