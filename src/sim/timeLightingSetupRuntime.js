@@ -2,8 +2,31 @@ import { createLightingParamsRuntime } from "./lightingParamsRuntime.js";
 import { createTimeUiRuntime } from "../ui/timeUiRuntime.js";
 
 export function createTimeLightingSetupRuntime(deps) {
+  function normalizeHour(value) {
+    return deps.clamp(Number(value), 0, 24);
+  }
+
+  function getCycleHour() {
+    if (typeof deps.getCycleHour === "function") {
+      return normalizeHour(deps.getCycleHour());
+    }
+    return normalizeHour(deps.initialHour);
+  }
+
+  function setCycleHour(value) {
+    const nextHour = normalizeHour(value);
+    if (typeof deps.setCycleHour === "function") {
+      deps.setCycleHour(nextHour);
+    }
+  }
+
   const cycleState = {
-    hour: deps.initialHour,
+    get hour() {
+      return getCycleHour();
+    },
+    set hour(value) {
+      setCycleHour(value);
+    },
   };
 
   let lightingParamsRuntime = null;

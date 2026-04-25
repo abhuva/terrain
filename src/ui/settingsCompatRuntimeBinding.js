@@ -6,8 +6,8 @@ import { createLightingSettingsApplier } from "./lightingSettingsApplier.js";
 import { createRenderFxSettingsApplier } from "./renderFxSettingsApplier.js";
 import { createPathfindingSettingsApplier } from "./pathfindingSettingsApplier.js";
 
-export function createSettingsLegacyRuntimeBinding(deps) {
-  const applySwarmSettingsLegacy = createSwarmSettingsApplier({
+export function createSettingsCompatRuntimeBinding(deps) {
+  const applySwarmSettingsCompat = createSwarmSettingsApplier({
     getSwarmSettings: deps.getSwarmSettings,
     swarmEnabledToggle: deps.swarmEnabledToggle,
     swarmLitModeToggle: deps.swarmLitModeToggle,
@@ -78,7 +78,7 @@ export function createSettingsLegacyRuntimeBinding(deps) {
     updatePathBaseCostLabel: deps.updatePathBaseCostLabel,
   });
 
-  const applyInteractionSettingsLegacy = createInteractionSettingsApplier({
+  const applyInteractionSettingsCompat = createInteractionSettingsApplier({
     syncPathfindingSettingsUi,
     getCursorLightSnapshot: deps.getCursorLightSnapshot,
     applyCursorLightConfigSnapshot: deps.applyCursorLightConfigSnapshot,
@@ -96,7 +96,7 @@ export function createSettingsLegacyRuntimeBinding(deps) {
     updateCursorLightModeUi: deps.updateCursorLightModeUi,
   });
 
-  const applyLightingSettingsLegacy = createLightingSettingsApplier({
+  const applyLightingSettingsCompat = createLightingSettingsApplier({
     getCoreState: deps.getCoreState,
     getLightingSettings: deps.getLightingSettings,
     shadowsToggle: deps.shadowsToggle,
@@ -216,21 +216,21 @@ export function createSettingsLegacyRuntimeBinding(deps) {
   });
 
   return {
-    applySwarmSettingsLegacy,
-    serializeSwarmDataLegacy: deps.serializeSwarmDataLegacy,
+    applySwarmSettingsCompat,
+    serializeSwarmDataCompat: deps.serializeSwarmDataCompat,
     applySwarmData: deps.applySwarmData,
     syncPathfindingSettingsUi,
-    serializeInteractionSettings,
-    applyInteractionSettingsLegacy,
-    applyLightingSettingsLegacy,
-    applyFogSettingsLegacy: renderFxSettingsApplier.applyFogSettingsLegacy,
-    applyParallaxSettingsLegacy: renderFxSettingsApplier.applyParallaxSettingsLegacy,
-    applyCloudSettingsLegacy: renderFxSettingsApplier.applyCloudSettingsLegacy,
-    applyWaterSettingsLegacy: renderFxSettingsApplier.applyWaterSettingsLegacy,
-    serializeLightingSettingsLegacy: renderFxDataSerializer.serializeLightingSettingsLegacy,
-    serializeFogSettingsLegacy: renderFxDataSerializer.serializeFogSettingsLegacy,
-    serializeParallaxSettingsLegacy: renderFxDataSerializer.serializeParallaxSettingsLegacy,
-    serializeCloudSettingsLegacy: renderFxDataSerializer.serializeCloudSettingsLegacy,
-    serializeWaterSettingsLegacy: renderFxDataSerializer.serializeWaterSettingsLegacy,
+    serializeInteractionSettingsCompat: serializeInteractionSettings,
+    applyInteractionSettingsCompat,
+    applyLightingSettingsCompat,
+    applyFogSettingsCompat: renderFxSettingsApplier.applyFogSettingsCompat,
+    applyParallaxSettingsCompat: renderFxSettingsApplier.applyParallaxSettingsCompat,
+    applyCloudSettingsCompat: renderFxSettingsApplier.applyCloudSettingsCompat,
+    applyWaterSettingsCompat: renderFxSettingsApplier.applyWaterSettingsCompat,
+    serializeLightingSettingsCompat: renderFxDataSerializer.serializeLightingSettingsCompat,
+    serializeFogSettingsCompat: renderFxDataSerializer.serializeFogSettingsCompat,
+    serializeParallaxSettingsCompat: renderFxDataSerializer.serializeParallaxSettingsCompat,
+    serializeCloudSettingsCompat: renderFxDataSerializer.serializeCloudSettingsCompat,
+    serializeWaterSettingsCompat: renderFxDataSerializer.serializeWaterSettingsCompat,
   };
 }

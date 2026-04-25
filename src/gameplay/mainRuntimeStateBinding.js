@@ -157,7 +157,7 @@ export function createMainRuntimeStateBinding(deps) {
         updateStoreFromAppliedSettings: deps.updateStoreFromAppliedSettings,
         normalizeAppliedSettings: deps.normalizeAppliedSettings,
         defaultSwarmSettings: deps.defaultSwarmSettings,
-        applySwarmSettingsLegacy: deps.applySwarmSettingsLegacy,
+        applySwarmSettingsCompat: deps.applySwarmSettingsCompat,
         stopSwarmFollow: getStopSwarmFollow(),
         swarmState: getSwarmState(),
       }),

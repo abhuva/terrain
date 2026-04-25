@@ -1,6 +1,8 @@
 export function createTimeLightingAssemblyRuntime(deps) {
   return {
     initialHour: deps.initialHour,
+    getCycleHour: deps.getCycleHour,
+    setCycleHour: deps.setCycleHour,
     getSettingsDefaults: deps.getSettingsDefaults,
     defaultLightingSettings: deps.defaultLightingSettings,
     defaultFogSettings: deps.defaultFogSettings,

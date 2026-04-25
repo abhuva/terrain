@@ -20,7 +20,7 @@ export function createSwarmUiAssemblyRuntime(deps) {
     cursorLightState: deps.cursorLightState,
     updateStoreFromAppliedSettings: deps.updateStoreFromAppliedSettings,
     normalizeAppliedSettings: deps.normalizeAppliedSettings,
-    applySwarmSettingsLegacy: deps.applySwarmSettingsLegacy,
+    applySwarmSettingsCompat: deps.applySwarmSettingsCompat,
     stopSwarmFollow: deps.stopSwarmFollow,
     swarmState: deps.swarmState,
     getSwarmFollowSnapshot: deps.getSwarmFollowSnapshot,

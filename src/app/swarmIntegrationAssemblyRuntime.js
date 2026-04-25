@@ -21,7 +21,7 @@ export function createSwarmIntegrationAssemblyRuntime(deps) {
     },
     settingsAssembly: {
       settingsApplyRuntime: deps.settingsApplyRuntime,
-      settingsBridgeRuntime: deps.settingsBridgeRuntime,
+      settingsCompatRuntime: deps.settingsCompatRuntime,
       syncSwarmStateToStore: deps.syncSwarmStateToStore,
       defaultLightingSettings: deps.defaultLightingSettings,
       defaultFogSettings: deps.defaultFogSettings,
@@ -30,7 +30,7 @@ export function createSwarmIntegrationAssemblyRuntime(deps) {
       defaultWaterSettings: deps.defaultWaterSettings,
       defaultInteractionSettings: deps.defaultInteractionSettings,
       defaultSwarmSettings: deps.defaultSwarmSettings,
-      legacy: deps.settingsLegacy,
+      Compat: deps.settingsCompat,
     },
     render: {
       splatSize: deps.splatSize,
@@ -93,8 +93,7 @@ export function createSwarmIntegrationAssemblyRuntime(deps) {
       pathInfoEl: deps.pathInfoEl,
       applyInteractionMode: deps.applyInteractionMode,
       canUseInteractionInCurrentMode: deps.canUseInteractionInCurrentMode,
-      dockLightingModeToggle: deps.dockLightingModeToggle,
-      dockPathfindingModeToggle: deps.dockPathfindingModeToggle,
+      syncInteractionModeUi: deps.syncInteractionModeUi,
       movePreviewState: deps.movePreviewState,
       store: deps.store,
       requestOverlayDraw: deps.requestOverlayDraw,

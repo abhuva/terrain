@@ -12,6 +12,7 @@ top-level composition entry point instead of the dominant state owner.
 - `src/gameplay/`: gameplay/runtime ownership modules
 - `src/ui/`: DOM bindings, panel reflection, overlay/UI helpers
 - `src/sim/`: time/lighting/fog/cloud/water/weather systems and helpers
+- `src/pointLightBakeWorker.js`: point-light bake worker entry
 - `src-tauri/`: desktop wrapper and native file I/O commands
 
 ## Runtime Authority
@@ -22,6 +23,8 @@ top-level composition entry point instead of the dominant state owner.
   source of truth.
 - Renderer consumes resolved frame/runtime state and does not own
   gameplay/config state.
+- Cycle-hour/time-of-day authority is held in core store `ui.cycleHour`;
+  UI and lighting helpers access it through store-backed proxies.
 - Store mutation ownership is concentrated in sync-focused modules such as:
   - `src/gameplay/stateSync.js`
   - `src/core/systemStoreSyncRuntime.js`
@@ -54,6 +57,7 @@ owner modules.
 ## Render
 
 - `src/render/renderBootstrapState.js`: render bootstrap resources
+- `src/render/shaders.js`: terrain, swarm, shadow, and blur shader source
 - `src/render/renderSupportRuntime.js`: GL/flow-map/shadow/cloud support
 - `src/render/renderPipelineRuntime.js`: render resource/pass composition
 - `src/render/frameRenderState.js`: frame DTO assembly
@@ -81,7 +85,7 @@ owner modules.
 ## UI
 
 - `src/ui/mainBindingsRuntime.js`: binds UI control listeners
-- `src/ui/settingsAssemblyRuntime.js`: legacy/canonical settings wiring
+- `src/ui/settingsAssemblyRuntime.js`: compatibility/canonical settings wiring
 - `src/ui/swarmUiRuntimeBinding.js`: swarm UI reflection/input sync
 - `src/ui/renderFxUiRuntime.js`: Render FX label/UI reflection helpers
 - `src/ui/pathfindingLabelUi.js`: pathfinding label updates

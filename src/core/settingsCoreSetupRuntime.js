@@ -1,7 +1,7 @@
 import { createTimeStateAccess } from "./timeStateAccess.js";
 import { createAppliedSettingsStoreSync } from "./appliedSettingsStoreSync.js";
 import { createSimulationKnobAccess } from "./simulationKnobAccess.js";
-import { createSettingsRegistryBridge } from "./settingsRegistryBridge.js";
+import { createSettingsRegistryAdapter } from "./settingsRegistryAdapter.js";
 import { createSettingsDefaultsAccess } from "./settingsDefaultsAccess.js";
 
 export function createSettingsCoreSetupRuntime(deps) {
@@ -27,7 +27,7 @@ export function createSettingsCoreSetupRuntime(deps) {
   const simulationKnobAccess = createSimulationKnobAccess({
     getCoreState: deps.getCoreState,
   });
-  const settingsRegistryBridge = createSettingsRegistryBridge({
+  const settingsRegistryAdapter = createSettingsRegistryAdapter({
     settingsRegistry: deps.settingsRegistry,
   });
   const settingsDefaultsAccess = createSettingsDefaultsAccess({
@@ -35,9 +35,9 @@ export function createSettingsCoreSetupRuntime(deps) {
   });
   const settingsApplyRuntime = {
     serializeSettingsByKey: (key, fallbackSerialize) =>
-      settingsRegistryBridge.serializeSettingsByKey(key, fallbackSerialize),
+      settingsRegistryAdapter.serializeSettingsByKey(key, fallbackSerialize),
     applySettingsByKey: (key, rawData, fallbackApply) =>
-      settingsRegistryBridge.applySettingsByKey(key, rawData, fallbackApply),
+      settingsRegistryAdapter.applySettingsByKey(key, rawData, fallbackApply),
     normalizeAppliedSettings: (key, rawData, fallbackDefaults) =>
       appliedSettingsStoreSync.normalizeAppliedSettings(key, rawData, fallbackDefaults),
     updateStoreFromAppliedSettings: (key, normalized) =>
@@ -45,18 +45,18 @@ export function createSettingsCoreSetupRuntime(deps) {
     getSettingsDefaults: (key, fallback) =>
       settingsDefaultsAccess.getSettingsDefaults(key, fallback),
   };
-  function getLegacyBindings() {
-    return typeof deps.getLegacyBindings === "function" ? (deps.getLegacyBindings() || {}) : {};
+  function getCompatBindings() {
+    return typeof deps.getCompatBindings === "function" ? (deps.getCompatBindings() || {}) : {};
   }
 
   function getSettingsRuntimeBinding() {
     return typeof deps.getSettingsRuntimeBinding === "function" ? deps.getSettingsRuntimeBinding() : null;
   }
 
-  function callLegacy(name, ...args) {
-    const bindings = getLegacyBindings();
+  function callCompat(name, ...args) {
+    const bindings = getCompatBindings();
     if (typeof bindings[name] !== "function") {
-      throw new Error(`settingsBridgeRuntime missing legacy binding: ${name}`);
+      throw new Error(`settingsCompatRuntime missing compatibility binding: ${name}`);
     }
     return bindings[name](...args);
   }
@@ -64,28 +64,28 @@ export function createSettingsCoreSetupRuntime(deps) {
   function callCanonical(name, ...args) {
     const binding = getSettingsRuntimeBinding();
     if (!binding || typeof binding[name] !== "function") {
-      throw new Error(`settingsBridgeRuntime missing canonical binding: ${name}`);
+      throw new Error(`settingsCompatRuntime missing canonical binding: ${name}`);
     }
     return binding[name](...args);
   }
 
-  const settingsBridgeRuntime = {
-    serializeLightingSettingsLegacy: (...args) => callLegacy("serializeLightingSettingsLegacy", ...args),
-    applyLightingSettingsLegacy: (...args) => callLegacy("applyLightingSettingsLegacy", ...args),
-    serializeFogSettingsLegacy: (...args) => callLegacy("serializeFogSettingsLegacy", ...args),
-    applyFogSettingsLegacy: (...args) => callLegacy("applyFogSettingsLegacy", ...args),
-    serializeParallaxSettingsLegacy: (...args) => callLegacy("serializeParallaxSettingsLegacy", ...args),
-    applyParallaxSettingsLegacy: (...args) => callLegacy("applyParallaxSettingsLegacy", ...args),
-    serializeCloudSettingsLegacy: (...args) => callLegacy("serializeCloudSettingsLegacy", ...args),
-    applyCloudSettingsLegacy: (...args) => callLegacy("applyCloudSettingsLegacy", ...args),
-    serializeWaterSettingsLegacy: (...args) => callLegacy("serializeWaterSettingsLegacy", ...args),
-    applyWaterSettingsLegacy: (...args) => callLegacy("applyWaterSettingsLegacy", ...args),
-    serializeInteractionSettingsLegacy: (...args) => callLegacy("serializeInteractionSettings", ...args),
-    applyInteractionSettingsLegacy: (...args) => callLegacy("applyInteractionSettingsLegacy", ...args),
-    serializeSwarmDataLegacy: (...args) => callLegacy("serializeSwarmDataLegacy", ...args),
-    applySwarmSettingsLegacy: (...args) => callLegacy("applySwarmSettingsLegacy", ...args),
-    applySwarmData: (...args) => callLegacy("applySwarmData", ...args),
-    syncPathfindingSettingsUi: (...args) => callLegacy("syncPathfindingSettingsUi", ...args),
+  const settingsCompatRuntime = {
+    serializeLightingSettingsCompat: (...args) => callCompat("serializeLightingSettingsCompat", ...args),
+    applyLightingSettingsCompat: (...args) => callCompat("applyLightingSettingsCompat", ...args),
+    serializeFogSettingsCompat: (...args) => callCompat("serializeFogSettingsCompat", ...args),
+    applyFogSettingsCompat: (...args) => callCompat("applyFogSettingsCompat", ...args),
+    serializeParallaxSettingsCompat: (...args) => callCompat("serializeParallaxSettingsCompat", ...args),
+    applyParallaxSettingsCompat: (...args) => callCompat("applyParallaxSettingsCompat", ...args),
+    serializeCloudSettingsCompat: (...args) => callCompat("serializeCloudSettingsCompat", ...args),
+    applyCloudSettingsCompat: (...args) => callCompat("applyCloudSettingsCompat", ...args),
+    serializeWaterSettingsCompat: (...args) => callCompat("serializeWaterSettingsCompat", ...args),
+    applyWaterSettingsCompat: (...args) => callCompat("applyWaterSettingsCompat", ...args),
+    serializeInteractionSettingsCompat: (...args) => callCompat("serializeInteractionSettingsCompat", ...args),
+    applyInteractionSettingsCompat: (...args) => callCompat("applyInteractionSettingsCompat", ...args),
+    serializeSwarmDataCompat: (...args) => callCompat("serializeSwarmDataCompat", ...args),
+    applySwarmSettingsCompat: (...args) => callCompat("applySwarmSettingsCompat", ...args),
+    applySwarmData: (...args) => callCompat("applySwarmData", ...args),
+    syncPathfindingSettingsUi: (...args) => callCompat("syncPathfindingSettingsUi", ...args),
     serializeLightingSettings: (...args) => callCanonical("serializeLightingSettings", ...args),
     applyLightingSettings: (...args) => callCanonical("applyLightingSettings", ...args),
     serializeFogSettings: (...args) => callCanonical("serializeFogSettings", ...args),
@@ -113,6 +113,6 @@ export function createSettingsCoreSetupRuntime(deps) {
     timeStateRuntime,
     simulationKnobAccess,
     settingsApplyRuntime,
-    settingsBridgeRuntime,
+    settingsCompatRuntime,
   };
 }

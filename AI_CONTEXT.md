@@ -78,7 +78,7 @@ No game engine is used.
 - Time-routing/time-config state-access helpers are now extracted to `src/core/timeStateAccess.js`.
 - Applied-settings normalization/store-sync helpers (`normalizeAppliedSettings`, `updateStoreFromAppliedSettings`) are now extracted to `src/core/appliedSettingsStoreSync.js`.
 - Simulation-knob section state-access helper (`getSimulationKnobSectionFromStore`) is now extracted to `src/core/simulationKnobAccess.js`.
-- Settings-registry bridge helpers (`serializeSettingsByKey`, `applySettingsByKey`) are now extracted to `src/core/settingsRegistryBridge.js`.
+- Settings-registry adapter helpers (`serializeSettingsByKey`, `applySettingsByKey`) are now extracted to `src/core/settingsRegistryAdapter.js`.
 - Settings-defaults access helper (`getSettingsDefaults`) is now extracted to `src/core/settingsDefaultsAccess.js`.
 - Color conversion helpers are now extracted to `src/core/colorUtils.js`.
 - Shared clamp/interpolation/hour-format helpers are now extracted to `src/core/mathUtils.js`.
@@ -118,6 +118,7 @@ No game engine is used.
 - Pathfinding runtime composition (cost-model binding + preview runtime + movement-field ownership) is now extracted to `src/gameplay/pathfindingRuntimeBinding.js`.
 - Info-panel status composition/update logic is now extracted to `src/ui/infoPanelRuntime.js`.
 - Render-FX label/UI helper updates (`update*Label`/`update*Ui`) are now extracted to `src/ui/renderFxUiRuntime.js`.
+- Terrain, swarm, shadow, and blur shader source is now extracted to `src/render/shaders.js`.
 - Render-FX UI binding composition (label/UI wrapper methods) is now extracted to `src/ui/renderFxUiBindingRuntime.js`.
 - Pathfinding label updates now bind directly to `src/ui/pathfindingLabelUi.js` through app-level interaction setup.
 - Render-FX binding orchestration (`bindRenderFxControls` deps composition) is now extracted to `src/ui/renderFxBindingRuntime.js`.
@@ -137,9 +138,9 @@ No game engine is used.
 - Map-IO helper composition now uses `src/gameplay/mapIoHelpers.js` directly inside `src/gameplay/mapSupportRuntime.js`.
 - Map path/url helpers are now extracted to `src/gameplay/mapPathUtils.js`.
 - Settings-apply composition now lives directly inside `src/core/settingsCoreSetupRuntime.js`.
-- Settings runtime facade (canonical serialize/apply/default access for lighting/fog/parallax/cloud/water/interaction/swarm settings) is now extracted to `src/core/settingsRuntimeBinding.js`.
-- Lazy settings facade wiring that bridges legacy serializers/appliers with canonical settings access now lives directly inside `src/core/settingsCoreSetupRuntime.js`, so `main.js` no longer owns the long serialize/apply/get-defaults shim block inline.
-- Legacy settings/UI composition (swarm/interaction/lighting/render-FX appliers plus legacy serializers) is now extracted to `src/ui/settingsLegacyRuntimeBinding.js`.
+- Settings runtime binding (canonical serialize/apply/default access for lighting/fog/parallax/cloud/water/interaction/swarm settings) is extracted to `src/core/settingsRuntimeBinding.js`.
+- Lazy settings compatibility wiring now lives directly inside `src/core/settingsCoreSetupRuntime.js`, so `main.js` no longer owns the long serialize/apply/get-defaults shim block inline.
+- Compatibility settings/UI composition (swarm/interaction/lighting/render-FX appliers plus JSON-compatible serializers) is extracted to `src/ui/settingsCompatRuntimeBinding.js`.
 - Render-FX command-side UI reflection is now grouped behind `src/ui/renderFxSettingsSyncRuntime.js` instead of being expanded inline inside `src/core/registerMainCommands.js`.
 - Swarm command-side panel reflection is now grouped behind `src/ui/swarmSettingsSyncRuntime.js`, and time-routing/cycle-speed/sim-tick input reflection is now grouped behind `src/ui/timeRoutingSettingsSyncRuntime.js`.
 - Scheduler/system registration plus initial runtime-store synchronization is now extracted to `src/core/runtimeSystemSetup.js`, so `main.js` no longer owns the full system-add/init block inline.
@@ -161,7 +162,7 @@ No game engine is used.
 - Early time/settings setup assembly is now grouped behind `src/core/settingsCoreSetupRuntime.js`.
 - Overlay composition is now grouped behind `src/ui/overlaySetupRuntime.js`.
 - Point-light + map-lifecycle assembly is now grouped behind `src/app/mapLightingAssemblyRuntime.js`, which feeds `src/gameplay/mapLightingAssemblyRuntime.js`.
-- Settings legacy/runtime assembly is now grouped behind `src/ui/settingsAssemblyRuntime.js`.
+- Settings compatibility/runtime assembly is now grouped behind `src/ui/settingsAssemblyRuntime.js`.
 - App-level bootstrap/dependency shaping now lives primarily under `src/app/`, including:
   - `src/app/mainCommandAssemblyRuntime.js`
   - `src/app/runtimeSystemsAssemblyRuntime.js`
@@ -176,17 +177,17 @@ No game engine is used.
   - `src/app/runtimeFeatureAssemblyRuntime.js`
   - `src/app/interactionFeatureAssemblyRuntime.js`
   - `src/app/bootstrapFeatureAssemblyRuntime.js`
-- Many bridge-era wrappers/facades have been deleted; `main.js` now depends more directly on concrete runtime owners and app-level assembly modules.
+- Migration-era wrapper modules have been deleted from active runtime paths; `main.js` now depends more directly on concrete runtime owners and app-level assembly modules.
 - Startup-order hazards exposed during the extraction were hardened by switching fragile eager dependencies to getter/lazy access patterns in the affected setup paths.
-- The JS architecture suite now covers the post-facade ownership model and currently passes with `node --test tests/*.test.js`.
+- The JS architecture suite now covers the final ownership model and currently passes with `node --test tests/*.test.js`.
   - point-light bake/setup composition
   - point-light + map-lifecycle assembly
   - light/mode interaction setup
   - swarm runtime/render setup
   - main command dependency assembly
   - initial runtime-system sync wiring
-- Point-light bake operations now hang directly off `src/render/pointLightBakeRuntimeBinding.js`; the old point-light bake facade layer has been removed.
-- Legacy settings dependency assembly is now handled by `src/ui/settingsAssemblyRuntime.js` together with `src/ui/settingsLegacyRuntimeBinding.js`.
+- Point-light bake operations now hang directly off `src/render/pointLightBakeRuntimeBinding.js`; the old point-light bake wrapper layer has been removed.
+- Compatibility settings dependency assembly is handled by `src/ui/settingsAssemblyRuntime.js` together with `src/ui/settingsCompatRuntimeBinding.js`.
 - Render-pipeline composition is now handled directly by `src/render/renderPipelineRuntime.js`, with the top-level dependency shaping moved into `src/app/runtimeFeatureAssemblyRuntime.js`.
 - Gameplay bootstrap state objects/scratch buffers are now grouped behind `src/gameplay/gameplayBootstrapState.js` instead of leaving that large live-state block inline in `main.js`.
 - Render/bootstrap resource allocation is now grouped behind `src/render/renderBootstrapState.js` instead of leaving that allocation block inline in `main.js`.
@@ -203,9 +204,7 @@ No game engine is used.
 - Optional map sidecar URL loads now treat missing JSON files as expected/quiet while still warning on malformed JSON or unexpected load failures; browser startup favicon noise is removed via `assets/favicon.svg`.
 - Camera-view binding runtime composition (`createCameraViewRuntime` deps composition + wrapper methods) is now extracted to `src/gameplay/cameraViewRuntimeBinding.js`.
 - Camera runtime composition (camera-view binding plus coordinate/camera transform wrapper methods) is now extracted to `src/gameplay/cameraRuntimeBinding.js`.
-- Startup ordering hardening is still in progress after recent extractions:
-  - camera/pathfinding/render-fx/light-editor wrapper surfaces in `main.js` now use hoisted lazy accessors instead of late alias bindings where early startup paths needed them
-  - swarm follow/store-sync startup paths are hardened against missing early deps (`store`, follow snapshot state, optional enable getter)
+- Startup ordering hardening from the extraction is complete for the current architecture; early startup paths use lazy accessors where dependencies are intentionally late-bound.
 - Pathfinding command-side UI reflection is now routed through `src/ui/pathfindingSettingsApplier.js` instead of direct DOM writes inside `src/gameplay/interactionCommands.js`.
 - Player runtime composition (player-state binding, NPC persistence, and player store-sync wrapper methods) is now extracted to `src/gameplay/playerRuntimeBinding.js`.
 - `main.js` no longer keeps separate pass-through wrapper functions for player/NPC persistence or swarm-follow snapshot/smoothing; those call sites now bind directly to the existing runtime methods.
@@ -219,14 +218,15 @@ No game engine is used.
 - Overlay/gameplay frame integration now goes through `src/ui/overlays/overlayHooks.js` (gameplay update hook + overlay render hook).
 - Overlay animation gating policy (`shouldAnimateOverlay`) is now extracted to `src/ui/overlays/overlayAnimationRuntime.js`.
 - Overlay dirty-flag state ownership is now extracted to `src/ui/overlays/overlayDirtyRuntime.js`.
-- The old per-frame `frameSnapshot` / `runtimeParityAdapter` bridge has been removed.
+- The old per-frame `frameSnapshot` / `runtimeParityAdapter` migration layer has been removed.
 - Core state is now updated through command handlers, settings apply flows, bootstrap/map-load synchronization, and scheduler-owned system updates.
 - Camera commands (`reset`, `zoomAtClient`, `dragToClient`, `setPose`) now commit canonical camera pose in store first and then apply a runtime camera adapter.
 - Frame render camera inputs now resolve from canonical `coreState.camera` defaults (not local runtime-camera fallbacks) across frame-state assembly and uniform upload.
 - Local runtime camera mirror state (`panWorld`/`zoom`) has been removed; camera ownership is canonical store state.
-- Migration is still in progress:
-  - active time/render FX/pathfinding/swarm settings now prefer core state
-  - some UI/apply helpers still remain DOM-backed for view synchronization and legacy save/apply paths
+- Migration is complete:
+  - active time/render FX/pathfinding/swarm settings prefer core state
+  - cycle-hour/time-of-day authority is held in core store `ui.cycleHour`
+  - UI/apply helpers that touch DOM are compatibility/reflection paths, not runtime truth
 - Settings UI: left vertical topic-icon dock + single side panel (one topic open at a time)
   - Mode toggles: `LM` and `PF` (note: `AS` is a topic button that opens the Agent Swarm panel in `index.html`, not a mode toggle)
   - Runtime mode capability gating is now active (`dev`/`gameplay`/`hybrid`) for topic buttons + interaction mode toggles.
@@ -487,17 +487,19 @@ Latest manual validation:
 - No georeferenced sun position.
 - No animated movement yet (currently instant click-to-move).
 - The modular architecture migration is complete; `src/main.js` remains the largest integration surface, but it now acts primarily as composition/orchestration over established `src/app/`, `src/core/`, `src/render/`, `src/gameplay/`, `src/ui/`, and `src/sim/` owner modules.
-- After the final cleanup pass, `src/main.js` is around 3054 lines in the current worktree. It is still the largest integration surface, but most dependency shaping now lives in `src/app/` assembly modules.
+- After the final cleanup pass, `src/main.js` is around 2477 lines in the current worktree. It is still the largest integration surface, but most dependency shaping now lives in `src/app/` assembly modules and shader source lives under `src/render/`.
 - Manual smoke testing is now green in both browser and installed Tauri runtime, so the next migration work should be driven by ownership clarity or targeted performance issues, not speculative stability fixes.
 
 ## Render Module Breakdown
 
 - `src/render/renderer.js`:
-  - render-pass registration and execution facade.
+  - render-pass registration and execution coordinator.
   - orchestrates which pass chain runs per frame.
 - `src/render/resources.js`:
   - render resource helpers.
   - metadata hooks, including weather-field metadata.
+- `src/render/shaders.js`:
+  - terrain, swarm, shadow, and blur shader source strings.
 - `src/render/passes/*`:
   - pass modules for shadow, blur, main terrain, and point-light usage.
 - `src/render/precompute/*`:
@@ -509,61 +511,3 @@ Latest manual validation:
   - assembles uniform input object consumed by terrain shading upload.
 
 ## Session Handoff (2026-04-20)
-
-Current code now includes the following major rendering/pipeline changes:
-
-- Shadow pipeline refactor (performance):
-  - Main terrain shader no longer raymarches shadows per screen pixel.
-  - Separate map-space shadow pass writes sun/moon visibility into `uShadowTex` (R/G channels).
-  - Optional blur pass is applied to that shadow texture before terrain lighting.
-  - Shadow map is rendered at reduced resolution (`heightSize * 0.5`) for speed.
-
-- Volumetric scattering:
-  - Uses fog + cloud occlusion integration and now has soft-knee compression/headroom compositing to avoid overblown highlights.
-  - Explicit sun-altitude scaling is applied so midday rays are shorter/weaker than low-sun rays.
-
-- Water FX system:
-  - New `Water` topic panel and `waterfx.json` persistence.
-  - Effects combined in one shader path (water-mask only):
-    - flow shimmer
-    - flow-line modulation
-    - sun/moon glints
-    - shoreline foam
-    - sky-tint reflection
-  - Supports fixed direction or downhill flow mode.
-
-- Downhill flow implementation (latest state):
-  - Runtime no longer computes only local slope for downhill direction.
-  - A precomputed multi-scale flow-map texture (`uFlowMap`) is generated from `height.png` on map load and sampled in shader.
-  - In downhill mode, fixed-direction slider input is no longer used to seed flow direction; direction comes only from flow-map trend + local height gradient.
-  - Precompute is controlled by 3 user radii and 3 user weights.
-  - Runtime direction can blend trend flow-map direction with local 1-texel downhill via `Local Flow Mix`.
-  - `Downhill Boost` scales downhill water-motion intensity (normal perturbation + flow-line tint) without affecting fixed-direction mode.
-  - Water tint applies in the shader as a controllable (`0..1`) color mix over water-lit shading.
-  - Downhill direction now has an `Invert Downhill` toggle for rapid direction flip when source gradients appear reversed.
-  - Flow-map precompute resolution is increased (`~height/2`, clamped to `64..512`) to reduce coarse direction blocks and visible zone seams.
-  - Water FX sampling now snaps to map texel centers before evaluating water mask/flow/noise/shoreline, which removes sub-pixel water variation and keeps influence map-pixel locked.
-  - `Flow Debug` toggle overlays computed direction on water pixels for inspection.
-
-Where to look in code for continuation:
-
-- Main shader water logic:
-  - `applyWaterFx(...)` in `src/main.js`
-- Flow-map build/update:
-  - `buildFlowMapImageDataFromHeight(...)`
-  - `rebuildFlowMapTexture()`
-  - called from map-image apply and water-flow control updates
-- Water settings lifecycle:
-  - `DEFAULT_WATER_SETTINGS`
-  - `serializeWaterSettings()`
-  - `applyWaterSettings(...)`
-  - map save/load includes `waterfx.json`
-
-Likely next tuning work (based on latest user feedback):
-
-- Fine-tune default values for:
-  - `waterLocalFlowMix`
-  - `waterFlowRadius1/2/3`
-  - `waterFlowWeight1/2/3`
-- Validate that `Flow Debug` gives intuitive direction colors and optional magnitude cue.
-- If needed, add presets (for example `Local`, `Balanced`, `Trend`) to quickly switch between looks.

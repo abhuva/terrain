@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { createSwarmRuntime } from "../src/gameplay/swarmRuntime.js";
 
-test("swarmRuntime exposes direct sync ownership after facade removal", () => {
+test("swarmRuntime exposes direct sync ownership after wrapper removal", () => {
   const calls = [];
   const store = {
     state: {

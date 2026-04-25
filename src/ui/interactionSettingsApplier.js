@@ -1,5 +1,5 @@
 export function createInteractionSettingsApplier(deps) {
-  return function applyInteractionSettingsLegacy(rawData) {
+  return function applyInteractionSettingsCompat(rawData) {
     deps.syncPathfindingSettingsUi();
 
     const cursorLight = deps.getCursorLightSnapshot();

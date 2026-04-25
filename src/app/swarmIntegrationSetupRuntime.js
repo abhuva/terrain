@@ -7,11 +7,11 @@ import { setInteractionMode as applyInteractionMode } from "../gameplay/interact
 export function createSwarmIntegrationSetupRuntime(deps) {
   const swarmGameplayRuntime = createSwarmGameplayRuntime(deps.gameplay);
 
-  const { settingsLegacyBindings, settingsRuntimeBinding } = createSettingsAssemblyRuntime({
+  const { settingsCompatBindings, settingsRuntimeBinding } = createSettingsAssemblyRuntime({
     ...deps.settingsAssembly,
-    legacy: {
-      ...deps.settingsAssembly.legacy,
-      serializeSwarmDataLegacy: swarmGameplayRuntime.serializeSwarmData,
+    Compat: {
+      ...deps.settingsAssembly.Compat,
+      serializeSwarmDataCompat: swarmGameplayRuntime.serializeSwarmData,
       applySwarmData: swarmGameplayRuntime.applySwarmData,
     },
   });
@@ -45,8 +45,7 @@ export function createSwarmIntegrationSetupRuntime(deps) {
       applyInteractionMode(
         {
           canUseInteractionInCurrentMode: deps.interactionContext.canUseInteractionInCurrentMode,
-          dockLightingModeToggle: deps.interactionContext.dockLightingModeToggle,
-          dockPathfindingModeToggle: deps.interactionContext.dockPathfindingModeToggle,
+          syncInteractionModeUi: deps.interactionContext.syncInteractionModeUi,
           movePreviewState: deps.interactionContext.movePreviewState,
           store: deps.interactionContext.store,
           requestOverlayDraw: deps.interactionContext.requestOverlayDraw,
@@ -85,7 +84,7 @@ export function createSwarmIntegrationSetupRuntime(deps) {
     chooseRandomFollowHawkIndex: swarmGameplayRuntime.chooseRandomFollowHawkIndex,
     ensureSwarmBuffers: swarmGameplayRuntime.ensureSwarmBuffers,
     reseedSwarmAgents: swarmGameplayRuntime.reseedSwarmAgents,
-    settingsLegacyBindings,
+    settingsCompatBindings,
     settingsRuntimeBinding,
     swarmRenderSetupRuntime,
     swarmOverlayRuntime: swarmRenderSetupRuntime.swarmOverlayRuntime,

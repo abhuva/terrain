@@ -1,4 +1,4 @@
-export function createSettingsRegistryBridge(deps) {
+export function createSettingsRegistryAdapter(deps) {
   function serializeSettingsByKey(key, fallbackSerialize) {
     if (!deps.settingsRegistry.has(key)) {
       return fallbackSerialize();

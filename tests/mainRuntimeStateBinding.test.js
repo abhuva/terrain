@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { createMainRuntimeStateBinding } from "../src/gameplay/mainRuntimeStateBinding.js";
 
-test("mainRuntimeStateBinding exposes direct runtime-state ownership without facade indirection", () => {
+test("mainRuntimeStateBinding exposes direct runtime-state ownership without extra indirection", () => {
   const calls = [];
   const store = {
     state: {
@@ -33,7 +33,7 @@ test("mainRuntimeStateBinding exposes direct runtime-state ownership without fac
     defaultSwarmSettings: { enabled: true, cursorMode: "push", minHeight: 10, maxHeight: 100 },
     updateStoreFromAppliedSettings: () => {},
     normalizeAppliedSettings: (_key, rawData) => rawData,
-    applySwarmSettingsLegacy: () => {},
+    applySwarmSettingsCompat: () => {},
     getCurrentMapFolderPath: () => "assets/Map 1/",
     getSplatSize: () => ({ width: 128, height: 64 }),
     getCursorLightState: () => null,

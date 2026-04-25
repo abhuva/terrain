@@ -13,6 +13,6 @@ export function createSettingsCoreAssemblyRuntime(deps) {
     clamp: deps.clamp,
     simSecondsPerHour: deps.simSecondsPerHour,
     getSettingsRuntimeBinding: deps.getSettingsRuntimeBinding,
-    getLegacyBindings: deps.getLegacyBindings,
+    getCompatBindings: deps.getCompatBindings,
   };
 }

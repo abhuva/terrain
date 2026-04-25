@@ -1,8 +1,8 @@
-import { createSettingsLegacyRuntimeBinding } from "./settingsLegacyRuntimeBinding.js";
+import { createSettingsCompatRuntimeBinding } from "./settingsCompatRuntimeBinding.js";
 import { createSettingsRuntimeBinding } from "../core/settingsRuntimeBinding.js";
 
 export function createSettingsAssemblyRuntime(deps) {
-  const settingsLegacyBindings = createSettingsLegacyRuntimeBinding(deps.legacy);
+  const settingsCompatBindings = createSettingsCompatRuntimeBinding(deps.Compat);
   const settingsRuntimeBinding = createSettingsRuntimeBinding({
     settingsApplyRuntime: deps.settingsApplyRuntime,
     defaultLightingSettings: deps.defaultLightingSettings,
@@ -12,25 +12,25 @@ export function createSettingsAssemblyRuntime(deps) {
     defaultWaterSettings: deps.defaultWaterSettings,
     defaultInteractionSettings: deps.defaultInteractionSettings,
     defaultSwarmSettings: deps.defaultSwarmSettings,
-    serializeLightingSettingsLegacy: (...args) => deps.settingsBridgeRuntime.serializeLightingSettingsLegacy(...args),
-    applyLightingSettingsLegacy: (...args) => deps.settingsBridgeRuntime.applyLightingSettingsLegacy(...args),
-    serializeFogSettingsLegacy: (...args) => deps.settingsBridgeRuntime.serializeFogSettingsLegacy(...args),
-    applyFogSettingsLegacy: (...args) => deps.settingsBridgeRuntime.applyFogSettingsLegacy(...args),
-    serializeParallaxSettingsLegacy: (...args) => deps.settingsBridgeRuntime.serializeParallaxSettingsLegacy(...args),
-    applyParallaxSettingsLegacy: (...args) => deps.settingsBridgeRuntime.applyParallaxSettingsLegacy(...args),
-    serializeCloudSettingsLegacy: (...args) => deps.settingsBridgeRuntime.serializeCloudSettingsLegacy(...args),
-    applyCloudSettingsLegacy: (...args) => deps.settingsBridgeRuntime.applyCloudSettingsLegacy(...args),
-    serializeWaterSettingsLegacy: (...args) => deps.settingsBridgeRuntime.serializeWaterSettingsLegacy(...args),
-    applyWaterSettingsLegacy: (...args) => deps.settingsBridgeRuntime.applyWaterSettingsLegacy(...args),
-    serializeInteractionSettingsLegacy: (...args) => deps.settingsBridgeRuntime.serializeInteractionSettingsLegacy(...args),
-    applyInteractionSettingsLegacy: (...args) => deps.settingsBridgeRuntime.applyInteractionSettingsLegacy(...args),
-    serializeSwarmDataLegacy: (...args) => deps.settingsBridgeRuntime.serializeSwarmDataLegacy(...args),
-    applySwarmSettingsLegacy: (...args) => deps.settingsBridgeRuntime.applySwarmSettingsLegacy(...args),
+    serializeLightingSettingsCompat: (...args) => deps.settingsCompatRuntime.serializeLightingSettingsCompat(...args),
+    applyLightingSettingsCompat: (...args) => deps.settingsCompatRuntime.applyLightingSettingsCompat(...args),
+    serializeFogSettingsCompat: (...args) => deps.settingsCompatRuntime.serializeFogSettingsCompat(...args),
+    applyFogSettingsCompat: (...args) => deps.settingsCompatRuntime.applyFogSettingsCompat(...args),
+    serializeParallaxSettingsCompat: (...args) => deps.settingsCompatRuntime.serializeParallaxSettingsCompat(...args),
+    applyParallaxSettingsCompat: (...args) => deps.settingsCompatRuntime.applyParallaxSettingsCompat(...args),
+    serializeCloudSettingsCompat: (...args) => deps.settingsCompatRuntime.serializeCloudSettingsCompat(...args),
+    applyCloudSettingsCompat: (...args) => deps.settingsCompatRuntime.applyCloudSettingsCompat(...args),
+    serializeWaterSettingsCompat: (...args) => deps.settingsCompatRuntime.serializeWaterSettingsCompat(...args),
+    applyWaterSettingsCompat: (...args) => deps.settingsCompatRuntime.applyWaterSettingsCompat(...args),
+    serializeInteractionSettingsCompat: (...args) => deps.settingsCompatRuntime.serializeInteractionSettingsCompat(...args),
+    applyInteractionSettingsCompat: (...args) => deps.settingsCompatRuntime.applyInteractionSettingsCompat(...args),
+    serializeSwarmDataCompat: (...args) => deps.settingsCompatRuntime.serializeSwarmDataCompat(...args),
+    applySwarmSettingsCompat: (...args) => deps.settingsCompatRuntime.applySwarmSettingsCompat(...args),
     syncSwarmStateToStore: deps.syncSwarmStateToStore,
   });
 
   return {
-    settingsLegacyBindings,
+    settingsCompatBindings,
     settingsRuntimeBinding,
   };
 }

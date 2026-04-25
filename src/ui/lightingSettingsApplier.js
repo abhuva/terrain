@@ -1,5 +1,5 @@
 export function createLightingSettingsApplier(deps) {
-  return function applyLightingSettingsLegacy(rawData) {
+  return function applyLightingSettingsCompat(rawData) {
     const state = deps.getCoreState();
     const lighting = deps.getLightingSettings();
     const timeState = state.systems && state.systems.time ? state.systems.time : {};

@@ -1,3 +1,5 @@
+const DEFAULT_CYCLE_HOUR = 9.5;
+
 const DEFAULT_WEATHER_STATE = {
   type: "clear",
   intensity: 0,
@@ -122,7 +124,9 @@ export function createInitialState() {
       swarm: { ...DEFAULT_GAMEPLAY_SWARM },
       movement: { ...DEFAULT_GAMEPLAY_MOVEMENT },
     },
-    ui: {},
+    ui: {
+      cycleHour: DEFAULT_CYCLE_HOUR,
+    },
   };
 }
 
