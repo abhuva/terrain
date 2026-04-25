@@ -1,16 +1,19 @@
 export function registerInteractionCommands(commandBus, deps) {
-  commandBus.register("core/interaction/setMode", (command, ctx) => {
+  function isMovementActive() {
+    if (typeof deps.getMovementStateSnapshot !== "function") return false;
+    const snapshot = deps.getMovementStateSnapshot();
+    return Boolean(snapshot && snapshot.active);
+  }
+
+  function syncPlayerToStore() {
+    deps.syncPlayerStateToStore();
+  }
+
+  commandBus.register("core/interaction/setMode", (command) => {
     deps.setInteractionMode(command.mode);
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        interactionMode: deps.getInteractionMode(),
-      },
-    }));
   });
 
-  commandBus.register("core/interaction/clickMapPixel", (command, ctx) => {
+  commandBus.register("core/interaction/clickMapPixel", (command) => {
     const pixel = {
       x: Number(command.x),
       y: Number(command.y),
@@ -36,105 +39,116 @@ export function registerInteractionCommands(commandBus, deps) {
         deps.requestOverlayDraw();
         return;
       }
-      deps.setPlayerPosition(pixel.x, pixel.y);
-      deps.rebuildMovementField();
-      deps.movePreviewState.hoverPixel = { x: deps.playerState.pixelX, y: deps.playerState.pixelY };
-      deps.movePreviewState.pathPixels = deps.extractPathTo(deps.playerState.pixelX, deps.playerState.pixelY);
-      deps.setStatus(`Player moved to (${deps.playerState.pixelX}, ${deps.playerState.pixelY})`);
-      ctx.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          player: {
-            ...prev.gameplay.player,
-            pixelX: deps.playerState.pixelX,
-            pixelY: deps.playerState.pixelY,
-          },
-        },
-      }));
+      if (typeof deps.replaceMovementQueue === "function") {
+        const replaced = deps.replaceMovementQueue(deps.movePreviewState.pathPixels);
+        if (!replaced) {
+          deps.setStatus("Unable to queue movement for selected path.");
+          deps.requestOverlayDraw();
+          return;
+        }
+      }
+      deps.setInteractionMode("none");
+      deps.movePreviewState.hoverPixel = null;
+      deps.movePreviewState.pathPixels = [];
+      syncPlayerToStore();
+      deps.requestOverlayDraw();
+      return;
+    }
+
+    if (isMovementActive() && typeof deps.cancelMovementQueue === "function") {
+      deps.cancelMovementQueue();
+      deps.movePreviewState.hoverPixel = null;
+      deps.movePreviewState.pathPixels = [];
+      deps.setStatus(`Movement canceled at (${deps.playerState.pixelX}, ${deps.playerState.pixelY}).`);
+      syncPlayerToStore();
       deps.requestOverlayDraw();
       return;
     }
 
     deps.setPlayerPosition(pixel.x, pixel.y);
+    if (typeof deps.cancelMovementQueue === "function") {
+      deps.cancelMovementQueue();
+    }
     deps.rebuildMovementField();
     deps.movePreviewState.hoverPixel = null;
     deps.movePreviewState.pathPixels = [];
     deps.setStatus(`Player moved to (${deps.playerState.pixelX}, ${deps.playerState.pixelY})`);
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        player: {
-          ...prev.gameplay.player,
-          pixelX: deps.playerState.pixelX,
-          pixelY: deps.playerState.pixelY,
-        },
-      },
-    }));
     deps.requestOverlayDraw();
   });
 
-  function syncPathfindingStateToStore(ctx) {
-    if (typeof deps.getPathfindingStateSnapshot !== "function") return;
-    const next = deps.getPathfindingStateSnapshot();
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        pathfinding: {
-          ...prev.gameplay.pathfinding,
-          ...next,
-        },
-      },
-    }));
+  function syncPathfindingStateToStore() {
+    deps.syncPathfindingStateToStore(
+      typeof deps.getPathfindingStateSnapshot === "function" ? deps.getPathfindingStateSnapshot() : {},
+    );
   }
 
-  commandBus.register("core/pathfinding/setRange", (command, ctx) => {
-    deps.updatePathfindingRangeLabel();
+  function updatePathfindingStoreField(patch) {
+    deps.patchPathfindingStateToStore(patch);
+  }
+
+  commandBus.register("core/pathfinding/setRange", (command) => {
+    updatePathfindingStoreField({
+      range: Math.round(deps.clamp(Number(command.value), 30, 300)),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setWeightSlope", (command, ctx) => {
-    deps.updatePathWeightLabels();
+  commandBus.register("core/pathfinding/setWeightSlope", (command) => {
+    updatePathfindingStoreField({
+      weightSlope: deps.clamp(Number(command.value), 0, 10),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setWeightHeight", (command, ctx) => {
-    deps.updatePathWeightLabels();
+  commandBus.register("core/pathfinding/setWeightHeight", (command) => {
+    updatePathfindingStoreField({
+      weightHeight: deps.clamp(Number(command.value), 0, 10),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setWeightWater", (command, ctx) => {
-    deps.updatePathWeightLabels();
+  commandBus.register("core/pathfinding/setWeightWater", (command) => {
+    updatePathfindingStoreField({
+      weightWater: deps.clamp(Number(command.value), 0, 100),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setSlopeCutoff", (command, ctx) => {
-    deps.updatePathSlopeCutoffLabel();
+  commandBus.register("core/pathfinding/setSlopeCutoff", (command) => {
+    updatePathfindingStoreField({
+      slopeCutoff: Math.round(deps.clamp(Number(command.value), 0, 90)),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setBaseCost", (command, ctx) => {
-    deps.updatePathBaseCostLabel();
+  commandBus.register("core/pathfinding/setBaseCost", (command) => {
+    updatePathfindingStoreField({
+      baseCost: deps.clamp(Number(command.value), 0, 2),
+    });
+    deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 }

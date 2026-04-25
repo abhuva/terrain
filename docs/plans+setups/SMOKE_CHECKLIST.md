@@ -1,12 +1,13 @@
 # Migration Smoke Checklist
 
-Last updated: 2026-04-22
+Last updated: 2026-04-25
 Purpose: fast behavioral compatibility check during architecture refactor.
 Policy: architecture-first; visual drift is acceptable unless it breaks usability/function.
 
 ## How To Use
 
 - Run this checklist after meaningful refactor slices (state/scheduler/render/UI extraction).
+- Before manual smoke testing, run `node --test tests/*.test.js` and fix any failing architecture checks first.
 - Mark each item `pass`, `fail`, or `n/a` with short notes.
 - If an item fails, fix or log explicitly before continuing large extraction work.
 
@@ -57,6 +58,19 @@ Policy: architecture-first; visual drift is acceptable unless it breaks usabilit
 - Map folder picker/path validation still works in desktop runtime.
 - JSON save/load via Tauri commands still works.
 - `.tauri-dist` refresh workflow still succeeds before Tauri run/build.
+
+## Current Baseline
+
+- JS architecture suite is expected to pass before UI smoke testing.
+- Current expected command:
+  - `node --test tests/*.test.js`
+- Current expected result:
+  - all tests pass
+  - only known noise is Node `MODULE_TYPELESS_PACKAGE_JSON` warnings
+- Latest verified manual result (`2026-04-25`):
+  - browser smoke test passed
+  - Tauri full build passed
+  - installed desktop build launched and basic play testing passed
 
 ## Acceptable Drift
 

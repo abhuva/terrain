@@ -2,241 +2,482 @@ import { normalizeRuntimeMode } from "./modeCapabilities.js";
 import { registerInteractionCommands } from "../gameplay/interactionCommands.js";
 
 export function registerMainCommands(commandBus, deps) {
-  function syncCameraToStore(ctx) {
-    ctx.store.update((prev) => ({
-      ...prev,
-      camera: {
-        ...prev.camera,
-        panX: deps.panWorld.x,
-        panY: deps.panWorld.y,
-        zoom: deps.getZoom(),
-      },
-    }));
+  function clampRound(value, min, max) {
+    return Math.round(deps.clamp(Number(value), min, max));
   }
 
-  function syncCursorLightToStore(ctx) {
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        cursorLight: {
-          ...prev.gameplay.cursorLight,
-          enabled: deps.cursorLightState.active,
-          useTerrainHeight: Boolean(deps.cursorLightState.useTerrainHeight),
-          strength: Math.round(deps.clamp(Number(deps.cursorLightState.strength), 1, 200)),
-          heightOffset: Math.round(deps.clamp(Number(deps.cursorLightState.heightOffset), 0, 120)),
-        },
-      },
-    }));
+  function normalizeHexColor(value, fallback) {
+    if (typeof value === "string" && /^#?[0-9a-fA-F]{6}$/.test(value)) {
+      return value.startsWith("#") ? value : `#${value}`;
+    }
+    return fallback;
   }
 
-  commandBus.register("core/setMode", (command, ctx) => {
+  function getFallbackCameraPose() {
+    return {
+      panX: 0,
+      panY: 0,
+      zoom: 1,
+    };
+  }
+
+  function getCameraPose(ctx) {
+    const camera = ctx.store.getState().camera || {};
+    const fallback = getFallbackCameraPose();
+    return {
+      panX: Number.isFinite(Number(camera.panX)) ? Number(camera.panX) : fallback.panX,
+      panY: Number.isFinite(Number(camera.panY)) ? Number(camera.panY) : fallback.panY,
+      zoom: Number.isFinite(Number(camera.zoom))
+        ? deps.clamp(Number(camera.zoom), deps.zoomMin, deps.zoomMax)
+        : fallback.zoom,
+    };
+  }
+
+  function applyCameraPose(ctx, pose, options = {}) {
+    const nextPanX = Number.isFinite(Number(pose && pose.panX)) ? Number(pose.panX) : getCameraPose(ctx).panX;
+    const nextPanY = Number.isFinite(Number(pose && pose.panY)) ? Number(pose.panY) : getCameraPose(ctx).panY;
+    const nextZoom = Number.isFinite(Number(pose && pose.zoom))
+      ? deps.clamp(Number(pose.zoom), deps.zoomMin, deps.zoomMax)
+      : getCameraPose(ctx).zoom;
+    deps.setCameraPoseToStore(nextPanX, nextPanY, nextZoom);
+    if (typeof deps.applyCameraPose === "function") {
+      deps.applyCameraPose({
+        panX: nextPanX,
+        panY: nextPanY,
+        zoom: nextZoom,
+      });
+    }
+    if (options.requestOverlay !== false) {
+      deps.requestOverlayDraw();
+    }
+  }
+
+  function syncCursorLightToStore() {
+    deps.syncCursorLightStateToStore();
+  }
+
+  commandBus.register("core/setMode", (command) => {
     const nextMode = normalizeRuntimeMode(command.mode);
-    ctx.store.update((prev) => ({ ...prev, mode: nextMode }));
+    deps.setModeToStore(nextMode);
     deps.setInteractionMode(deps.getInteractionMode());
-    const interactionMode = deps.getInteractionMode();
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        interactionMode,
-      },
-    }));
   });
 
   registerInteractionCommands(commandBus, deps);
 
-  commandBus.register("core/renderFx/changed", (command, ctx) => {
+  commandBus.register("core/renderFx/changed", (command) => {
     const section = String(command.section || "");
-    if (typeof deps.markSimulationKnobsDirty === "function") {
-      deps.markSimulationKnobsDirty(section);
+    const patch = command.patch && typeof command.patch === "object" ? command.patch : null;
+
+    function updateSimulationSection(key, nextSection) {
+      deps.patchSimulationKnobSectionToStore(key, nextSection);
     }
+
+    function getLightingSettings() {
+      const current = deps.serializeLightingSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getParallaxSettings() {
+      const current = deps.serializeParallaxSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getFogSettings() {
+      const current = deps.serializeFogSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getCloudSettings() {
+      const current = deps.serializeCloudSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
+    function getWaterSettings() {
+      const current = deps.serializeWaterSettings();
+      return {
+        ...current,
+        ...(patch || {}),
+      };
+    }
+
     if (section === "parallax") {
-      deps.updateParallaxStrengthLabel();
-      deps.updateParallaxBandsLabel();
-      deps.updateParallaxUi();
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            parallax: deps.serializeParallaxSettings(),
-          },
-        },
-      }));
+      const nextParallax = getParallaxSettings();
+      updateSimulationSection("parallax", {
+        useParallax: Boolean(nextParallax.useParallax),
+        parallaxStrength: deps.clamp(Number(nextParallax.parallaxStrength), 0, 1),
+        parallaxBands: clampRound(nextParallax.parallaxBands, 2, 256),
+      });
+      deps.syncRenderFxParallaxUi();
       return;
     }
 
     if (section === "lighting") {
-      deps.updateShadowBlurLabel();
-      deps.updateVolumetricLabels();
-      deps.updateVolumetricUi();
-      deps.updatePointFlickerLabels();
-      deps.updatePointFlickerUi();
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            lighting: deps.serializeLightingSettings(),
-          },
-        },
-      }));
+      const nextLighting = getLightingSettings();
+      updateSimulationSection("lighting", {
+        ...deps.serializeLightingSettings(),
+        useShadows: Boolean(nextLighting.useShadows),
+        heightScale: clampRound(nextLighting.heightScale, 1, 300),
+        shadowStrength: deps.clamp(Number(nextLighting.shadowStrength), 0, 1),
+        shadowBlur: deps.clamp(Number(nextLighting.shadowBlur), 0, 3),
+        ambient: deps.clamp(Number(nextLighting.ambient), 0, 1),
+        diffuse: deps.clamp(Number(nextLighting.diffuse), 0, 2),
+        useVolumetric: Boolean(nextLighting.useVolumetric),
+        volumetricStrength: deps.clamp(Number(nextLighting.volumetricStrength), 0, 1),
+        volumetricDensity: deps.clamp(Number(nextLighting.volumetricDensity), 0, 2),
+        volumetricAnisotropy: deps.clamp(Number(nextLighting.volumetricAnisotropy), 0, 0.95),
+        volumetricLength: clampRound(nextLighting.volumetricLength, 8, 160),
+        volumetricSamples: clampRound(nextLighting.volumetricSamples, 4, 24),
+        pointFlickerEnabled: Boolean(nextLighting.pointFlickerEnabled),
+        pointFlickerStrength: deps.clamp(Number(nextLighting.pointFlickerStrength), 0, 1),
+        pointFlickerSpeed: deps.clamp(Number(nextLighting.pointFlickerSpeed), 0.1, 12),
+        pointFlickerSpatial: deps.clamp(Number(nextLighting.pointFlickerSpatial), 0, 4),
+      });
+      deps.syncRenderFxLightingUi();
+      if (typeof deps.schedulePointLightBake === "function" && patch && Object.prototype.hasOwnProperty.call(patch, "heightScale")) {
+        deps.schedulePointLightBake();
+      }
       return;
     }
 
     if (section === "fog") {
+      const nextFog = getFogSettings();
+      updateSimulationSection("fog", {
+        useFog: Boolean(nextFog.useFog),
+        fogColor: normalizeHexColor(nextFog.fogColor, deps.serializeFogSettings().fogColor),
+        fogColorManual: command.markFogColorManual ? true : Boolean(nextFog.fogColorManual),
+        fogMinAlpha: deps.clamp(Number(nextFog.fogMinAlpha), 0, 1),
+        fogMaxAlpha: deps.clamp(Number(nextFog.fogMaxAlpha), 0, 1),
+        fogFalloff: deps.clamp(Number(nextFog.fogFalloff), 0.2, 4),
+        fogStartOffset: deps.clamp(Number(nextFog.fogStartOffset), 0, 1),
+      });
       if (command.markFogColorManual) {
         deps.markFogColorManual();
       }
-      deps.updateFogAlphaLabels();
-      deps.updateFogFalloffLabel();
-      deps.updateFogStartOffsetLabel();
-      deps.updateFogUi();
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            fog: deps.serializeFogSettings(),
-          },
-        },
-      }));
+      deps.syncRenderFxFogUi();
       return;
     }
 
     if (section === "clouds") {
-      deps.updateCloudLabels();
-      deps.updateCloudUi();
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            clouds: deps.serializeCloudSettings(),
-          },
-        },
-      }));
+      const nextClouds = getCloudSettings();
+      updateSimulationSection("clouds", {
+        ...deps.serializeCloudSettings(),
+        useClouds: Boolean(nextClouds.useClouds),
+        cloudCoverage: deps.clamp(Number(nextClouds.cloudCoverage), 0, 1),
+        cloudSoftness: deps.clamp(Number(nextClouds.cloudSoftness), 0.01, 0.35),
+        cloudOpacity: deps.clamp(Number(nextClouds.cloudOpacity), 0, 1),
+        cloudScale: deps.clamp(Number(nextClouds.cloudScale), 0.5, 8),
+        cloudSpeed1: deps.clamp(Number(nextClouds.cloudSpeed1), -0.3, 0.3),
+        cloudSpeed2: deps.clamp(Number(nextClouds.cloudSpeed2), -0.3, 0.3),
+        cloudSunParallax: deps.clamp(Number(nextClouds.cloudSunParallax), 0, 2),
+        cloudUseSunProjection: Boolean(nextClouds.cloudUseSunProjection),
+      });
+      deps.syncRenderFxCloudUi();
       return;
     }
 
     if (section === "waterfx") {
-      deps.updateWaterLabels();
-      deps.updateWaterUi();
+      const nextWater = getWaterSettings();
+      updateSimulationSection("waterFx", {
+        ...deps.serializeWaterSettings(),
+        useWaterFx: Boolean(nextWater.useWaterFx),
+        waterFlowDownhill: Boolean(nextWater.waterFlowDownhill),
+        waterFlowInvertDownhill: Boolean(nextWater.waterFlowInvertDownhill),
+        waterFlowDebug: Boolean(nextWater.waterFlowDebug),
+        waterFlowDirectionDeg: clampRound(nextWater.waterFlowDirectionDeg, 0, 360),
+        waterLocalFlowMix: deps.clamp(Number(nextWater.waterLocalFlowMix), 0, 1),
+        waterDownhillBoost: deps.clamp(Number(nextWater.waterDownhillBoost), 0, 4),
+        waterFlowRadius1: clampRound(nextWater.waterFlowRadius1, 1, 12),
+        waterFlowRadius2: clampRound(nextWater.waterFlowRadius2, 1, 24),
+        waterFlowRadius3: clampRound(nextWater.waterFlowRadius3, 1, 40),
+        waterFlowWeight1: deps.clamp(Number(nextWater.waterFlowWeight1), 0, 1),
+        waterFlowWeight2: deps.clamp(Number(nextWater.waterFlowWeight2), 0, 1),
+        waterFlowWeight3: deps.clamp(Number(nextWater.waterFlowWeight3), 0, 1),
+        waterFlowStrength: deps.clamp(Number(nextWater.waterFlowStrength), 0, 0.15),
+        waterFlowSpeed: deps.clamp(Number(nextWater.waterFlowSpeed), 0, 2.5),
+        waterFlowScale: deps.clamp(Number(nextWater.waterFlowScale), 0.5, 14),
+        waterShimmerStrength: deps.clamp(Number(nextWater.waterShimmerStrength), 0, 0.2),
+        waterGlintStrength: deps.clamp(Number(nextWater.waterGlintStrength), 0, 1.5),
+        waterGlintSharpness: deps.clamp(Number(nextWater.waterGlintSharpness), 0, 1),
+        waterShoreFoamStrength: deps.clamp(Number(nextWater.waterShoreFoamStrength), 0, 0.5),
+        waterShoreWidth: deps.clamp(Number(nextWater.waterShoreWidth), 0.4, 6),
+        waterReflectivity: deps.clamp(Number(nextWater.waterReflectivity), 0, 1),
+        waterTintColor: normalizeHexColor(nextWater.waterTintColor, deps.serializeWaterSettings().waterTintColor),
+        waterTintStrength: deps.clamp(Number(nextWater.waterTintStrength), 0, 1),
+      });
+      deps.syncRenderFxWaterUi();
       if (command.rebuildFlowMap) {
         deps.rebuildFlowMapTexture();
       }
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            waterFx: deps.serializeWaterSettings(),
-          },
-        },
-      }));
     }
   });
 
-  commandBus.register("core/swarm/settingsChanged", (command, ctx) => {
-    function syncSwarmToStore() {
-      const settings = deps.getSwarmSettings();
-      ctx.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          swarm: {
-            ...prev.gameplay.swarm,
-            ...settings,
-            enabled: deps.isSwarmEnabled(),
-            count: Math.max(0, Math.round(Number(deps.swarmState.count) || 0)),
-            followEnabled: deps.swarmFollowState.enabled,
-            followTargetType: deps.swarmFollowState.targetType === "hawk" ? "hawk" : "agent",
-          },
-        },
-      }));
+  commandBus.register("core/swarm/settingsChanged", (command) => {
+    function updateSwarmSettings(patch) {
+      deps.patchSwarmSettingsToStore(patch);
     }
 
     const action = String(command.action || "");
     switch (action) {
       case "showTerrainChanged":
+        updateSwarmSettings({ showTerrainInSwarm: Boolean(command.value) });
+        deps.requestOverlayDraw();
+        break;
       case "litModeChanged":
-      case "backgroundColorChanged":
-      case "hawkColorChanged":
+        updateSwarmSettings({ useLitSwarm: Boolean(command.value) });
+        deps.requestOverlayDraw();
+        break;
+      case "backgroundColorChanged": {
+        const backgroundColor = normalizeHexColor(command.value, deps.getSwarmSettings().backgroundColor);
+        updateSwarmSettings({ backgroundColor });
+        deps.requestOverlayDraw();
+        break;
+      }
+      case "hawkColorChanged": {
+        const hawkColor = normalizeHexColor(command.value, deps.getSwarmSettings().hawkColor);
+        updateSwarmSettings({ hawkColor });
+        deps.requestOverlayDraw();
+        break;
+      }
       case "cursorModeChanged":
-        if (action === "cursorModeChanged") {
-          deps.updateSwarmUi();
-        }
+        updateSwarmSettings({
+          cursorMode: command.value === "attract" || command.value === "repel" ? command.value : "none",
+        });
+        deps.syncSwarmPanelUi();
         deps.requestOverlayDraw();
         break;
       case "followZoomToggleChanged":
-        deps.updateSwarmUi();
-        deps.updateSwarmLabels();
+        updateSwarmSettings({ followZoomBySpeed: Boolean(command.value) });
+        deps.syncSwarmPanelUi();
         break;
-      case "followZoomInChanged":
-        deps.normalizeSwarmFollowZoomInputs("in");
-        deps.updateSwarmLabels();
+      case "followZoomInChanged": {
+        const settings = deps.getSwarmSettings();
+        const zoomOut = deps.clamp(
+          Number(command.zoomOut ?? settings.followZoomOut),
+          deps.zoomMin,
+          deps.zoomMax,
+        );
+        const zoomIn = Math.max(zoomOut, deps.clamp(Number(command.zoomIn), deps.zoomMin, deps.zoomMax));
+        updateSwarmSettings({ followZoomOut: zoomOut, followZoomIn: zoomIn });
+        deps.syncSwarmPanelUi();
         break;
-      case "followZoomOutChanged":
-        deps.normalizeSwarmFollowZoomInputs("out");
-        deps.updateSwarmLabels();
+      }
+      case "followZoomOutChanged": {
+        const settings = deps.getSwarmSettings();
+        const zoomIn = deps.clamp(
+          Number(command.zoomIn ?? settings.followZoomIn),
+          deps.zoomMin,
+          deps.zoomMax,
+        );
+        const zoomOut = Math.min(zoomIn, deps.clamp(Number(command.zoomOut), deps.zoomMin, deps.zoomMax));
+        updateSwarmSettings({ followZoomOut: zoomOut, followZoomIn: zoomIn });
+        deps.syncSwarmPanelUi();
         break;
+      }
       case "followHawkRangeGizmoChanged":
-        deps.updateSwarmUi();
+        updateSwarmSettings({ followHawkRangeGizmo: Boolean(command.value) });
+        deps.syncSwarmPanelUi();
         deps.requestOverlayDraw();
         break;
-      case "followSmoothingChanged":
-      case "labelOnlyChanged":
-        deps.updateSwarmLabels();
+      case "followAgentSpeedSmoothingChanged": {
+        const value = deps.clamp(Number(command.value), 0.01, 0.25);
+        updateSwarmSettings({ followAgentSpeedSmoothing: value });
+        deps.syncSwarmPanelUi();
         break;
+      }
+      case "followAgentZoomSmoothingChanged": {
+        const value = deps.clamp(Number(command.value), 0.01, 0.25);
+        updateSwarmSettings({ followAgentZoomSmoothing: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "simulationSpeedChanged": {
+        const value = deps.clamp(Number(command.value), 0.1, 20);
+        updateSwarmSettings({ simulationSpeed: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "neighborRadiusChanged": {
+        const value = deps.clamp(Number(command.value), 10, 200);
+        updateSwarmSettings({ neighborRadius: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "separationRadiusChanged": {
+        const value = deps.clamp(Number(command.value), 6, 120);
+        updateSwarmSettings({ separationRadius: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "alignmentWeightChanged": {
+        const value = deps.clamp(Number(command.value), 0, 4);
+        updateSwarmSettings({ alignmentWeight: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "cohesionWeightChanged": {
+        const value = deps.clamp(Number(command.value), 0, 4);
+        updateSwarmSettings({ cohesionWeight: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "separationWeightChanged": {
+        const value = deps.clamp(Number(command.value), 0, 6);
+        updateSwarmSettings({ separationWeight: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "wanderWeightChanged": {
+        const value = deps.clamp(Number(command.value), 0, 2);
+        updateSwarmSettings({ wanderWeight: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "restChanceChanged": {
+        const value = deps.clamp(Number(command.value), 0, 0.002);
+        updateSwarmSettings({ restChancePct: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "restTicksChanged": {
+        const value = Math.round(deps.clamp(Number(command.value), 100, 10000));
+        updateSwarmSettings({ restTicks: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "breedingThresholdChanged": {
+        const value = Math.round(deps.clamp(Number(command.value), 0, 1000));
+        updateSwarmSettings({ breedingThreshold: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "breedingSpawnChanceChanged": {
+        const value = deps.clamp(Number(command.value), 0, 1);
+        updateSwarmSettings({ breedingSpawnChance: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "cursorStrengthChanged": {
+        const value = deps.clamp(Number(command.value), 0, 8);
+        updateSwarmSettings({ cursorStrength: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "cursorRadiusChanged": {
+        const value = deps.clamp(Number(command.value), 20, 260);
+        updateSwarmSettings({ cursorRadius: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "hawkSpeedChanged": {
+        const value = deps.clamp(Number(command.value), 30, 420);
+        updateSwarmSettings({ hawkSpeed: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "hawkSteeringChanged": {
+        const value = deps.clamp(Number(command.value), 20, 700);
+        updateSwarmSettings({ hawkSteering: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
+      case "hawkTargetRangeChanged": {
+        const value = Math.round(deps.clamp(Number(command.value), 20, 500));
+        updateSwarmSettings({ hawkTargetRange: value });
+        deps.syncSwarmPanelUi();
+        break;
+      }
       case "statsPanelChanged":
-        deps.updateSwarmUi();
+        updateSwarmSettings({ showStatsPanel: Boolean(command.value) });
+        deps.syncSwarmPanelUi();
         deps.updateSwarmStatsPanel();
         break;
-      case "agentCountChanged":
-        deps.updateSwarmLabels();
-        deps.reseedSwarmAgents(Math.round(deps.clamp(Number(deps.swarmAgentCountInput.value), 100, 1000)));
+      case "agentCountChanged": {
+        const value = Math.round(deps.clamp(Number(command.value), 100, 1000));
+        updateSwarmSettings({ agentCount: value });
+        deps.syncSwarmPanelUi();
+        deps.reseedSwarmAgents(deps.getSwarmSettings().agentCount);
         break;
-      case "maxSpeedChanged":
-      case "maxSteeringChanged":
-      case "variationChanged":
-        deps.updateSwarmLabels();
+      }
+      case "maxSpeedChanged": {
+        const value = deps.clamp(Number(command.value), 30, 300);
+        updateSwarmSettings({ maxSpeed: value });
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
         break;
-      case "minHeightChanged":
-        deps.normalizeSwarmHeightRangeInputs("min");
-        deps.updateSwarmLabels();
-        deps.reseedSwarmAgents(deps.swarmState.count);
-        break;
-      case "maxHeightChanged":
-        deps.normalizeSwarmHeightRangeInputs("max");
-        deps.updateSwarmLabels();
-        deps.reseedSwarmAgents(deps.swarmState.count);
-        break;
-      case "hawkEnabledChanged":
-      case "hawkCountChanged":
-        deps.updateSwarmUi();
-        deps.updateSwarmLabels();
+      }
+      case "maxSteeringChanged": {
+        const value = deps.clamp(Number(command.value), 10, 500);
+        updateSwarmSettings({ maxSteering: value });
+        deps.syncSwarmPanelUi();
         deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
         break;
+      }
+      case "variationChanged": {
+        const value = Math.round(deps.clamp(Number(command.value), 0, 50));
+        updateSwarmSettings({ variationStrengthPct: value });
+        deps.syncSwarmPanelUi();
+        deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
+        break;
+      }
+      case "minHeightChanged": {
+        const settings = deps.getSwarmSettings();
+        let minHeight = Math.round(deps.clamp(Number(command.minHeight), 0, 256));
+        let maxHeight = Math.round(deps.clamp(Number(command.maxHeight ?? settings.maxHeight), 0, 256));
+        if (minHeight > maxHeight) {
+          maxHeight = minHeight;
+        }
+        updateSwarmSettings({ minHeight, maxHeight });
+        deps.syncSwarmPanelUi();
+        deps.reseedSwarmAgents(deps.swarmState.count);
+        break;
+      }
+      case "maxHeightChanged": {
+        const settings = deps.getSwarmSettings();
+        let minHeight = Math.round(deps.clamp(Number(command.minHeight ?? settings.minHeight), 0, 256));
+        let maxHeight = Math.round(deps.clamp(Number(command.maxHeight), 0, 256));
+        if (minHeight > maxHeight) {
+          minHeight = maxHeight;
+        }
+        updateSwarmSettings({ minHeight, maxHeight });
+        deps.syncSwarmPanelUi();
+        deps.reseedSwarmAgents(deps.swarmState.count);
+        break;
+      }
+      case "hawkEnabledChanged": {
+        updateSwarmSettings({ useHawk: Boolean(command.value) });
+        deps.syncSwarmPanelUi();
+        deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
+        break;
+      }
+      case "hawkCountChanged": {
+        const value = Math.round(deps.clamp(Number(command.value), 0, 20));
+        updateSwarmSettings({ hawkCount: value });
+        deps.syncSwarmPanelUi();
+        deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
+        break;
+      }
       case "enabledToggleChanged":
-        deps.updateSwarmUi();
+        updateSwarmSettings({ useAgentSwarm: Boolean(command.value) });
+        deps.syncSwarmPanelUi();
         deps.swarmState.lastUpdateMs = null;
         deps.swarmCursorState.active = false;
-        if (deps.swarmEnabledToggle.checked) {
+        if (deps.getSwarmSettings().useAgentSwarm) {
           deps.reseedSwarmAgents(deps.swarmState.count || deps.getSwarmSettings().agentCount);
           deps.setStatus("Agent swarm enabled.");
         } else {
-          deps.swarmFollowState.enabled = false;
-          deps.swarmFollowState.agentIndex = -1;
-          deps.swarmFollowState.hawkIndex = -1;
-          deps.resetSwarmFollowSpeedSmoothing();
-          deps.updateSwarmFollowButtonUi();
+          deps.stopSwarmFollow({ syncStore: false });
           deps.requestOverlayDraw();
           deps.setStatus("Agent swarm disabled.");
         }
@@ -245,27 +486,25 @@ export function registerMainCommands(commandBus, deps) {
         break;
     }
 
-    syncSwarmToStore();
+    deps.syncSwarmStateToStore();
   });
 
   commandBus.register("core/camera/reset", (command, ctx) => {
-    deps.setZoom(1);
-    deps.panWorld.x = 0;
-    deps.panWorld.y = 0;
-    syncCameraToStore(ctx);
-    deps.requestOverlayDraw();
+    applyCameraPose(ctx, { zoom: 1, panX: 0, panY: 0 });
   });
 
   commandBus.register("core/camera/zoomAtClient", (command, ctx) => {
+    const camera = getCameraPose(ctx);
     const ndc = deps.clientToNdc(command.clientX, command.clientY);
-    const worldBefore = deps.worldFromNdc(ndc, deps.getZoom(), deps.panWorld);
-    const nextZoom = Math.min(deps.zoomMax, Math.max(deps.zoomMin, deps.getZoom() * Math.exp(-command.deltaY * 0.0015)));
-    const worldAfter = deps.worldFromNdc(ndc, nextZoom, deps.panWorld);
-    deps.panWorld.x += worldBefore.x - worldAfter.x;
-    deps.panWorld.y += worldBefore.y - worldAfter.y;
-    deps.setZoom(nextZoom);
-    syncCameraToStore(ctx);
-    deps.requestOverlayDraw();
+    const pan = { x: camera.panX, y: camera.panY };
+    const worldBefore = deps.worldFromNdc(ndc, camera.zoom, pan);
+    const nextZoom = Math.min(deps.zoomMax, Math.max(deps.zoomMin, camera.zoom * Math.exp(-command.deltaY * 0.0015)));
+    const worldAfter = deps.worldFromNdc(ndc, nextZoom, pan);
+    applyCameraPose(ctx, {
+      panX: camera.panX + (worldBefore.x - worldAfter.x),
+      panY: camera.panY + (worldBefore.y - worldAfter.y),
+      zoom: nextZoom,
+    });
   });
 
   commandBus.register("core/camera/beginMiddleDrag", (command) => {
@@ -279,44 +518,89 @@ export function registerMainCommands(commandBus, deps) {
   });
 
   commandBus.register("core/camera/dragToClient", (command, ctx) => {
+    const camera = getCameraPose(ctx);
     const prevNdc = deps.clientToNdc(deps.lastDragClient.x, deps.lastDragClient.y);
     const currNdc = deps.clientToNdc(command.clientX, command.clientY);
-    const worldPrev = deps.worldFromNdc(prevNdc, deps.getZoom(), deps.panWorld);
-    const worldCurr = deps.worldFromNdc(currNdc, deps.getZoom(), deps.panWorld);
-    deps.panWorld.x += worldPrev.x - worldCurr.x;
-    deps.panWorld.y += worldPrev.y - worldCurr.y;
+    const pan = { x: camera.panX, y: camera.panY };
+    const worldPrev = deps.worldFromNdc(prevNdc, camera.zoom, pan);
+    const worldCurr = deps.worldFromNdc(currNdc, camera.zoom, pan);
     deps.lastDragClient.x = command.clientX;
     deps.lastDragClient.y = command.clientY;
-    syncCameraToStore(ctx);
-    deps.requestOverlayDraw();
+    applyCameraPose(ctx, {
+      panX: camera.panX + (worldPrev.x - worldCurr.x),
+      panY: camera.panY + (worldPrev.y - worldCurr.y),
+      zoom: camera.zoom,
+    });
+  });
+
+  commandBus.register("core/camera/setPose", (command, ctx) => {
+    const current = getCameraPose(ctx);
+    applyCameraPose(
+      ctx,
+      {
+        panX: Number.isFinite(Number(command.panX)) ? Number(command.panX) : current.panX,
+        panY: Number.isFinite(Number(command.panY)) ? Number(command.panY) : current.panY,
+        zoom: Number.isFinite(Number(command.zoom)) ? Number(command.zoom) : current.zoom,
+      },
+      { requestOverlay: command.requestOverlay },
+    );
   });
 
   commandBus.register("core/time/setHourScrubbing", (command) => {
     deps.setCycleHourScrubbing(Boolean(command.scrubbing));
   });
 
-  commandBus.register("core/time/setHour", (command, ctx) => {
+  commandBus.register("core/time/setHour", (command) => {
     deps.cycleState.hour = deps.clamp(Number(command.hour), 0, 24);
-    ctx.store.update((prev) => ({
-      ...prev,
-      ui: {
-        ...prev.ui,
-        cycleHour: deps.cycleState.hour,
-      },
-    }));
+    deps.setCycleHourUiToStore(deps.cycleState.hour);
     deps.updateCycleHourLabel();
   });
 
-  commandBus.register("core/cursorLight/setEnabled", (command, ctx) => {
-    deps.cursorLightState.active = Boolean(command.enabled);
-    syncCursorLightToStore(ctx);
+  commandBus.register("core/time/setCycleSpeed", (command) => {
+    const nextSpeed = deps.clamp(Number(command.cycleSpeed), 0, 1);
+    deps.syncCycleSpeedInput(nextSpeed);
+    deps.setCycleSpeedToStore(nextSpeed);
+  });
+
+  commandBus.register("core/time/setSimTickHours", (command) => {
+    const nextTick = deps.clamp(Number(command.simTickHours), 0.001, 0.1);
+    deps.syncSimTickHoursInput(nextTick);
+    deps.setSimTickHoursToStore(nextTick);
+    if (typeof deps.updateSimTickLabel === "function") {
+      deps.updateSimTickLabel();
+    }
+  });
+
+  commandBus.register("core/time/setRouting", (command) => {
+    const target = String(command.target || "");
+    const mode = command.mode === "detached" ? "detached" : "global";
+    const allowedTargets = new Set(["movement", "swarm", "clouds", "water", "weather"]);
+    if (!allowedTargets.has(target)) return;
+    deps.syncRoutingInput(target, mode);
+    deps.setTimeRoutingModeToStore(target, mode);
+  });
+
+  commandBus.register("core/pointLights/setLiveUpdate", (command) => {
+    const liveUpdate = Boolean(command.liveUpdate);
+    if (typeof deps.syncPointLightLiveUpdateToggle === "function") {
+      deps.syncPointLightLiveUpdateToggle(liveUpdate);
+    }
+    deps.syncPointLightsStateToStore(liveUpdate);
+  });
+
+  commandBus.register("core/cursorLight/setEnabled", (command) => {
+    deps.applyCursorLightConfigSnapshot({
+      ...deps.getCursorLightSnapshot(),
+      enabled: Boolean(command.enabled),
+    });
+    syncCursorLightToStore();
     deps.requestOverlayDraw();
   });
 
   commandBus.register("core/canvas/leave", (command) => {
     deps.swarmCursorState.active = false;
-    if (deps.cursorLightModeToggle.checked) {
-      deps.cursorLightState.active = false;
+    if (deps.getCursorLightSnapshot().enabled) {
+      deps.clearCursorLightPointerState();
     }
     if (deps.getInteractionMode() === "pathfinding") {
       deps.movePreviewState.hoverPixel = null;
@@ -325,111 +609,103 @@ export function registerMainCommands(commandBus, deps) {
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setTerrainFollow", (command, ctx) => {
-    deps.cursorLightState.useTerrainHeight = Boolean(command.useTerrainHeight);
-    syncCursorLightToStore(ctx);
+  commandBus.register("core/cursorLight/setTerrainFollow", (command) => {
+    deps.applyCursorLightConfigSnapshot({
+      ...deps.getCursorLightSnapshot(),
+      useTerrainHeight: Boolean(command.useTerrainHeight),
+    });
+    syncCursorLightToStore();
     deps.updateCursorLightModeUi();
   });
 
-  commandBus.register("core/cursorLight/setColor", (command, ctx) => {
-    deps.cursorLightState.color = deps.hexToRgb01(command.colorHex);
-    syncCursorLightToStore(ctx);
+  commandBus.register("core/cursorLight/setColor", (command) => {
+    deps.applyCursorLightConfigSnapshot({
+      ...deps.getCursorLightSnapshot(),
+      colorHex: typeof command.colorHex === "string" ? command.colorHex : "#ff9b2f",
+    });
+    syncCursorLightToStore();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setStrength", (command, ctx) => {
-    deps.cursorLightState.strength = Math.round(deps.clamp(Number(command.strength), 1, 200));
-    syncCursorLightToStore(ctx);
+  commandBus.register("core/cursorLight/setStrength", (command) => {
+    deps.applyCursorLightConfigSnapshot({
+      ...deps.getCursorLightSnapshot(),
+      strength: Math.round(deps.clamp(Number(command.strength), 1, 200)),
+    });
+    syncCursorLightToStore();
     deps.updateCursorLightStrengthLabel();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setHeightOffset", (command, ctx) => {
-    deps.cursorLightState.heightOffset = Math.round(deps.clamp(Number(command.heightOffset), 0, 120));
-    syncCursorLightToStore(ctx);
+  commandBus.register("core/cursorLight/setHeightOffset", (command) => {
+    deps.applyCursorLightConfigSnapshot({
+      ...deps.getCursorLightSnapshot(),
+      heightOffset: Math.round(deps.clamp(Number(command.heightOffset), 0, 120)),
+    });
+    syncCursorLightToStore();
     deps.updateCursorLightHeightOffsetLabel();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setGizmo", (command, ctx) => {
-    deps.cursorLightState.showGizmo = Boolean(command.showGizmo);
-    syncCursorLightToStore(ctx);
+  commandBus.register("core/cursorLight/setGizmo", (command) => {
+    deps.applyCursorLightConfigSnapshot({
+      ...deps.getCursorLightSnapshot(),
+      showGizmo: Boolean(command.showGizmo),
+    });
+    syncCursorLightToStore();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/swarm/toggleFollow", (command, ctx) => {
-    function syncSwarmFollowToStore() {
-      ctx.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          swarm: {
-            ...prev.gameplay.swarm,
-            followEnabled: deps.swarmFollowState.enabled,
-            followTargetType: deps.swarmFollowState.targetType,
-          },
-        },
-      }));
-    }
-
+  commandBus.register("core/swarm/toggleFollow", (command) => {
+    const follow = deps.getSwarmFollowSnapshot();
     if (!deps.isSwarmEnabled()) {
       deps.setStatus("Enable Agent Swarm first.");
       return;
     }
-    if (deps.swarmFollowState.enabled) {
-      deps.swarmFollowState.enabled = false;
-      deps.swarmFollowState.agentIndex = -1;
-      deps.swarmFollowState.hawkIndex = -1;
-      deps.resetSwarmFollowSpeedSmoothing();
-      deps.updateSwarmFollowButtonUi();
-      syncSwarmFollowToStore();
+    if (follow.enabled) {
+      deps.stopSwarmFollow({ syncStore: true });
       deps.setStatus("Swarm follow stopped.");
       return;
     }
-    const targetType = deps.swarmFollowTargetInput.value === "hawk" ? "hawk" : "agent";
-    deps.swarmFollowState.targetType = targetType;
+    const targetType = deps.getSwarmSettings().followTargetType === "hawk" ? "hawk" : "agent";
     if (targetType === "hawk") {
       if (!deps.getSwarmSettings().useHawk || deps.swarmState.hawks.length <= 0) {
         deps.setStatus("No hawks available to follow.");
         return;
       }
-      deps.swarmFollowState.hawkIndex = deps.chooseRandomFollowHawkIndex();
-      deps.swarmFollowState.agentIndex = -1;
+      deps.applySwarmFollowState({
+        enabled: true,
+        targetType,
+        agentIndex: -1,
+        hawkIndex: deps.chooseRandomFollowHawkIndex(),
+      }, { syncStore: true });
     } else {
       if (deps.swarmState.count <= 0) {
         deps.setStatus("No swarm agents available to follow.");
         return;
       }
-      deps.swarmFollowState.agentIndex = deps.chooseRandomFollowAgentIndex();
-      deps.swarmFollowState.hawkIndex = -1;
+      deps.applySwarmFollowState({
+        enabled: true,
+        targetType,
+        agentIndex: deps.chooseRandomFollowAgentIndex(),
+        hawkIndex: -1,
+      }, { syncStore: true });
     }
-    deps.swarmFollowState.enabled = true;
-    deps.resetSwarmFollowSpeedSmoothing();
-    deps.updateSwarmFollowButtonUi();
-    syncSwarmFollowToStore();
     deps.setStatus(`Swarm follow enabled (${targetType}).`);
   });
 
-  commandBus.register("core/swarm/setFollowTarget", (command, ctx) => {
-    deps.swarmFollowState.targetType = command.targetType === "hawk" ? "hawk" : "agent";
-    deps.updateSwarmFollowButtonUi();
-    if (deps.swarmFollowState.enabled) {
-      deps.swarmFollowState.enabled = false;
-      deps.swarmFollowState.agentIndex = -1;
-      deps.swarmFollowState.hawkIndex = -1;
-      deps.resetSwarmFollowSpeedSmoothing();
+  commandBus.register("core/swarm/setFollowTarget", (command) => {
+    const follow = deps.getSwarmFollowSnapshot();
+    deps.applySwarmFollowState({
+      enabled: follow.enabled,
+      targetType: command.targetType === "hawk" ? "hawk" : "agent",
+      agentIndex: follow.agentIndex,
+      hawkIndex: follow.hawkIndex,
+    }, { resetSpeed: false });
+    if (follow.enabled) {
+      deps.stopSwarmFollow({ targetType: follow.targetType });
       deps.setStatus("Swarm follow stopped. Start follow again to apply new target type.");
     }
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        swarm: {
-          ...prev.gameplay.swarm,
-          followEnabled: deps.swarmFollowState.enabled,
-          followTargetType: deps.swarmFollowState.targetType,
-        },
-      },
-    }));
+    deps.syncSwarmFollowToStore();
   });
 }

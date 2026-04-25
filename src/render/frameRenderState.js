@@ -3,6 +3,8 @@ export function buildFrameRenderState(input) {
   const coreCamera = coreState.camera || {};
   const coreMap = coreState.map || {};
   const coreSimulation = coreState.simulation || {};
+  const coreSystems = coreState.systems || {};
+  const coreTime = coreSystems.time || {};
   const weather = coreSimulation.weather || {};
   const nowSec = Math.max(0, Number(input.nowMs) * 0.001);
 
@@ -13,11 +15,17 @@ export function buildFrameRenderState(input) {
       dtSec: Number(input.dtSec) || 0,
       cycleHour: Number(input.cycleHour) || 0,
       cycleSpeedHoursPerSec: Number(input.cycleSpeedHoursPerSec) || 0,
+      cloudTimeSec: Number.isFinite(Number(input.cloudTimeSec))
+        ? Number(input.cloudTimeSec)
+        : (Number.isFinite(Number(coreTime.cloudTimeSec)) ? Number(coreTime.cloudTimeSec) : nowSec),
+      waterTimeSec: Number.isFinite(Number(coreTime.waterTimeSec)) ? Number(coreTime.waterTimeSec) : nowSec,
+      detachedTimeSec: Number.isFinite(Number(coreTime.detachedTimeSec)) ? Number(coreTime.detachedTimeSec) : nowSec,
+      globalTimeHours: Number.isFinite(Number(coreTime.globalTimeHours)) ? Number(coreTime.globalTimeHours) : 0,
     },
     camera: {
-      panX: Number.isFinite(coreCamera.panX) ? coreCamera.panX : (input?.panWorld?.x ?? 0),
-      panY: Number.isFinite(coreCamera.panY) ? coreCamera.panY : (input?.panWorld?.y ?? 0),
-      zoom: Number.isFinite(coreCamera.zoom) ? coreCamera.zoom : (input?.zoom ?? 1),
+      panX: Number.isFinite(coreCamera.panX) ? coreCamera.panX : 0,
+      panY: Number.isFinite(coreCamera.panY) ? coreCamera.panY : 0,
+      zoom: Number.isFinite(coreCamera.zoom) ? coreCamera.zoom : 1,
     },
     map: {
       folderPath: coreMap.folderPath || input?.currentMapFolderPath || "",

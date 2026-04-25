@@ -11,12 +11,18 @@ Prototype goals:
 ## Files
 
 - `index.html`: app shell and control panel
-- `src/main.js`: WebGL2 renderer + shaders
+- `src/main.js`: composition/orchestration entry point
+- `src/core/`: command bus, scheduler, state store, settings contracts
+- `src/render/`: render resources, frame state assembly, render passes, and uniform upload orchestration
+- `src/gameplay/`: interaction commands, movement/swarm helpers, point-light editor state/controller
 - `styles.css`: UI styling
 - `assets/`: map bundle root (`assets/<mapName>/...`)
 - `src-tauri/`: Tauri desktop wrapper (Rust commands + app packaging)
 - `.tauri-dist/`: packaged frontend assets used by Tauri build
 - `AI_CONTEXT.md`: implementation map and workflow notes for AI agents
+
+Current architecture baseline:
+- modular, core-state-driven runtime with `src/main.js` used primarily for composition/orchestration
 
 ## Expected auto-load names
 
@@ -107,6 +113,10 @@ Current tests cover:
 - mode capability gating contracts
 - weather-system deterministic normalization output
 - settings-registry contract wiring/roundtrip behavior
+- main runtime-state binding ownership
+- swarm runtime sync/follow ownership
+- movement system and movement store sync
+- architecture ownership guard checks
 
 Architecture map:
 - `docs/ARCHITECTURE.md`
