@@ -1,7 +1,7 @@
-import { createMapRuntimeStateBinding } from "./mapRuntimeStateBinding.js";
+import { createMapRuntimeState } from "./mapRuntimeState.js";
 import { createMapLoadingRuntime } from "./mapLoadingRuntime.js";
 import { createMapDataSaveRuntime } from "./mapDataSaveRuntime.js";
-import { createMapBootstrapBindingRuntime } from "./mapBootstrapBindingRuntime.js";
+import { createMapBootstrap } from "./mapBootstrap.js";
 
 export function createMapLifecycleRuntime(deps) {
   let currentMapFolderPath = deps.defaultMapFolder;
@@ -13,7 +13,7 @@ export function createMapLifecycleRuntime(deps) {
 
   function getMapRuntimeState() {
     if (mapRuntimeState) return mapRuntimeState;
-    mapRuntimeState = createMapRuntimeStateBinding({
+    mapRuntimeState = createMapRuntimeState({
       normalizeMapFolderPath: deps.normalizeMapFolderPath,
       setCurrentMapFolderPathValue: (value) => {
         currentMapFolderPath = value;
@@ -96,7 +96,7 @@ export function createMapLifecycleRuntime(deps) {
     showDirectoryPicker: deps.showDirectoryPicker,
   });
 
-  const mapBootstrapRuntime = createMapBootstrapBindingRuntime({
+  const mapBootstrap = createMapBootstrap({
     defaultMapFolderCandidates: deps.defaultMapFolderCandidates,
     loadMapFromPath: (mapFolderPath) => mapLoadingRuntime.loadMapFromPath(mapFolderPath),
     setStatus: deps.setStatus,
@@ -113,6 +113,6 @@ export function createMapLifecycleRuntime(deps) {
     saveAllMapDataFiles: () => mapDataSaveRuntime.saveAllMapDataFiles(),
     loadMapFromPath: (mapFolderPath) => mapLoadingRuntime.loadMapFromPath(mapFolderPath),
     loadMapFromFolderSelection: (fileList) => mapLoadingRuntime.loadMapFromFolderSelection(fileList),
-    tryAutoLoadDefaultMap: () => mapBootstrapRuntime.tryAutoLoadDefaultMap(),
+    tryAutoLoadDefaultMap: () => mapBootstrap.tryAutoLoadDefaultMap(),
   };
 }

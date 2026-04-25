@@ -1,8 +1,7 @@
 import { createCursorLightRuntimeState } from "./cursorLightState.js";
-import { createCursorLightPointerStateRuntime } from "./cursorLightPointerStateRuntime.js";
-import { createCursorLightPointerBindingRuntime } from "./cursorLightPointerBindingRuntime.js";
-import { createCursorLightModeUiBindingRuntime } from "../ui/cursorLightModeUiBindingRuntime.js";
-import { createPointLightEditorUiBindingRuntime } from "../ui/pointLightEditorUiBindingRuntime.js";
+import { createCursorLightPointerRuntime } from "./cursorLightPointerRuntime.js";
+import { createCursorLightModeUiRuntime } from "../ui/cursorLightModeUiRuntime.js";
+import { createPointLightEditorRuntime } from "../ui/pointLightEditorRuntime.js";
 
 export function createLightInteractionRuntimeBinding(deps) {
   const cursorLightRuntime = createCursorLightRuntimeState({
@@ -12,25 +11,21 @@ export function createLightInteractionRuntimeBinding(deps) {
   });
   const cursorLightState = cursorLightRuntime.state;
 
-  const cursorLightPointerStateRuntime = createCursorLightPointerStateRuntime({
-    cursorLightRuntime,
-  });
-
-  const cursorLightPointerBindingRuntime = createCursorLightPointerBindingRuntime({
+  const cursorLightPointerRuntime = createCursorLightPointerRuntime({
     getCursorLightSnapshot: deps.getCursorLightSnapshot,
-    clearCursorLightPointerState: () => cursorLightPointerStateRuntime.clearCursorLightPointerState(),
+    clearCursorLightPointerState: () => cursorLightRuntime.clearPointer(),
     clientToNdc: deps.clientToNdc,
     worldFromNdc: deps.worldFromNdc,
     worldToUv: deps.worldToUv,
-    setCursorLightPointerUv: (uvX, uvY) => cursorLightPointerStateRuntime.setCursorLightPointerUv(uvX, uvY),
+    setCursorLightPointerUv: (uvX, uvY) => cursorLightRuntime.setPointerUv(uvX, uvY),
   });
 
-  const cursorLightModeUiBindingRuntime = createCursorLightModeUiBindingRuntime({
+  const cursorLightModeUiRuntime = createCursorLightModeUiRuntime({
     getCursorLightSnapshot: deps.getCursorLightSnapshot,
     cursorLightHeightOffsetInput: deps.cursorLightHeightOffsetInput,
   });
 
-  const pointLightEditorUiBindingRuntime = createPointLightEditorUiBindingRuntime({
+  const pointLightEditorUiRuntime = createPointLightEditorRuntime({
     syncPointLightEditorUi: deps.syncPointLightEditorUi,
     getSelectedPointLight: deps.getSelectedPointLight,
     getLightEditDraft: deps.getLightEditDraft,
@@ -54,13 +49,13 @@ export function createLightInteractionRuntimeBinding(deps) {
 
   return {
     cursorLightState,
-    clearCursorLightPointerState: () => cursorLightPointerStateRuntime.clearCursorLightPointerState(),
-    setCursorLightPointerUv: (uvX, uvY) => cursorLightPointerStateRuntime.setCursorLightPointerUv(uvX, uvY),
+    clearCursorLightPointerState: () => cursorLightRuntime.clearPointer(),
+    setCursorLightPointerUv: (uvX, uvY) => cursorLightRuntime.setPointerUv(uvX, uvY),
     applyCursorLightConfigSnapshot: (snapshot) => cursorLightRuntime.applyConfigSnapshot(snapshot),
     updateCursorLightFromPointer: (clientX, clientY) =>
-      cursorLightPointerBindingRuntime.updateCursorLightFromPointer(clientX, clientY),
-    updateCursorLightModeUi: () => cursorLightModeUiBindingRuntime.updateCursorLightModeUi(),
-    updateLightEditorUi: () => pointLightEditorUiBindingRuntime.updateLightEditorUi(),
+      cursorLightPointerRuntime.updateCursorLightFromPointer(clientX, clientY),
+    updateCursorLightModeUi: () => cursorLightModeUiRuntime.updateCursorLightModeUi(),
+    updateLightEditorUi: () => pointLightEditorUiRuntime.updateLightEditorUi(),
     beginLightEdit: (light) => deps.getPointLightRuntime().beginLightEdit(light),
     applyDraftToSelectedPointLight: () => deps.getPointLightRuntime().applyDraftToSelectedPointLight(),
     rebakeIfPointLightLiveUpdateEnabled: () => deps.getPointLightRuntime().rebakeIfPointLightLiveUpdateEnabled(),

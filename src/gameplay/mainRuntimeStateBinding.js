@@ -3,7 +3,21 @@ import {
   getSwarmSettings as resolveSwarmSettings,
   getPathfindingStateSnapshot as resolvePathfindingStateSnapshot,
 } from "./runtimeStateSnapshots.js";
-import { syncMapState, syncPointLightsState } from "./stateSync.js";
+import {
+  syncMapState,
+  syncPointLightsState,
+  syncCursorLightState,
+  patchSimulationKnobSection,
+  setCycleSpeedState,
+  setSimTickHoursState,
+  setTimeRoutingModeState,
+  setModeState,
+  setCameraPoseState,
+  setCycleHourUiState,
+  patchPathfindingState,
+  syncPathfindingState,
+  patchSwarmSettingsState,
+} from "./stateSync.js";
 import {
   getCursorLightSnapshot as buildCursorLightSnapshot,
   isPointLightLiveUpdateEnabled as getPointLightLiveUpdateEnabled,
@@ -11,6 +25,22 @@ import {
 import { setSwarmDefaults as applySwarmDefaults, isSwarmEnabled as resolveSwarmEnabled } from "./swarmStateAccess.js";
 
 export function createMainRuntimeStateBinding(deps) {
+  function getCursorLightState() {
+    return typeof deps.getCursorLightState === "function" ? deps.getCursorLightState() : deps.cursorLightState;
+  }
+
+  function getStopSwarmFollow() {
+    return typeof deps.getStopSwarmFollow === "function" ? deps.getStopSwarmFollow() : deps.stopSwarmFollow;
+  }
+
+  function getSplatSize() {
+    return typeof deps.getSplatSize === "function" ? deps.getSplatSize() : deps.splatSize;
+  }
+
+  function getSwarmState() {
+    return typeof deps.getSwarmState === "function" ? deps.getSwarmState() : deps.swarmState;
+  }
+
   return {
     getSwarmCursorMode: () =>
       resolveSwarmCursorMode({
@@ -38,7 +68,56 @@ export function createMainRuntimeStateBinding(deps) {
       syncMapState({
         store: deps.store,
         currentMapFolderPath: deps.getCurrentMapFolderPath(),
-        splatSize: deps.splatSize,
+        splatSize: getSplatSize(),
+      }),
+    setModeToStore: (mode) =>
+      setModeState({
+        store: deps.store,
+        mode,
+      }),
+    setCameraPoseToStore: (panX, panY, zoom) =>
+      setCameraPoseState({
+        store: deps.store,
+        panX,
+        panY,
+        zoom,
+      }),
+    setCycleHourUiToStore: (cycleHour) =>
+      setCycleHourUiState({
+        store: deps.store,
+        cycleHour,
+      }),
+    patchPathfindingStateToStore: (patch) =>
+      patchPathfindingState({
+        store: deps.store,
+        patch,
+      }),
+    syncPathfindingStateToStore: (snapshot) =>
+      syncPathfindingState({
+        store: deps.store,
+        snapshot,
+      }),
+    patchSimulationKnobSectionToStore: (key, value) =>
+      patchSimulationKnobSection({
+        store: deps.store,
+        key,
+        value,
+      }),
+    setCycleSpeedToStore: (cycleSpeed) =>
+      setCycleSpeedState({
+        store: deps.store,
+        cycleSpeed,
+      }),
+    setSimTickHoursToStore: (simTickHours) =>
+      setSimTickHoursState({
+        store: deps.store,
+        simTickHours,
+      }),
+    setTimeRoutingModeToStore: (target, mode) =>
+      setTimeRoutingModeState({
+        store: deps.store,
+        target,
+        mode,
       }),
     syncPointLightsStateToStore: (nextLiveUpdate = null, nextSaveConfirmArmed = null) =>
       syncPointLightsState({
@@ -50,10 +129,21 @@ export function createMainRuntimeStateBinding(deps) {
         nextLiveUpdate,
         nextSaveConfirmArmed,
       }),
+    patchSwarmSettingsToStore: (patch) =>
+      patchSwarmSettingsState({
+        store: deps.store,
+        patch,
+      }),
+    syncCursorLightStateToStore: () =>
+      syncCursorLightState({
+        store: deps.store,
+        cursorLightState: getCursorLightState(),
+        clamp: deps.clamp,
+      }),
     getCursorLightSnapshot: () =>
       buildCursorLightSnapshot({
         getCoreCursorLight: deps.getCoreCursorLight,
-        cursorLightState: deps.cursorLightState,
+        getCursorLightState,
         clamp: deps.clamp,
       }),
     isPointLightLiveUpdateEnabled: () =>
@@ -68,8 +158,8 @@ export function createMainRuntimeStateBinding(deps) {
         normalizeAppliedSettings: deps.normalizeAppliedSettings,
         defaultSwarmSettings: deps.defaultSwarmSettings,
         applySwarmSettingsLegacy: deps.applySwarmSettingsLegacy,
-        stopSwarmFollow: deps.stopSwarmFollow,
-        swarmState: deps.swarmState,
+        stopSwarmFollow: getStopSwarmFollow(),
+        swarmState: getSwarmState(),
       }),
     isSwarmEnabled: () =>
       resolveSwarmEnabled({

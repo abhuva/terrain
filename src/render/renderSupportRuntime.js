@@ -1,21 +1,21 @@
-import { createGlResourceBindingRuntime } from "./glResourceBindingRuntime.js";
-import { createFlowMapBindingRuntime } from "./flowMapBindingRuntime.js";
-import { createShadowPipelineBindingRuntime } from "./shadowPipelineBindingRuntime.js";
+import { createGlResourceRuntime } from "./glResourceRuntime.js";
+import { createFlowMapRuntime } from "./flowMapRuntime.js";
+import { createShadowPipelineRuntime } from "./shadowPipelineRuntime.js";
 
 export function createRenderSupportRuntime(deps) {
-  let glResourceBindingRuntime = null;
-  let flowMapBindingRuntime = null;
-  let shadowPipelineBindingRuntime = null;
+  let glResourceRuntime = null;
+  let flowMapRuntime = null;
+  let shadowPipelineRuntime = null;
 
-  function getGlResourceBindingRuntime() {
-    if (glResourceBindingRuntime) return glResourceBindingRuntime;
-    glResourceBindingRuntime = createGlResourceBindingRuntime({ gl: deps.gl });
-    return glResourceBindingRuntime;
+  function getGlResourceRuntime() {
+    if (glResourceRuntime) return glResourceRuntime;
+    glResourceRuntime = createGlResourceRuntime({ gl: deps.gl });
+    return glResourceRuntime;
   }
 
-  function getFlowMapBindingRuntime() {
-    if (flowMapBindingRuntime) return flowMapBindingRuntime;
-    flowMapBindingRuntime = createFlowMapBindingRuntime({
+  function getFlowMapRuntime() {
+    if (flowMapRuntime) return flowMapRuntime;
+    flowMapRuntime = createFlowMapRuntime({
       rebuildFlowMapTexturePrecompute: deps.rebuildFlowMapTexturePrecompute,
       gl: deps.gl,
       flowMapTex: deps.getFlowMapTex(),
@@ -24,12 +24,12 @@ export function createRenderSupportRuntime(deps) {
       clamp: deps.clamp,
       getWaterSettings: deps.getWaterSettings,
     });
-    return flowMapBindingRuntime;
+    return flowMapRuntime;
   }
 
-  function getShadowPipelineBindingRuntime() {
-    if (shadowPipelineBindingRuntime) return shadowPipelineBindingRuntime;
-    shadowPipelineBindingRuntime = createShadowPipelineBindingRuntime({
+  function getShadowPipelineRuntime() {
+    if (shadowPipelineRuntime) return shadowPipelineRuntime;
+    shadowPipelineRuntime = createShadowPipelineRuntime({
       gl: deps.gl,
       shadowSize: deps.getShadowSize(),
       shadowRawTex: deps.getShadowRawTex(),
@@ -43,7 +43,7 @@ export function createRenderSupportRuntime(deps) {
       getLightingSettings: deps.getLightingSettings,
       getShadowMapScale: deps.getShadowMapScale,
     });
-    return shadowPipelineBindingRuntime;
+    return shadowPipelineRuntime;
   }
 
   async function loadImageFromUrl(url) {
@@ -69,14 +69,14 @@ export function createRenderSupportRuntime(deps) {
   }
 
   return {
-    createShader: (type, src) => getGlResourceBindingRuntime().createShader(type, src),
-    createProgram: (vsSrc, fsSrc) => getGlResourceBindingRuntime().createProgram(vsSrc, fsSrc),
-    createTexture: () => getGlResourceBindingRuntime().createTexture(),
-    createLinearTexture: () => getGlResourceBindingRuntime().createLinearTexture(),
-    uploadImageToTexture: (tex, image) => getGlResourceBindingRuntime().uploadImageToTexture(tex, image),
-    rebuildFlowMapTexture: () => getFlowMapBindingRuntime().rebuildFlowMapTexture(),
-    ensureShadowTargets: () => getShadowPipelineBindingRuntime().ensureShadowTargets(),
-    renderShadowPipeline: (params) => getShadowPipelineBindingRuntime().renderShadowPipeline(params),
+    createShader: (type, src) => getGlResourceRuntime().createShader(type, src),
+    createProgram: (vsSrc, fsSrc) => getGlResourceRuntime().createProgram(vsSrc, fsSrc),
+    createTexture: () => getGlResourceRuntime().createTexture(),
+    createLinearTexture: () => getGlResourceRuntime().createLinearTexture(),
+    uploadImageToTexture: (tex, image) => getGlResourceRuntime().uploadImageToTexture(tex, image),
+    rebuildFlowMapTexture: () => getFlowMapRuntime().rebuildFlowMapTexture(),
+    ensureShadowTargets: () => getShadowPipelineRuntime().ensureShadowTargets(),
+    renderShadowPipeline: (params) => getShadowPipelineRuntime().renderShadowPipeline(params),
     createCloudNoiseImage: (size = 128) => deps.createCloudNoiseImageRender(size, deps.clamp),
     uploadCloudNoiseTexture: () => deps.uploadCloudNoiseTextureRender({
       gl: deps.gl,

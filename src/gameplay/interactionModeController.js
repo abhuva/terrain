@@ -1,3 +1,5 @@
+import { setInteractionModeState } from "./stateSync.js";
+
 export function setInteractionMode(deps, mode) {
   const requestedMode = mode === "lighting" || mode === "pathfinding" ? mode : "none";
   const nextMode = deps.canUseInteractionInCurrentMode(requestedMode) ? requestedMode : "none";
@@ -9,12 +11,9 @@ export function setInteractionMode(deps, mode) {
     deps.movePreviewState.hoverPixel = null;
     deps.movePreviewState.pathPixels = [];
   }
-  deps.store.update((prev) => ({
-    ...prev,
-    gameplay: {
-      ...prev.gameplay,
-      interactionMode: nextMode,
-    },
-  }));
+  setInteractionModeState({
+    store: deps.store,
+    interactionMode: nextMode,
+  });
   deps.requestOverlayDraw();
 }

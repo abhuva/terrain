@@ -1,8 +1,8 @@
-import { createSettingsLegacyAssemblyRuntime } from "./settingsLegacyAssemblyRuntime.js";
+import { createSettingsLegacyRuntimeBinding } from "./settingsLegacyRuntimeBinding.js";
 import { createSettingsRuntimeBinding } from "../core/settingsRuntimeBinding.js";
 
 export function createSettingsAssemblyRuntime(deps) {
-  const settingsLegacyBindings = createSettingsLegacyAssemblyRuntime(deps.legacy);
+  const settingsLegacyBindings = createSettingsLegacyRuntimeBinding(deps.legacy);
   const settingsRuntimeBinding = createSettingsRuntimeBinding({
     settingsApplyBindingRuntime: deps.settingsApplyBindingRuntime,
     defaultLightingSettings: deps.defaultLightingSettings,

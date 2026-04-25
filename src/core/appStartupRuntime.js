@@ -1,4 +1,4 @@
-import { runStartupUiSyncRuntime } from "../ui/startupUiSyncRuntime.js";
+import { runStartupUiSync } from "../ui/startupUiSync.js";
 
 export async function tryAutoLoadDefaultMapRuntime(deps) {
   try {
@@ -11,7 +11,7 @@ export async function tryAutoLoadDefaultMapRuntime(deps) {
 }
 
 export function runAppStartupRuntime(deps) {
-  runStartupUiSyncRuntime(deps.startupUiSync);
+  runStartupUiSync(deps.startupUiSync);
   if (typeof deps.resize === "function") {
     deps.resize();
   }

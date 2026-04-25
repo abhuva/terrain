@@ -1,17 +1,17 @@
-import { createLightingParamsBindingRuntime } from "./lightingParamsBindingRuntime.js";
-import { createTimeUiBindingRuntime } from "../ui/timeUiBindingRuntime.js";
+import { createLightingParamsRuntime } from "./lightingParamsRuntime.js";
+import { createTimeUiRuntime } from "../ui/timeUiRuntime.js";
 
 export function createTimeLightingSetupRuntime(deps) {
   const cycleState = {
     hour: deps.initialHour,
   };
 
-  let lightingParamsBindingRuntime = null;
-  function getLightingParamsBindingRuntime() {
-    if (lightingParamsBindingRuntime) {
-      return lightingParamsBindingRuntime;
+  let lightingParamsRuntime = null;
+  function getLightingParamsRuntime() {
+    if (lightingParamsRuntime) {
+      return lightingParamsRuntime;
     }
-    lightingParamsBindingRuntime = createLightingParamsBindingRuntime({
+    lightingParamsRuntime = createLightingParamsRuntime({
       getSettingsDefaults: deps.getSettingsDefaults,
       defaultLightingSettings: deps.defaultLightingSettings,
       defaultFogSettings: deps.defaultFogSettings,
@@ -27,30 +27,30 @@ export function createTimeLightingSetupRuntime(deps) {
       zoomMax: deps.zoomMax,
       cycleState,
     });
-    return lightingParamsBindingRuntime;
+    return lightingParamsRuntime;
   }
 
-  let timeUiBindingRuntime = null;
-  function getTimeUiBindingRuntime() {
-    if (timeUiBindingRuntime) {
-      return timeUiBindingRuntime;
+  let timeUiRuntime = null;
+  function getTimeUiRuntime() {
+    if (timeUiRuntime) {
+      return timeUiRuntime;
     }
-    timeUiBindingRuntime = createTimeUiBindingRuntime({
+    timeUiRuntime = createTimeUiRuntime({
       cycleHourInput: deps.cycleHourInput,
       cycleHourValue: deps.cycleHourValue,
       cycleState,
       clamp: deps.clamp,
       formatHour: deps.formatHour,
     });
-    return timeUiBindingRuntime;
+    return timeUiRuntime;
   }
 
   return {
     cycleState,
-    getLightingParamsBindingRuntime,
-    getTimeUiBindingRuntime,
-    computeLightingParams: (coreState = null) => getLightingParamsBindingRuntime().computeLightingParams(coreState),
-    setCycleHourSliderFromState: () => getTimeUiBindingRuntime().setCycleHourSliderFromState(),
-    updateCycleHourLabel: () => getTimeUiBindingRuntime().updateCycleHourLabel(),
+    getLightingParamsBindingRuntime: getLightingParamsRuntime,
+    getTimeUiBindingRuntime: getTimeUiRuntime,
+    computeLightingParams: (coreState = null) => getLightingParamsRuntime().computeLightingParams(coreState),
+    setCycleHourSliderFromState: () => getTimeUiRuntime().setCycleHourSliderFromState(),
+    updateCycleHourLabel: () => getTimeUiRuntime().updateCycleHourLabel(),
   };
 }

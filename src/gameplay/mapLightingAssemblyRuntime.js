@@ -1,20 +1,18 @@
-import { createPointLightSetupRuntime } from "./pointLightSetupRuntime.js";
-import { createPointLightFacadeRuntime } from "./pointLightFacadeRuntime.js";
-import { createMapLifecycleSetupRuntime } from "./mapLifecycleSetupRuntime.js";
+import { createPointLightRuntime } from "./pointLightRuntime.js";
+import { createMapLifecycleRuntime } from "./mapLifecycleRuntime.js";
 
 export function createMapLightingAssemblyRuntime(deps) {
-  const pointLightRuntime = createPointLightSetupRuntime(deps.pointLightSetup);
-  const pointLightFacade = createPointLightFacadeRuntime(() => pointLightRuntime);
-  const mapLifecycleRuntime = createMapLifecycleSetupRuntime({
+  const pointLightRuntime = createPointLightRuntime(deps.pointLightSetup);
+  const mapLifecycleRuntime = createMapLifecycleRuntime({
     ...deps.mapLifecycleSetup,
-    clearPointLights: () => pointLightFacade.clearPointLights(),
-    applyLoadedPointLights: (...args) => pointLightFacade.applyLoadedPointLights(...args),
-    serializePointLights: () => pointLightFacade.serializePointLights(),
+    clearPointLights: () => pointLightRuntime.clearPointLights(),
+    applyLoadedPointLights: (...args) => pointLightRuntime.applyLoadedPointLights(...args),
+    serializePointLights: () => pointLightRuntime.serializePointLights(),
   });
 
   return {
     pointLightRuntime,
-    pointLightFacade,
+    pointLightFacade: pointLightRuntime,
     mapLifecycleRuntime,
   };
 }

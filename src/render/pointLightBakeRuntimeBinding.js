@@ -1,7 +1,6 @@
 import { bindPointLightWorker } from "../core/pointLightWorkerBinding.js";
 import { createPointLightBakeCanvasRuntime } from "./pointLightBakeCanvasRuntime.js";
-import { createPointLightBakeSyncBindingRuntime } from "./pointLightBakeSyncBindingRuntime.js";
-import { createPointLightBakeBindingRuntime } from "./pointLightBakeBindingRuntime.js";
+import { createPointLightBakeSync } from "./pointLightBakeSync.js";
 import { createPointLightBakeRuntime } from "./pointLightBakeRuntime.js";
 
 export function createPointLightBakeRuntimeBinding(deps) {
@@ -30,10 +29,10 @@ export function createPointLightBakeRuntimeBinding(deps) {
     pointLightBakeCanvasRuntime.applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight);
   }
 
-  let pointLightBakeSyncBindingRuntime = null;
-  function getPointLightBakeSyncBindingRuntime() {
-    if (pointLightBakeSyncBindingRuntime) return pointLightBakeSyncBindingRuntime;
-    pointLightBakeSyncBindingRuntime = createPointLightBakeSyncBindingRuntime({
+  let pointLightBakeSyncRuntime = null;
+  function getPointLightBakeSyncRuntime() {
+    if (pointLightBakeSyncRuntime) return pointLightBakeSyncRuntime;
+    pointLightBakeSyncRuntime = createPointLightBakeSync({
       getFullBakeSize,
       pointLightBakeLiveScale: deps.pointLightBakeLiveScale,
       getLightingSettings: deps.getLightingSettings,
@@ -48,11 +47,11 @@ export function createPointLightBakeRuntimeBinding(deps) {
       pointLightBlendExposure: deps.pointLightBlendExposure,
       applyPointLightBakeRgba,
     });
-    return pointLightBakeSyncBindingRuntime;
+    return pointLightBakeSyncRuntime;
   }
 
   function bakePointLightsTextureSync(useReducedResolution = false) {
-    getPointLightBakeSyncBindingRuntime().bakePointLightsTextureSync(useReducedResolution);
+    getPointLightBakeSyncRuntime().bakePointLightsTextureSync(useReducedResolution);
   }
 
   const pointLightBakeRuntime = createPointLightBakeRuntime({
@@ -74,19 +73,13 @@ export function createPointLightBakeRuntimeBinding(deps) {
     applyPointLightBakeRgba,
   });
 
-  const pointLightBakeBindingRuntime = createPointLightBakeBindingRuntime({
-    pointLightBakeCanvasRuntime,
-    pointLightBakeRuntime,
-  });
-
   return {
     getWorker: () => pointLightBakeRuntime.getWorker(),
-    ensurePointLightBakeSize: () => pointLightBakeBindingRuntime.ensurePointLightBakeSize(),
-    applyPointLightBakeRgba: (rgba, sourceWidth, sourceHeight) =>
-      pointLightBakeBindingRuntime.applyPointLightBakeRgba(rgba, sourceWidth, sourceHeight),
-    schedulePointLightBake: () => pointLightBakeBindingRuntime.schedulePointLightBake(),
-    bakePointLightsTexture: () => pointLightBakeBindingRuntime.bakePointLightsTexture(),
-    getPointLightBakeSyncRuntime: () => getPointLightBakeSyncBindingRuntime().getPointLightBakeSyncRuntime(),
+    ensurePointLightBakeSize: () => pointLightBakeCanvasRuntime.ensurePointLightBakeSize(),
+    applyPointLightBakeRgba,
+    schedulePointLightBake: () => pointLightBakeRuntime.scheduleBake(),
+    bakePointLightsTexture: () => pointLightBakeRuntime.bakeNow(),
+    getPointLightBakeSyncRuntime,
     bakePointLightsTextureSync,
   };
 }

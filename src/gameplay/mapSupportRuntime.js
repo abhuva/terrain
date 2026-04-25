@@ -1,41 +1,45 @@
-import { createMapImageRuntimeBinding } from "./mapImageRuntimeBinding.js";
-import { createMapSamplingRuntimeBinding } from "./mapSamplingRuntimeBinding.js";
-import { createShadowOcclusionRuntimeBinding } from "./shadowOcclusionRuntimeBinding.js";
-import { createMapPathBindingRuntime } from "./mapPathBindingRuntime.js";
-import { createTauriRuntimeBinding } from "./tauriRuntimeBinding.js";
-import { getFileFromFolderSelection as selectFileFromFolder } from "./mapIoHelpers.js";
-import { createMapIoHelpersRuntime } from "./mapIoHelpersRuntime.js";
+import { createMapImageRuntime } from "./mapImageRuntime.js";
+import { createMapSampling } from "./mapSampling.js";
+import { createShadowOcclusion } from "./shadowOcclusion.js";
+import {
+  normalizeMapFolderPath as normalizeMapFolderPathUtil,
+  isAbsoluteFsPath as isAbsoluteFsPathUtil,
+  joinFsPath as joinFsPathUtil,
+  buildMapAssetPath as buildMapAssetPathUtil,
+  toAbsoluteFileUrl as toAbsoluteFileUrlUtil,
+} from "./mapPathUtils.js";
+import { resolveTauriInvoke, createTauriRuntimeHelpers } from "./tauriRuntime.js";
+import {
+  getFileFromFolderSelection as selectFileFromFolder,
+  createMapIoHelpers,
+} from "./mapIoHelpers.js";
 
 export function createMapSupportRuntime(deps) {
-  let mapPathBindingRuntime = null;
   let mapImageRuntime = null;
   let mapSamplingRuntime = null;
   let shadowOcclusionRuntime = null;
-
-  function getMapPathBindingRuntime() {
-    if (mapPathBindingRuntime) return mapPathBindingRuntime;
-    mapPathBindingRuntime = createMapPathBindingRuntime({
-      defaultMapFolder: deps.defaultMapFolder,
-    });
-    return mapPathBindingRuntime;
-  }
-
-  const tauriRuntimeBinding = createTauriRuntimeBinding({
-    windowEl: deps.windowEl,
-    normalizeMapFolderPath: (path) => getMapPathBindingRuntime().normalizeMapFolderPath(path),
-    isAbsoluteFsPath: (path) => getMapPathBindingRuntime().isAbsoluteFsPath(path),
+  const normalizeMapFolderPath = (path) => normalizeMapFolderPathUtil(path, deps.defaultMapFolder);
+  const isAbsoluteFsPath = (path) => isAbsoluteFsPathUtil(path);
+  const joinFsPath = (folder, fileName) => joinFsPathUtil(folder, fileName);
+  const buildMapAssetPath = (folder, fileName) => buildMapAssetPathUtil(folder, fileName);
+  const toAbsoluteFileUrl = (path) => toAbsoluteFileUrlUtil(path);
+  const tauriInvoke = resolveTauriInvoke(deps.windowEl);
+  const tauriRuntimeHelpers = createTauriRuntimeHelpers({
+    tauriInvoke,
+    normalizeMapFolderPath,
+    isAbsoluteFsPath,
   });
 
-  const mapIoHelpersRuntime = createMapIoHelpersRuntime({
-    tauriInvoke: tauriRuntimeBinding.tauriInvoke,
-    isAbsoluteFsPath: (path) => getMapPathBindingRuntime().isAbsoluteFsPath(path),
-    invokeTauri: (command, args) => tauriRuntimeBinding.invokeTauri(command, args),
-    toAbsoluteFileUrl: (path) => getMapPathBindingRuntime().toAbsoluteFileUrl(path),
+  const mapIoHelpers = createMapIoHelpers({
+    tauriInvoke,
+    isAbsoluteFsPath,
+    invokeTauri: (command, args) => tauriRuntimeHelpers.invokeTauri(command, args),
+    toAbsoluteFileUrl,
   });
 
   function getMapImageRuntime() {
     if (mapImageRuntime) return mapImageRuntime;
-    mapImageRuntime = createMapImageRuntimeBinding({
+    mapImageRuntime = createMapImageRuntime({
       splatSize: deps.splatSize,
       normalsSize: deps.normalsSize,
       heightSize: deps.heightSize,
@@ -62,7 +66,7 @@ export function createMapSupportRuntime(deps) {
 
   function getMapSamplingRuntime() {
     if (mapSamplingRuntime) return mapSamplingRuntime;
-    mapSamplingRuntime = createMapSamplingRuntimeBinding({
+    mapSamplingRuntime = createMapSampling({
       clamp: deps.clamp,
       getSplatSize: deps.getSplatSize,
       getNormalsSize: deps.getNormalsSize,
@@ -75,7 +79,7 @@ export function createMapSupportRuntime(deps) {
 
   function getShadowOcclusionRuntime() {
     if (shadowOcclusionRuntime) return shadowOcclusionRuntime;
-    shadowOcclusionRuntime = createShadowOcclusionRuntimeBinding({
+    shadowOcclusionRuntime = createShadowOcclusion({
       getSplatSize: deps.getSplatSize,
       sampleHeightAtMapCoord: (mapX, mapY) => getMapSamplingRuntime().sampleHeightAtMapCoord(mapX, mapY),
       sampleHeightAtMapPixel: (pixelX, pixelY) => getMapSamplingRuntime().sampleHeightAtMapPixel(pixelX, pixelY),
@@ -86,20 +90,20 @@ export function createMapSupportRuntime(deps) {
 
   return {
     getMapImageRuntime: () => getMapImageRuntime(),
-    tauriInvoke: tauriRuntimeBinding.tauriInvoke,
-    normalizeMapFolderPath: (path) => getMapPathBindingRuntime().normalizeMapFolderPath(path),
-    isAbsoluteFsPath: (path) => getMapPathBindingRuntime().isAbsoluteFsPath(path),
-    joinFsPath: (folder, fileName) => getMapPathBindingRuntime().joinFsPath(folder, fileName),
-    buildMapAssetPath: (folder, fileName) => getMapPathBindingRuntime().buildMapAssetPath(folder, fileName),
-    invokeTauri: (command, args) => tauriRuntimeBinding.invokeTauri(command, args),
-    toAbsoluteFileUrl: (path) => getMapPathBindingRuntime().toAbsoluteFileUrl(path),
-    pickMapFolderViaTauri: () => tauriRuntimeBinding.pickMapFolderViaTauri(),
-    validateMapFolderViaTauri: (folderPath) => tauriRuntimeBinding.validateMapFolderViaTauri(folderPath),
+    tauriInvoke,
+    normalizeMapFolderPath,
+    isAbsoluteFsPath,
+    joinFsPath,
+    buildMapAssetPath,
+    invokeTauri: (command, args) => tauriRuntimeHelpers.invokeTauri(command, args),
+    toAbsoluteFileUrl,
+    pickMapFolderViaTauri: () => tauriRuntimeHelpers.pickMapFolderViaTauri(),
+    validateMapFolderViaTauri: (folderPath) => tauriRuntimeHelpers.validateMapFolderViaTauri(folderPath),
     applyMapImages: (splatImage, normalsImage, heightImage, slopeImage, waterImage) =>
       getMapImageRuntime().applyMapImages(splatImage, normalsImage, heightImage, slopeImage, waterImage),
     syncPointLightWorkerMapData: () => getMapImageRuntime().syncPointLightWorkerMapData(),
     getFileFromFolderSelection: (files, fileName) => selectFileFromFolder(files, fileName),
-    tryLoadJsonFromUrl: (path) => mapIoHelpersRuntime.tryLoadJsonFromUrl(path),
+    tryLoadJsonFromUrl: (path) => mapIoHelpers.tryLoadJsonFromUrl(path),
     normalize3: (x, y, z) => getMapSamplingRuntime().normalize3(x, y, z),
     sampleNormalAtMapPixel: (pixelX, pixelY) => getMapSamplingRuntime().sampleNormalAtMapPixel(pixelX, pixelY),
     sampleHeightAtMapPixel: (pixelX, pixelY) => getMapSamplingRuntime().sampleHeightAtMapPixel(pixelX, pixelY),

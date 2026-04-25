@@ -1,25 +1,25 @@
-import { bindCanvasRuntime } from "./canvasBindingRuntime.js";
-import { bindPathfindingRuntime } from "./pathfindingBindingRuntime.js";
-import { bindSwarmPanelRuntime } from "./swarmPanelBindingRuntime.js";
-import { bindSwarmFollowRuntime } from "./swarmFollowBindingRuntime.js";
-import { bindTopicPanelRuntime } from "./topicPanelBindingRuntime.js";
-import { bindInteractionCycleRuntime } from "./interactionCycleBindingRuntime.js";
-import { bindCursorLightRuntime } from "./cursorLightBindingRuntime.js";
-import { bindPointLightEditorRuntime } from "./pointLightEditorBindingRuntime.js";
-import { bindRenderFxRuntime } from "./renderFxBindingRuntime.js";
-import { bindMapIoRuntime } from "./mapIoBindingRuntime.js";
-import { bindRuntimeBindingRuntime } from "./runtimeBindingRuntime.js";
+import { bindCanvasControls } from "./bindings/canvasBinding.js";
+import { bindPathfindingControls } from "./bindings/pathfindingBinding.js";
+import { bindSwarmPanelControls } from "./bindings/swarmPanelBinding.js";
+import { bindSwarmFollowControls } from "./bindings/swarmFollowBinding.js";
+import { bindTopicPanelControls } from "./bindings/topicPanelBinding.js";
+import { bindInteractionAndCycleControls } from "./bindings/interactionBinding.js";
+import { bindCursorLightControls } from "./bindings/cursorLightBinding.js";
+import { bindPointLightEditorControls } from "./bindings/pointLightEditorBinding.js";
+import { bindRenderFxControls } from "./bindings/renderFxBinding.js";
+import { bindMapIoControls } from "./bindings/mapIoBinding.js";
+import { bindRuntimeControls } from "./bindings/runtimeBinding.js";
 
 export function setupMainBindingsRuntime(deps) {
-  bindCanvasRuntime(deps.canvasBinding);
-  bindPathfindingRuntime(deps.pathfindingBinding);
-  bindSwarmPanelRuntime(deps.swarmPanelBinding);
-  bindSwarmFollowRuntime(deps.swarmFollowBinding);
-  bindTopicPanelRuntime(deps.topicPanelBinding);
-  bindInteractionCycleRuntime(deps.interactionCycleBinding);
-  bindCursorLightRuntime(deps.cursorLightBinding);
-  bindPointLightEditorRuntime(deps.pointLightEditorBinding);
-  bindRenderFxRuntime(deps.renderFxBinding);
-  bindMapIoRuntime(deps.mapIoBinding);
-  bindRuntimeBindingRuntime(deps.runtimeBinding);
+  bindCanvasControls(deps.canvasBinding);
+  bindPathfindingControls(deps.pathfindingBinding);
+  bindSwarmPanelControls(deps.swarmPanelBinding);
+  bindSwarmFollowControls(deps.swarmFollowBinding);
+  bindTopicPanelControls(deps.topicPanelBinding);
+  bindInteractionAndCycleControls(deps.interactionCycleBinding);
+  bindCursorLightControls(deps.cursorLightBinding);
+  bindPointLightEditorControls(deps.pointLightEditorBinding);
+  bindRenderFxControls(deps.renderFxBinding);
+  bindMapIoControls(deps.mapIoBinding);
+  bindRuntimeControls(deps.runtimeBinding);
 }

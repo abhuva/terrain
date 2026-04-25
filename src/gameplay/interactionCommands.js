@@ -5,29 +5,15 @@ export function registerInteractionCommands(commandBus, deps) {
     return Boolean(snapshot && snapshot.active);
   }
 
-  function syncPlayerToStore(ctx) {
-    if (typeof deps.syncPlayerStateToStore === "function") {
-      deps.syncPlayerStateToStore();
-      return;
-    }
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        player: {
-          ...prev.gameplay.player,
-          pixelX: deps.playerState.pixelX,
-          pixelY: deps.playerState.pixelY,
-        },
-      },
-    }));
+  function syncPlayerToStore() {
+    deps.syncPlayerStateToStore();
   }
 
-  commandBus.register("core/interaction/setMode", (command, ctx) => {
+  commandBus.register("core/interaction/setMode", (command) => {
     deps.setInteractionMode(command.mode);
   });
 
-  commandBus.register("core/interaction/clickMapPixel", (command, ctx) => {
+  commandBus.register("core/interaction/clickMapPixel", (command) => {
     const pixel = {
       x: Number(command.x),
       y: Number(command.y),
@@ -64,7 +50,7 @@ export function registerInteractionCommands(commandBus, deps) {
       deps.setInteractionMode("none");
       deps.movePreviewState.hoverPixel = null;
       deps.movePreviewState.pathPixels = [];
-      syncPlayerToStore(ctx);
+      syncPlayerToStore();
       deps.requestOverlayDraw();
       return;
     }
@@ -74,7 +60,7 @@ export function registerInteractionCommands(commandBus, deps) {
       deps.movePreviewState.hoverPixel = null;
       deps.movePreviewState.pathPixels = [];
       deps.setStatus(`Movement canceled at (${deps.playerState.pixelX}, ${deps.playerState.pixelY}).`);
-      syncPlayerToStore(ctx);
+      syncPlayerToStore();
       deps.requestOverlayDraw();
       return;
     }
@@ -90,95 +76,79 @@ export function registerInteractionCommands(commandBus, deps) {
     deps.requestOverlayDraw();
   });
 
-  function syncPathfindingStateToStore(ctx) {
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        pathfinding: {
-          ...prev.gameplay.pathfinding,
-          ...(typeof deps.getPathfindingStateSnapshot === "function" ? deps.getPathfindingStateSnapshot() : {}),
-        },
-      },
-    }));
+  function syncPathfindingStateToStore() {
+    deps.syncPathfindingStateToStore(
+      typeof deps.getPathfindingStateSnapshot === "function" ? deps.getPathfindingStateSnapshot() : {},
+    );
   }
 
-  function updatePathfindingStoreField(ctx, patch) {
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        pathfinding: {
-          ...prev.gameplay.pathfinding,
-          ...patch,
-        },
-      },
-    }));
+  function updatePathfindingStoreField(patch) {
+    deps.patchPathfindingStateToStore(patch);
   }
 
-  commandBus.register("core/pathfinding/setRange", (command, ctx) => {
-    updatePathfindingStoreField(ctx, {
+  commandBus.register("core/pathfinding/setRange", (command) => {
+    updatePathfindingStoreField({
       range: Math.round(deps.clamp(Number(command.value), 30, 300)),
     });
     deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setWeightSlope", (command, ctx) => {
-    updatePathfindingStoreField(ctx, {
+  commandBus.register("core/pathfinding/setWeightSlope", (command) => {
+    updatePathfindingStoreField({
       weightSlope: deps.clamp(Number(command.value), 0, 10),
     });
     deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setWeightHeight", (command, ctx) => {
-    updatePathfindingStoreField(ctx, {
+  commandBus.register("core/pathfinding/setWeightHeight", (command) => {
+    updatePathfindingStoreField({
       weightHeight: deps.clamp(Number(command.value), 0, 10),
     });
     deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setWeightWater", (command, ctx) => {
-    updatePathfindingStoreField(ctx, {
+  commandBus.register("core/pathfinding/setWeightWater", (command) => {
+    updatePathfindingStoreField({
       weightWater: deps.clamp(Number(command.value), 0, 100),
     });
     deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setSlopeCutoff", (command, ctx) => {
-    updatePathfindingStoreField(ctx, {
+  commandBus.register("core/pathfinding/setSlopeCutoff", (command) => {
+    updatePathfindingStoreField({
       slopeCutoff: Math.round(deps.clamp(Number(command.value), 0, 90)),
     });
     deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 
-  commandBus.register("core/pathfinding/setBaseCost", (command, ctx) => {
-    updatePathfindingStoreField(ctx, {
+  commandBus.register("core/pathfinding/setBaseCost", (command) => {
+    updatePathfindingStoreField({
       baseCost: deps.clamp(Number(command.value), 0, 2),
     });
     deps.syncPathfindingSettingsUi();
     if (deps.getInteractionMode() === "pathfinding") {
       deps.rebuildMovementField();
     }
-    syncPathfindingStateToStore(ctx);
+    syncPathfindingStateToStore();
   });
 }

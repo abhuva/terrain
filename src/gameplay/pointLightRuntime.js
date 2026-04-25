@@ -2,7 +2,6 @@ import { createPointLightEditorState } from "./pointLightEditorState.js";
 import { createPointLightDraftRuntime } from "./pointLightDraftRuntime.js";
 import { createPointLightEditorController } from "./pointLightEditorController.js";
 import { createPointLightEditorRuntime } from "./pointLightEditorRuntime.js";
-import { createPointLightEditorActionBindingRuntime } from "./pointLightEditorActionBindingRuntime.js";
 import { createPointLightSelectionRuntime } from "./pointLightSelectionRuntime.js";
 import { createPointLightIoRuntime } from "./pointLightIoRuntime.js";
 
@@ -34,10 +33,6 @@ export function createPointLightRuntime(deps) {
 
   const pointLightEditorRuntime = createPointLightEditorRuntime({
     pointLightEditorController,
-  });
-
-  const pointLightEditorActionBindingRuntime = createPointLightEditorActionBindingRuntime({
-    pointLightEditorRuntime,
   });
 
   const pointLightSelectionRuntime = createPointLightSelectionRuntime({
@@ -88,12 +83,12 @@ export function createPointLightRuntime(deps) {
     setLightEditDraftFlickerSpeed: (value) => pointLightDraftRuntime.setLightEditDraftFlickerSpeed(value),
     getDraft: () => pointLightEditorState.getDraft(),
     isSelectedLight: (light) => pointLightEditorState.isSelectedLight(light),
-    beginLightEdit: (light) => pointLightEditorActionBindingRuntime.beginLightEdit(light),
-    applyDraftToSelectedPointLight: () => pointLightEditorActionBindingRuntime.applyDraftToSelectedPointLight(),
-    rebakeIfPointLightLiveUpdateEnabled: () => pointLightEditorActionBindingRuntime.rebakeIfPointLightLiveUpdateEnabled(),
+    beginLightEdit: (light) => pointLightEditorRuntime.beginLightEdit(light),
+    applyDraftToSelectedPointLight: () => pointLightEditorRuntime.applyDraftToSelectedPointLight(),
+    rebakeIfPointLightLiveUpdateEnabled: () => pointLightEditorRuntime.rebakeIfPointLightLiveUpdateEnabled(),
     findPointLightAtPixel: (pixelX, pixelY, radiusPx) =>
-      pointLightEditorActionBindingRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx),
-    createPointLight: (pixelX, pixelY) => pointLightEditorActionBindingRuntime.createPointLight(pixelX, pixelY),
+      pointLightEditorRuntime.findPointLightAtPixel(pixelX, pixelY, radiusPx),
+    createPointLight: (pixelX, pixelY) => pointLightEditorRuntime.createPointLight(pixelX, pixelY),
     deletePointLightById: (id) => pointLightEditorRuntime.deletePointLightById(id),
     clearPointLights: () => pointLightIoRuntime.clearPointLights(),
     resetPointLightsSaveConfirmation: () => pointLightIoRuntime.resetPointLightsSaveConfirmation(),

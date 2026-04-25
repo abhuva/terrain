@@ -39,15 +39,7 @@ export function registerMainCommands(commandBus, deps) {
     const nextZoom = Number.isFinite(Number(pose && pose.zoom))
       ? deps.clamp(Number(pose.zoom), deps.zoomMin, deps.zoomMax)
       : getCameraPose(ctx).zoom;
-    ctx.store.update((prev) => ({
-      ...prev,
-      camera: {
-        ...prev.camera,
-        panX: nextPanX,
-        panY: nextPanY,
-        zoom: nextZoom,
-      },
-    }));
+    deps.setCameraPoseToStore(nextPanX, nextPanY, nextZoom);
     if (typeof deps.applyCameraPose === "function") {
       deps.applyCameraPose({
         panX: nextPanX,
@@ -60,47 +52,24 @@ export function registerMainCommands(commandBus, deps) {
     }
   }
 
-  function syncCursorLightToStore(ctx) {
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        cursorLight: {
-          ...prev.gameplay.cursorLight,
-          enabled: Boolean(deps.cursorLightState.enabled),
-          useTerrainHeight: Boolean(deps.cursorLightState.useTerrainHeight),
-          strength: Math.round(deps.clamp(Number(deps.cursorLightState.strength), 1, 200)),
-          heightOffset: Math.round(deps.clamp(Number(deps.cursorLightState.heightOffset), 0, 120)),
-          color: typeof deps.cursorLightState.colorHex === "string" ? deps.cursorLightState.colorHex : "#ff9b2f",
-          showGizmo: Boolean(deps.cursorLightState.showGizmo),
-        },
-      },
-    }));
+  function syncCursorLightToStore() {
+    deps.syncCursorLightStateToStore();
   }
 
-  commandBus.register("core/setMode", (command, ctx) => {
+  commandBus.register("core/setMode", (command) => {
     const nextMode = normalizeRuntimeMode(command.mode);
-    ctx.store.update((prev) => ({ ...prev, mode: nextMode }));
+    deps.setModeToStore(nextMode);
     deps.setInteractionMode(deps.getInteractionMode());
   });
 
   registerInteractionCommands(commandBus, deps);
 
-  commandBus.register("core/renderFx/changed", (command, ctx) => {
+  commandBus.register("core/renderFx/changed", (command) => {
     const section = String(command.section || "");
     const patch = command.patch && typeof command.patch === "object" ? command.patch : null;
 
     function updateSimulationSection(key, nextSection) {
-      ctx.store.update((prev) => ({
-        ...prev,
-        simulation: {
-          ...prev.simulation,
-          knobs: {
-            ...prev.simulation.knobs,
-            [key]: nextSection,
-          },
-        },
-      }));
+      deps.patchSimulationKnobSectionToStore(key, nextSection);
     }
 
     function getLightingSettings() {
@@ -254,18 +223,9 @@ export function registerMainCommands(commandBus, deps) {
     }
   });
 
-  commandBus.register("core/swarm/settingsChanged", (command, ctx) => {
+  commandBus.register("core/swarm/settingsChanged", (command) => {
     function updateSwarmSettings(patch) {
-      ctx.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          swarm: {
-            ...prev.gameplay.swarm,
-            ...patch,
-          },
-        },
-      }));
+      deps.patchSwarmSettingsToStore(patch);
     }
 
     const action = String(command.action || "");
@@ -590,99 +550,50 @@ export function registerMainCommands(commandBus, deps) {
     deps.setCycleHourScrubbing(Boolean(command.scrubbing));
   });
 
-  commandBus.register("core/time/setHour", (command, ctx) => {
+  commandBus.register("core/time/setHour", (command) => {
     deps.cycleState.hour = deps.clamp(Number(command.hour), 0, 24);
-    ctx.store.update((prev) => ({
-      ...prev,
-      ui: {
-        ...prev.ui,
-        cycleHour: deps.cycleState.hour,
-      },
-    }));
+    deps.setCycleHourUiToStore(deps.cycleState.hour);
     deps.updateCycleHourLabel();
   });
 
-  commandBus.register("core/time/setCycleSpeed", (command, ctx) => {
+  commandBus.register("core/time/setCycleSpeed", (command) => {
     const nextSpeed = deps.clamp(Number(command.cycleSpeed), 0, 1);
     deps.syncCycleSpeedInput(nextSpeed);
-    ctx.store.update((prev) => ({
-      ...prev,
-      clock: {
-        ...prev.clock,
-        timeScale: nextSpeed,
-      },
-      systems: {
-        ...prev.systems,
-        time: {
-          ...prev.systems.time,
-          cycleSpeedHoursPerSec: nextSpeed,
-        },
-      },
-    }));
+    deps.setCycleSpeedToStore(nextSpeed);
   });
 
-  commandBus.register("core/time/setSimTickHours", (command, ctx) => {
+  commandBus.register("core/time/setSimTickHours", (command) => {
     const nextTick = deps.clamp(Number(command.simTickHours), 0.001, 0.1);
     deps.syncSimTickHoursInput(nextTick);
-    ctx.store.update((prev) => ({
-      ...prev,
-      systems: {
-        ...prev.systems,
-        time: {
-          ...prev.systems.time,
-          simTickHours: nextTick,
-        },
-      },
-    }));
+    deps.setSimTickHoursToStore(nextTick);
     if (typeof deps.updateSimTickLabel === "function") {
       deps.updateSimTickLabel();
     }
   });
 
-  commandBus.register("core/time/setRouting", (command, ctx) => {
+  commandBus.register("core/time/setRouting", (command) => {
     const target = String(command.target || "");
     const mode = command.mode === "detached" ? "detached" : "global";
     const allowedTargets = new Set(["movement", "swarm", "clouds", "water", "weather"]);
     if (!allowedTargets.has(target)) return;
     deps.syncRoutingInput(target, mode);
-    ctx.store.update((prev) => ({
-      ...prev,
-      systems: {
-        ...prev.systems,
-        time: {
-          ...prev.systems.time,
-          routing: {
-            ...(prev.systems.time && prev.systems.time.routing ? prev.systems.time.routing : {}),
-            [target]: mode,
-          },
-        },
-      },
-    }));
+    deps.setTimeRoutingModeToStore(target, mode);
   });
 
-  commandBus.register("core/pointLights/setLiveUpdate", (command, ctx) => {
+  commandBus.register("core/pointLights/setLiveUpdate", (command) => {
     const liveUpdate = Boolean(command.liveUpdate);
     if (typeof deps.syncPointLightLiveUpdateToggle === "function") {
       deps.syncPointLightLiveUpdateToggle(liveUpdate);
     }
-    ctx.store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        pointLights: {
-          ...(prev.gameplay && prev.gameplay.pointLights ? prev.gameplay.pointLights : {}),
-          liveUpdate,
-        },
-      },
-    }));
+    deps.syncPointLightsStateToStore(liveUpdate);
   });
 
-  commandBus.register("core/cursorLight/setEnabled", (command, ctx) => {
+  commandBus.register("core/cursorLight/setEnabled", (command) => {
     deps.applyCursorLightConfigSnapshot({
       ...deps.getCursorLightSnapshot(),
       enabled: Boolean(command.enabled),
     });
-    syncCursorLightToStore(ctx);
+    syncCursorLightToStore();
     deps.requestOverlayDraw();
   });
 
@@ -698,54 +609,54 @@ export function registerMainCommands(commandBus, deps) {
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setTerrainFollow", (command, ctx) => {
+  commandBus.register("core/cursorLight/setTerrainFollow", (command) => {
     deps.applyCursorLightConfigSnapshot({
       ...deps.getCursorLightSnapshot(),
       useTerrainHeight: Boolean(command.useTerrainHeight),
     });
-    syncCursorLightToStore(ctx);
+    syncCursorLightToStore();
     deps.updateCursorLightModeUi();
   });
 
-  commandBus.register("core/cursorLight/setColor", (command, ctx) => {
+  commandBus.register("core/cursorLight/setColor", (command) => {
     deps.applyCursorLightConfigSnapshot({
       ...deps.getCursorLightSnapshot(),
       colorHex: typeof command.colorHex === "string" ? command.colorHex : "#ff9b2f",
     });
-    syncCursorLightToStore(ctx);
+    syncCursorLightToStore();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setStrength", (command, ctx) => {
+  commandBus.register("core/cursorLight/setStrength", (command) => {
     deps.applyCursorLightConfigSnapshot({
       ...deps.getCursorLightSnapshot(),
       strength: Math.round(deps.clamp(Number(command.strength), 1, 200)),
     });
-    syncCursorLightToStore(ctx);
+    syncCursorLightToStore();
     deps.updateCursorLightStrengthLabel();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setHeightOffset", (command, ctx) => {
+  commandBus.register("core/cursorLight/setHeightOffset", (command) => {
     deps.applyCursorLightConfigSnapshot({
       ...deps.getCursorLightSnapshot(),
       heightOffset: Math.round(deps.clamp(Number(command.heightOffset), 0, 120)),
     });
-    syncCursorLightToStore(ctx);
+    syncCursorLightToStore();
     deps.updateCursorLightHeightOffsetLabel();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/cursorLight/setGizmo", (command, ctx) => {
+  commandBus.register("core/cursorLight/setGizmo", (command) => {
     deps.applyCursorLightConfigSnapshot({
       ...deps.getCursorLightSnapshot(),
       showGizmo: Boolean(command.showGizmo),
     });
-    syncCursorLightToStore(ctx);
+    syncCursorLightToStore();
     deps.requestOverlayDraw();
   });
 
-  commandBus.register("core/swarm/toggleFollow", (command, ctx) => {
+  commandBus.register("core/swarm/toggleFollow", (command) => {
     const follow = deps.getSwarmFollowSnapshot();
     if (!deps.isSwarmEnabled()) {
       deps.setStatus("Enable Agent Swarm first.");
@@ -783,7 +694,7 @@ export function registerMainCommands(commandBus, deps) {
     deps.setStatus(`Swarm follow enabled (${targetType}).`);
   });
 
-  commandBus.register("core/swarm/setFollowTarget", (command, ctx) => {
+  commandBus.register("core/swarm/setFollowTarget", (command) => {
     const follow = deps.getSwarmFollowSnapshot();
     deps.applySwarmFollowState({
       enabled: follow.enabled,

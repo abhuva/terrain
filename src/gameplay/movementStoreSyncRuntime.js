@@ -1,29 +1,18 @@
+import { patchMovementState, patchPlayerState } from "./stateSync.js";
+
 export function createMovementStoreSyncRuntime(deps) {
   return {
     setPlayerSnapshot: ({ pixelX, pixelY }) => {
-      deps.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          player: {
-            ...prev.gameplay.player,
-            pixelX,
-            pixelY,
-          },
-        },
-      }));
+      patchPlayerState({
+        store: deps.store,
+        patch: { pixelX, pixelY },
+      });
     },
     setMovementSnapshot: (value) => {
-      deps.store.update((prev) => ({
-        ...prev,
-        gameplay: {
-          ...prev.gameplay,
-          movement: {
-            ...(prev.gameplay && prev.gameplay.movement ? prev.gameplay.movement : {}),
-            ...value,
-          },
-        },
-      }));
+      patchMovementState({
+        store: deps.store,
+        patch: value,
+      });
     },
   };
 }

@@ -1,7 +1,12 @@
 import { createModeTopicRuntimeBinding } from "./modeTopicRuntimeBinding.js";
-import { createInteractionModeSnapshotBindingRuntime } from "../gameplay/interactionModeSnapshotBindingRuntime.js";
+import { createInteractionModeSnapshotRuntime } from "../gameplay/interactionModeSnapshotRuntime.js";
 
 export function createModeInteractionRuntimeBinding(deps) {
+  const interactionModeSnapshotRuntime = createInteractionModeSnapshotRuntime({
+    resolveInteractionModeSnapshot: deps.resolveInteractionModeSnapshot,
+    getCoreGameplay: deps.getCoreGameplay,
+  });
+
   const modeTopicRuntimeBinding = createModeTopicRuntimeBinding({
     getModeValue: deps.getModeValue,
     normalizeRuntimeMode: deps.normalizeRuntimeMode,
@@ -13,14 +18,9 @@ export function createModeInteractionRuntimeBinding(deps) {
     topicPanelTitleEl: deps.topicPanelTitleEl,
     dockLightingModeToggle: deps.dockLightingModeToggle,
     dockPathfindingModeToggle: deps.dockPathfindingModeToggle,
-    getInteractionModeSnapshot: () => interactionModeSnapshotBindingRuntime.getInteractionModeSnapshot(),
+    getInteractionModeSnapshot: () => interactionModeSnapshotRuntime.getInteractionModeSnapshot(),
     setInteractionMode: deps.setInteractionMode,
     setStatus: deps.setStatus,
-  });
-
-  const interactionModeSnapshotBindingRuntime = createInteractionModeSnapshotBindingRuntime({
-    resolveInteractionModeSnapshot: deps.resolveInteractionModeSnapshot,
-    getCoreGameplay: deps.getCoreGameplay,
   });
 
   return {
@@ -30,6 +30,6 @@ export function createModeInteractionRuntimeBinding(deps) {
     setTopicPanelVisible: (visible) => modeTopicRuntimeBinding.setTopicPanelVisible(visible),
     setActiveTopic: (topicName) => modeTopicRuntimeBinding.setActiveTopic(topicName),
     updateModeCapabilitiesUi: () => modeTopicRuntimeBinding.updateModeCapabilitiesUi(),
-    getInteractionModeSnapshot: () => interactionModeSnapshotBindingRuntime.getInteractionModeSnapshot(),
+    getInteractionModeSnapshot: () => interactionModeSnapshotRuntime.getInteractionModeSnapshot(),
   };
 }

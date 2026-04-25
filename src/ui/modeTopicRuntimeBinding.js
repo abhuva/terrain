@@ -1,9 +1,9 @@
-import { createModeStateRuntimeBinding } from "../core/modeStateRuntimeBinding.js";
+import { createModeStateAccess } from "../core/modeStateAccess.js";
 import { createModeCapabilitiesUi } from "./modeCapabilitiesUi.js";
 import { createTopicPanelRuntime } from "./topicPanelRuntime.js";
 
 export function createModeTopicRuntimeBinding(deps) {
-  const modeStateRuntimeBinding = createModeStateRuntimeBinding({
+  const modeStateAccess = createModeStateAccess({
     getModeValue: deps.getModeValue,
     normalizeRuntimeMode: deps.normalizeRuntimeMode,
     canUseModeTopic: deps.canUseModeTopic,
@@ -11,15 +11,15 @@ export function createModeTopicRuntimeBinding(deps) {
   });
 
   function getRuntimeMode() {
-    return modeStateRuntimeBinding.getRuntimeMode();
+    return modeStateAccess.getRuntimeMode();
   }
 
   function canUseTopicInCurrentMode(topic) {
-    return modeStateRuntimeBinding.canUseTopicInCurrentMode(topic);
+    return modeStateAccess.canUseTopicInCurrentMode(topic);
   }
 
   function canUseInteractionInCurrentMode(mode) {
-    return modeStateRuntimeBinding.canUseInteractionInCurrentMode(mode);
+    return modeStateAccess.canUseInteractionInCurrentMode(mode);
   }
 
   const modeCapabilitiesUi = createModeCapabilitiesUi({

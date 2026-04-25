@@ -1,4 +1,4 @@
-import { createCameraViewRuntimeBinding } from "./cameraViewRuntimeBinding.js";
+import { createCameraViewRuntime } from "./cameraViewRuntime.js";
 import {
   getBaseViewHalfExtents,
   getActiveCameraState,
@@ -14,18 +14,18 @@ import {
 } from "./cameraTransforms.js";
 
 export function createCameraRuntimeBinding(deps) {
-  const cameraViewRuntimeBinding = createCameraViewRuntimeBinding({
+  const cameraViewRuntime = createCameraViewRuntime({
     dispatchCoreCommand: deps.dispatchCoreCommand,
     canvas: deps.canvas,
     splatSize: deps.splatSize,
   });
 
   function getMapAspectSafe() {
-    return cameraViewRuntimeBinding.getMapAspect();
+    return cameraViewRuntime.getMapAspect();
   }
 
   function getScreenAspectSafe() {
-    return cameraViewRuntimeBinding.getScreenAspect();
+    return cameraViewRuntime.getScreenAspect();
   }
 
   function getActiveCameraStateSafe() {
@@ -50,7 +50,7 @@ export function createCameraRuntimeBinding(deps) {
   }
 
   return {
-    resetCamera: () => cameraViewRuntimeBinding.resetCamera(),
+    resetCamera: () => cameraViewRuntime.resetCamera(),
     getScreenAspect: () => getScreenAspectSafe(),
     getMapAspect: () => getMapAspectSafe(),
     getBaseViewHalfExtents: () => getBaseViewHalfExtentsSafe(),

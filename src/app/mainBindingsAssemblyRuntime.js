@@ -1,7 +1,5 @@
-import { setupMainBindingsRuntime } from "./mainBindingsRuntime.js";
-
-export function runMainBindingsSetup(deps) {
-  setupMainBindingsRuntime({
+export function createMainBindingsAssemblyRuntime(deps) {
+  return {
     canvasBinding: {
       canvas: deps.canvas,
       windowEl: deps.windowEl,
@@ -270,5 +268,5 @@ export function runMainBindingsSetup(deps) {
       schedulePointLightBake: deps.schedulePointLightBake,
       resize: deps.resize,
     },
-  });
+  };
 }

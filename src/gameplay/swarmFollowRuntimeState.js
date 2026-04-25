@@ -1,3 +1,5 @@
+import { patchSwarmSettingsState } from "./stateSync.js";
+
 function normalizeFollowIndex(value) {
   return Number.isFinite(Number(value)) ? Math.round(Number(value)) : -1;
 }
@@ -25,16 +27,10 @@ export function createSwarmFollowRuntimeState(deps) {
     if (!store || typeof store.update !== "function") {
       return;
     }
-    store.update((prev) => ({
-      ...prev,
-      gameplay: {
-        ...prev.gameplay,
-        swarm: {
-          ...prev.gameplay.swarm,
-          ...patch,
-        },
-      },
-    }));
+    patchSwarmSettingsState({
+      store,
+      patch,
+    });
   }
 
   function getSwarmFollowSnapshot() {

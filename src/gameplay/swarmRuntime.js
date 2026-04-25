@@ -1,10 +1,11 @@
 import { createSwarmFollowStateController } from "./swarmFollowStateController.js";
 import {
   getSwarmRuntimeStateSnapshot as buildSwarmRuntimeStateSnapshot,
-  syncSwarmFollowToStore as syncSwarmFollowToStoreState,
-  syncSwarmRuntimeStateToStore as syncSwarmRuntimeStateToStoreState,
-  syncSwarmStateToStore as syncSwarmStateToStoreState,
+  getSwarmStoreSnapshot,
+  hasSwarmSnapshotChanged,
+  normalizeStoredFollowIndex,
 } from "./swarmStoreSync.js";
+import { syncSwarmFollowState, syncSwarmRuntimeState, syncSwarmState } from "./stateSync.js";
 
 export function createSwarmRuntime(deps) {
   function getSwarmRuntimeStateSnapshot() {
@@ -17,25 +18,29 @@ export function createSwarmRuntime(deps) {
   }
 
   function syncSwarmFollowToStore() {
-    syncSwarmFollowToStoreState({
+    syncSwarmFollowState({
       store: deps.store,
       getSwarmRuntimeStateSnapshot,
-      getSwarmSettings: deps.getSwarmSettings,
     });
   }
 
   function syncSwarmRuntimeStateToStore() {
-    syncSwarmRuntimeStateToStoreState({
+    syncSwarmRuntimeState({
       store: deps.store,
       getSwarmRuntimeStateSnapshot,
+      normalizeStoredFollowIndex,
     });
   }
 
   function syncSwarmStateToStore() {
-    syncSwarmStateToStoreState({
+    syncSwarmState({
       store: deps.store,
-      getSwarmRuntimeStateSnapshot,
-      getSwarmSettings: deps.getSwarmSettings,
+      getSwarmStoreSnapshot: () =>
+        getSwarmStoreSnapshot({
+          getSwarmSettings: deps.getSwarmSettings,
+          getSwarmRuntimeStateSnapshot,
+        }),
+      hasSwarmSnapshotChanged,
     });
   }
 

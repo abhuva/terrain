@@ -1,10 +1,10 @@
-import { createPathfindingCostModelBindingRuntime } from "./pathfindingCostModelBindingRuntime.js";
+import { createPathfindingCostModel } from "./pathfindingCostModel.js";
 import { createPathfindingPreviewRuntime } from "./pathfindingPreviewRuntime.js";
 
 export function createPathfindingRuntimeBinding(deps) {
   let movementField = null;
 
-  const pathfindingCostModelBindingRuntime = createPathfindingCostModelBindingRuntime({
+  const pathfindingCostModel = createPathfindingCostModel({
     clamp: deps.clamp,
     playerState: deps.playerState,
     getMapSize: deps.getMapSize,
@@ -15,9 +15,9 @@ export function createPathfindingRuntimeBinding(deps) {
   });
 
   const pathfindingPreviewRuntime = createPathfindingPreviewRuntime({
-    movementWindowBounds: () => pathfindingCostModelBindingRuntime.movementWindowBounds(),
+    movementWindowBounds: () => pathfindingCostModel.movementWindowBounds(),
     computeMoveStepCost: (fromX, fromY, toX, toY) =>
-      pathfindingCostModelBindingRuntime.computeMoveStepCost(fromX, fromY, toX, toY),
+      pathfindingCostModel.computeMoveStepCost(fromX, fromY, toX, toY),
     playerState: deps.playerState,
     getMovementField: () => movementField,
     setMovementField: (value) => {
@@ -34,10 +34,10 @@ export function createPathfindingRuntimeBinding(deps) {
 
   return {
     getGrayAt: (imageData, x, y, sourceWidth, sourceHeight) =>
-      pathfindingCostModelBindingRuntime.getGrayAt(imageData, x, y, sourceWidth, sourceHeight),
-    movementWindowBounds: () => pathfindingCostModelBindingRuntime.movementWindowBounds(),
+      pathfindingCostModel.getGrayAt(imageData, x, y, sourceWidth, sourceHeight),
+    movementWindowBounds: () => pathfindingCostModel.movementWindowBounds(),
     computeMoveStepCost: (fromX, fromY, toX, toY) =>
-      pathfindingCostModelBindingRuntime.computeMoveStepCost(fromX, fromY, toX, toY),
+      pathfindingCostModel.computeMoveStepCost(fromX, fromY, toX, toY),
     rebuildMovementField: () => pathfindingPreviewRuntime.rebuildMovementField(),
     extractPathTo: (pixelX, pixelY) => pathfindingPreviewRuntime.extractPathTo(pixelX, pixelY),
     refreshPathPreview: () => pathfindingPreviewRuntime.refreshPathPreview(),

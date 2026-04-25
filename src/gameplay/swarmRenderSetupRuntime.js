@@ -1,6 +1,6 @@
 import { createSwarmStepFunction } from "./swarmStep.js";
 import { createSwarmLoopRuntime } from "./swarmLoopRuntime.js";
-import { createSwarmOverlayBindingRuntime } from "../ui/swarmOverlayBindingRuntime.js";
+import { createSwarmOverlayRuntime } from "../ui/swarmOverlayRuntime.js";
 import { createSwarmLitRenderer } from "../render/swarmLitRenderer.js";
 
 export function createSwarmRenderSetupRuntime(deps) {
@@ -43,7 +43,7 @@ export function createSwarmRenderSetupRuntime(deps) {
     setSwarmFollowSpeedNormFiltered: deps.setSwarmFollowSpeedNormFiltered,
   });
 
-  const swarmOverlayBindingRuntime = createSwarmOverlayBindingRuntime({
+  const swarmOverlayBindingRuntime = createSwarmOverlayRuntime({
     swarmState: deps.swarmState,
     swarmOverlayAgentScratch: deps.swarmOverlayAgentScratch,
     swarmOverlayHawkScratch: deps.swarmOverlayHawkScratch,
