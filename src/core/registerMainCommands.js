@@ -662,8 +662,8 @@ export function registerMainCommands(commandBus, deps) {
 
   commandBus.register("core/pointLights/setLiveUpdate", (command, ctx) => {
     const liveUpdate = Boolean(command.liveUpdate);
-    if (deps.pointLightLiveUpdateToggle) {
-      deps.pointLightLiveUpdateToggle.checked = liveUpdate;
+    if (typeof deps.syncPointLightLiveUpdateToggle === "function") {
+      deps.syncPointLightLiveUpdateToggle(liveUpdate);
     }
     ctx.store.update((prev) => ({
       ...prev,

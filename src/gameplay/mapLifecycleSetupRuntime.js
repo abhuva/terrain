@@ -6,7 +6,7 @@ export function createMapLifecycleSetupRuntime(deps) {
     defaultMapFolderCandidates: deps.defaultMapFolderCandidates,
     defaultPlayer: deps.defaultPlayer,
     normalizeMapFolderPath: deps.normalizeMapFolderPath,
-    mapPathInput: deps.mapPathInput,
+    syncMapPathInput: deps.syncMapPathInput,
     syncMapStateToStore: deps.syncMapStateToStore,
     getSettingsDefaults: deps.getSettingsDefaults,
     defaultLightingSettings: deps.defaultLightingSettings,

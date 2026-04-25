@@ -41,7 +41,7 @@ export function createMainCommandDepsRuntime(deps) {
     rebuildMovementField: deps.rebuildMovementField,
     getPathfindingStateSnapshot: deps.getPathfindingStateSnapshot,
     syncPathfindingSettingsUi: deps.syncPathfindingSettingsUi,
-    pointLightLiveUpdateToggle: deps.pointLightLiveUpdateToggle,
+    syncPointLightLiveUpdateToggle: deps.syncPointLightLiveUpdateToggle,
     syncRenderFxParallaxUi: deps.syncRenderFxParallaxUi,
     syncRenderFxLightingUi: deps.syncRenderFxLightingUi,
     syncRenderFxFogUi: deps.syncRenderFxFogUi,

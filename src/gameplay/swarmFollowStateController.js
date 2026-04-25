@@ -21,7 +21,9 @@ export function createSwarmFollowStateController(deps) {
       deps.setSwarmFollowAgentIndex(-1);
       deps.setSwarmFollowHawkIndex(-1);
     }
-    deps.swarmFollowTargetInput.value = targetType;
+    if (typeof deps.syncSwarmFollowTargetInput === "function") {
+      deps.syncSwarmFollowTargetInput(targetType);
+    }
     if (resetSpeed) {
       deps.resetSwarmFollowSpeedSmoothing();
     }

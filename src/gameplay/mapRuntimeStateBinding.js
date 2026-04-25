@@ -5,7 +5,7 @@ export function createMapRuntimeStateBinding(deps) {
     normalizeMapFolderPath: deps.normalizeMapFolderPath,
     setCurrentMapFolderPathValue: deps.setCurrentMapFolderPathValue,
     getCurrentMapFolderPath: deps.getCurrentMapFolderPath,
-    mapPathInput: deps.mapPathInput,
+    syncMapPathInput: deps.syncMapPathInput,
     syncMapStateToStore: deps.syncMapStateToStore,
     getSettingsDefaults: deps.getSettingsDefaults,
     defaultLightingSettings: deps.defaultLightingSettings,

@@ -168,6 +168,51 @@ No game engine is used.
 - Legacy settings/UI dependency assembly is now grouped behind `src/ui/settingsLegacySetupRuntime.js` instead of leaving the large `createSettingsLegacyRuntimeBinding(...)` composition block inline in `main.js`.
 - Point-light runtime dependency assembly is now grouped behind `src/gameplay/pointLightSetupRuntime.js` instead of leaving the `createPointLightRuntime(...)` composition block inline in `main.js`.
 - Map lifecycle dependency assembly is now grouped behind `src/gameplay/mapLifecycleSetupRuntime.js` instead of leaving the `createMapLifecycleRuntime(...)` composition block inline in `main.js`.
+- Point-light bake runtime dependency assembly is now grouped behind `src/render/pointLightBakeSetupRuntime.js` instead of leaving the `createPointLightBakeRuntimeBinding(...)` composition block inline in `main.js`.
+- Swarm step/loop/overlay/lit-render composition is now grouped behind `src/gameplay/swarmRenderSetupRuntime.js` instead of leaving those setup blocks inline in `main.js`.
+- Interaction/info facade composition is now grouped behind `src/gameplay/interactionFacadeSetupRuntime.js` instead of leaving `createInfoPanelRuntime(...)`, `createInteractionModeRuntime(...)`, and `createMainFacadeRuntime(...)` assembly blocks inline in `main.js`.
+- Default fallback-map image bootstrap is now grouped behind `src/render/defaultMapSetupRuntime.js` instead of leaving the helper cluster plus `createDefaultMapImageRuntime(...)` call inline in `main.js`.
+- Light-label + mode/topic interaction setup is now grouped behind `src/ui/modeLightSetupRuntime.js` instead of leaving `createLightLabelBindingRuntime(...)` and `createModeInteractionRuntimeBinding(...)` assembly blocks inline in `main.js`.
+- Movement-system dependency assembly is now grouped behind `src/gameplay/movementSetupRuntime.js` instead of leaving the `createMovementSystem(...)` composition block inline in `main.js`.
+- Time/cycle-hour UI and lighting-params setup are now grouped behind `src/sim/timeLightingSetupRuntime.js` instead of leaving the `cycleState`, `createLightingParamsBindingRuntime(...)`, and `createTimeUiBindingRuntime(...)` setup blocks inline in `main.js`.
+- Swarm runtime dependency assembly is now grouped behind `src/gameplay/swarmRuntimeSetupRuntime.js` instead of leaving the `createSwarmRuntime(...)` composition block inline in `main.js`.
+- Combined render/map support lazy composition and helper facade is now grouped behind `src/core/runtimeSupportFacade.js` instead of leaving the large `getRenderSupportRuntime()` / `getMapSupportRuntime()` helper block inline in `main.js`.
+- Bound runtime-support helper methods are now grouped behind `src/core/runtimeSupportMethodsRuntime.js` instead of leaving the full compatibility wrapper band inline in `main.js`.
+- Interaction UI sync helpers are now grouped behind `src/ui/interactionUiSyncRuntime.js`, and command/controller paths no longer directly write:
+  - `pointLightLiveUpdateToggle.checked` in `registerMainCommands.js`
+  - `swarmFollowTargetInput.value` in `swarmFollowStateController.js`
+- Map-path UI reflection is now grouped behind `src/ui/mapPathUiSyncRuntime.js`, and startup/map-runtime paths no longer write `mapPathInput.value` directly.
+- Bound UI facade methods for light/pathfinding/render-FX labels and sync are now grouped behind `src/ui/uiFacadeSetupRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
+- Bound swarm state/UI facade methods are now grouped behind `src/ui/swarmStateUiFacadeRuntime.js` instead of leaving the `mainRuntimeStateBinding` + `swarmUiRuntimeBinding` wrapper band inline in `main.js`.
+- Bound time-state helper methods are now grouped behind `src/core/timeStateFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
+- Bound math helper methods are now grouped behind `src/core/mathFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
+- Bound color helper methods are now grouped behind `src/core/colorFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
+- Bound map-lifecycle helper methods are now grouped behind `src/gameplay/mapLifecycleFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
+- Bound point-light runtime helper methods are now grouped behind `src/gameplay/pointLightFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
+- Lazy camera/main-runtime/swarm-cursor binding construction is now grouped behind:
+  - `src/gameplay/cameraSetupRuntime.js`
+  - `src/gameplay/mainRuntimeStateSetupRuntime.js`
+  - `src/gameplay/swarmCursorPointerSetupRuntime.js`
+  while `main.js` keeps the hoisted lazy getter functions to avoid startup-order regressions.
+- Early time/settings setup assembly is now grouped behind `src/core/settingsCoreSetupRuntime.js`.
+- Overlay composition is now grouped behind `src/ui/overlaySetupRuntime.js`.
+- Swarm UI setup + facade assembly is now grouped behind `src/ui/swarmUiAssemblyRuntime.js`.
+- Point-light + map-lifecycle assembly is now grouped behind `src/gameplay/mapLightingAssemblyRuntime.js`.
+- Settings legacy/runtime assembly is now grouped behind `src/ui/settingsAssemblyRuntime.js`.
+- Render/bootstrap allocation and gameplay bootstrap state are now grouped behind `src/gameplay/bootstrapStateAssemblyRuntime.js`.
+- The latest extraction pass also hardened startup ordering in `main.js` by routing early setup/composition dependencies through lazy wrappers or early-safe accessors instead of directly capturing later facade bindings; this specifically affected:
+  - runtime support/setup composition
+  - point-light bake/setup composition
+  - point-light + map-lifecycle assembly
+  - light/mode interaction setup
+  - swarm runtime/render setup
+  - main command dependency assembly
+  - initial runtime-system sync wiring
+- Bound point-light bake helper methods are now grouped behind `src/render/pointLightBakeFacadeRuntime.js` instead of leaving that compatibility wrapper band inline in `main.js`.
+- Legacy settings dependency assembly is now grouped behind `src/ui/settingsLegacyAssemblyRuntime.js` instead of leaving that large setup object inline in `main.js`.
+- Render-pipeline dependency assembly is now grouped behind `src/render/renderPipelineSetupRuntime.js` instead of leaving that setup object inline in `main.js`.
+- Gameplay bootstrap state objects/scratch buffers are now grouped behind `src/gameplay/gameplayBootstrapState.js` instead of leaving that large live-state block inline in `main.js`.
+- Render/bootstrap resource allocation is now grouped behind `src/render/renderBootstrapState.js` instead of leaving that allocation block inline in `main.js`.
 - Map-image runtime binding composition (`createMapImageRuntime` deps composition) is now extracted to `src/gameplay/mapImageRuntimeBinding.js`.
 - Map-sampling runtime binding composition (`createMapSampling` deps composition) is now extracted to `src/gameplay/mapSamplingRuntimeBinding.js`.
 - Shadow-occlusion runtime binding composition (`createShadowOcclusion` deps composition) is now extracted to `src/gameplay/shadowOcclusionRuntimeBinding.js`.
@@ -468,7 +513,7 @@ Targeted architecture tests:
 - No georeferenced sun position.
 - No animated movement yet (currently instant click-to-move).
 - Full modularization is still in progress; `src/main.js` remains the largest integration surface, but core/render/sim/ui/gameplay modules are now established and wired.
-- After the latest extraction pass, `src/main.js` is around 3624 lines in the current worktree, still the largest integration surface, and Phase 5/6 are not yet complete.
+- After the latest extraction pass, `src/main.js` is around 3229 lines in the current worktree, still the largest integration surface, and Phase 5/6 are not yet complete.
 
 ## Render Module Breakdown
 

@@ -19,7 +19,7 @@ export function createMapLifecycleRuntime(deps) {
         currentMapFolderPath = value;
       },
       getCurrentMapFolderPath,
-      mapPathInput: deps.mapPathInput,
+      syncMapPathInput: deps.syncMapPathInput,
       syncMapStateToStore: deps.syncMapStateToStore,
       getSettingsDefaults: deps.getSettingsDefaults,
       defaultLightingSettings: deps.defaultLightingSettings,

@@ -33,7 +33,7 @@ export function runStartupUiSync(deps) {
   deps.updateCursorLightHeightOffsetLabel();
   deps.setCycleHourSliderFromState();
   deps.updateCycleHourLabel();
-  deps.mapPathInput.value = deps.currentMapFolderPath;
+  deps.syncMapPathInput(deps.currentMapFolderPath);
   deps.updateLightEditorUi();
   deps.updateCursorLightModeUi();
   deps.updateParallaxUi();

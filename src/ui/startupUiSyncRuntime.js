@@ -32,7 +32,7 @@ export function runStartupUiSyncRuntime(deps) {
     updateCursorLightHeightOffsetLabel: deps.updateCursorLightHeightOffsetLabel,
     setCycleHourSliderFromState: deps.setCycleHourSliderFromState,
     updateCycleHourLabel: deps.updateCycleHourLabel,
-    mapPathInput: deps.mapPathInput,
+    syncMapPathInput: deps.syncMapPathInput,
     currentMapFolderPath: deps.currentMapFolderPath,
     updateLightEditorUi: deps.updateLightEditorUi,
     updateCursorLightModeUi: deps.updateCursorLightModeUi,

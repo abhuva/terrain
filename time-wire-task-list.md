@@ -354,7 +354,36 @@ Keep this section short. Detailed extraction history belongs in git log and code
     - `src/ui/settingsLegacySetupRuntime.js`
     - `src/gameplay/pointLightSetupRuntime.js`
     - `src/gameplay/mapLifecycleSetupRuntime.js`
-  - Current result after these passes: `src/main.js` is down to roughly 3624 lines in the worktree, but it is still the largest integration surface and Phase 5/6 remain open.
+  - Continued Phase 5 extraction by moving more runtime composition behind:
+    - `src/render/pointLightBakeSetupRuntime.js`
+    - `src/gameplay/swarmRenderSetupRuntime.js`
+    - `src/gameplay/interactionFacadeSetupRuntime.js`
+    - `src/render/defaultMapSetupRuntime.js`
+    - `src/ui/modeLightSetupRuntime.js`
+    - `src/gameplay/movementSetupRuntime.js`
+    - `src/sim/timeLightingSetupRuntime.js`
+    - `src/gameplay/swarmRuntimeSetupRuntime.js`
+    - `src/core/runtimeSupportFacade.js`
+  - Continued Phase 6 cleanup by routing two remaining direct DOM write-backs through explicit UI sync helpers in `src/ui/interactionUiSyncRuntime.js`:
+    - point-light live-update toggle reflection
+    - swarm follow-target selector reflection
+  - Continued Phase 5 extraction by collapsing more `main.js` compatibility wrapper bands behind:
+    - `src/core/runtimeSupportMethodsRuntime.js`
+    - `src/ui/uiFacadeSetupRuntime.js`
+    - `src/ui/swarmStateUiFacadeRuntime.js`
+    - direct settings-facade and camera/interaction-facade method binding in `main.js`
+    - `src/core/timeStateFacadeRuntime.js`
+    - `src/core/mathFacadeRuntime.js`
+    - `src/core/colorFacadeRuntime.js`
+    - `src/gameplay/mapLifecycleFacadeRuntime.js`
+    - `src/gameplay/pointLightFacadeRuntime.js`
+    - `src/render/pointLightBakeFacadeRuntime.js`
+    - `src/ui/settingsLegacyAssemblyRuntime.js`
+    - `src/render/renderPipelineSetupRuntime.js`
+    - `src/gameplay/gameplayBootstrapState.js`
+    - `src/render/renderBootstrapState.js`
+  - Continued Phase 6 cleanup by routing map-path input reflection through `src/ui/mapPathUiSyncRuntime.js`, so startup/map-runtime paths no longer write `mapPathInput.value` directly.
+  - Current result after these passes: `src/main.js` is down to roughly 3272 lines in the worktree, but it is still the largest integration surface and Phase 5/6 remain open.
   - Continued Phase 5 extraction by grouping low-level GL/flow-map/shadow/cloud support behind `src/render/renderSupportRuntime.js`.
   - Continued Phase 5 extraction by grouping map path/Tauri/image/sampling/shadow-occlusion support behind `src/gameplay/mapSupportRuntime.js`.
   - `main.js` remains roughly in the 3.8k-line range in the current worktree, so it is still too large to honestly mark Phase 5/6 complete.
@@ -373,6 +402,28 @@ Keep this section short. Detailed extraction history belongs in git log and code
   - Reduced `main.js` further by extracting player/NPC composition into `src/gameplay/playerRuntimeBinding.js`.
   - Reduced `main.js` further by extracting mode/topic plus interaction-snapshot composition into `src/ui/modeInteractionRuntimeBinding.js`.
   - Reduced `main.js` further by extracting cursor-light and point-light editor interaction composition into `src/gameplay/lightInteractionRuntimeBinding.js`.
+  - Reduced another startup-sensitive setup hotspot by moving lazy binding dependency assembly behind:
+    - `src/gameplay/cameraSetupRuntime.js`
+    - `src/gameplay/mainRuntimeStateSetupRuntime.js`
+    - `src/gameplay/swarmCursorPointerSetupRuntime.js`
+    while intentionally keeping the hoisted lazy getter functions in `main.js` to avoid repeating TDZ startup regressions.
+  - Reduced `main.js` further by grouping:
+    - early time/settings setup behind `src/core/settingsCoreSetupRuntime.js`
+    - overlay composition behind `src/ui/overlaySetupRuntime.js`
+    - swarm UI setup + facade assembly behind `src/ui/swarmUiAssemblyRuntime.js`
+    - point-light + map-lifecycle assembly behind `src/gameplay/mapLightingAssemblyRuntime.js`
+    - settings legacy/runtime assembly behind `src/ui/settingsAssemblyRuntime.js`
+    - render/bootstrap allocation plus gameplay bootstrap state behind `src/gameplay/bootstrapStateAssemblyRuntime.js`
+  - Moved `rgbToHex` / `hexToRgb01` binding earlier in `main.js` so early setup/runtime composition no longer depends on a late color-facade initialization.
+  - Hardened the resulting startup path by replacing a series of newly introduced late-binding captures with lazy wrappers / early-safe accessors across:
+    - runtime support facade setup
+    - point-light bake setup
+    - point-light + map-lifecycle assembly
+    - light/mode setup
+    - swarm runtime/render setup
+    - main command dependency assembly
+    - initial runtime-system sync wiring
+  - Current result after these passes: `src/main.js` is down to roughly 3229 lines in the worktree, but it is still the largest integration surface and Phase 5/6 remain open.
   - Current recommended next sequence remains:
     - close remaining Phase 2 command-surface/state-contract work
     - close Phase 4 ownership boundaries for swarm/player/point-light runtime
